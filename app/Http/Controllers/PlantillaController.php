@@ -15,14 +15,13 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class PlantillaController extends Controller
-{
+class PlantillaController extends Controller {
+
     /**
      * Listado de plantillas.
      * COLABORADOR: sólo las suyas. ADMIN/CONTADOR: todas.
      */
-    public function index(Request $request): Response
-    {
+    public function index(Request $request): Response {
         $user = $request->user();
         $rol  = strtoupper((string)($user->rol ?? 'COLABORADOR'));
 

@@ -323,10 +323,6 @@
                     </button>
                 </div>
             </form>
-
-            <div v-if="showError" class="mt-4 text-sm text-rose-600 dark:text-rose-400">
-                Falta información (por ejemplo, al menos 1 item). Ya te marqué el error; también se mostrará el mensaje del servidor.
-            </div>
         </div>
     </AuthenticatedLayout>
 </template>

@@ -202,11 +202,11 @@ class RequisicionComprobanteController extends Controller {
                     ->sum('monto');
 
                 if ($sumAprobados + 0.00001 >= (float) $req->monto_total) {
-                    $req->update(['status' => 'COMPROBADA']);
+                    $req->update(['status' => 'COMPROBACION_ACEPTADA']);
                 } else {
-                    // opcional: si estaba COMPROBADA y ya no cubre, la regresas
-                    if ((string) $req->status === 'COMPROBADA') {
-                        $req->update(['status' => 'AUTORIZADA']);
+                    // si ya estaba aceptada y con cambios ya no cubre, regresa a por comprobar
+                    if ((string) $req->status === 'COMPROBACION_ACEPTADA') {
+                        $req->update(['status' => 'POR_COMPROBAR']);
                     }
                 }
             }

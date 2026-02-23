@@ -85,7 +85,9 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   })
 
   const canReview = computed(() => {
-    return ['ADMIN', 'COLABORADOR', 'CONTADOR'].includes(userRole.value)
+    const fromBackend = (props as any)?.canReview
+    if (typeof fromBackend === 'boolean') return fromBackend
+    return ['ADMIN', 'CONTADOR'].includes(role.value)
   })
 
   /** =========================================================
@@ -454,7 +456,7 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   function destroyComprobante(id: number) {
     Swal.fire({
       title: 'Eliminar comprobante',
-      text: 'Esto lo borra de la base de datos. No hay undo.',
+      text: 'Esto lo borra de la base de datos.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Eliminar',

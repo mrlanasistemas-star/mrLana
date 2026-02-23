@@ -409,16 +409,15 @@ const {
               </div>
 
               <!-- Table XL+ -->
-              <div class="hidden xl:block">
-                <table class="w-full table-auto">
+              <div class="hidden 2xl:block">
+                <table class="w-full table-fixed">
                   <thead class="bg-slate-50/80 dark:bg-neutral-950/40">
                     <tr class="text-left text-[12px] font-black text-slate-600 dark:text-neutral-300">
-                      <th class="px-5 py-3 w-[90px]">Id</th>
-                      <th class="px-5 py-3 w-[190px]">Fecha</th>
-                      <th class="px-5 py-3 w-[160px]">Tipo</th>
-                      <th class="px-5 py-3 w-[160px]">Monto</th>
-                      <th class="px-5 py-3">Archivo</th>
-                      <th class="px-5 py-3 w-[220px]">Estatus</th>
+                      <th class="px-4 py-3 w-[180px]">Fecha</th>
+                      <th class="px-4 py-3 w-[80px]">Tipo</th>
+                      <th class="px-4 py-3 w-[80px]">Monto</th>
+                      <th class="px-4 py-3">Archivo</th>
+                      <th class="px-4 py-3 w-[150px]">Estatus</th>
                       <th v-if="canReview" class="px-5 py-3 w-[140px] text-right">Acciones</th>
                     </tr>
                   </thead>
@@ -429,9 +428,6 @@ const {
                       :key="c.id"
                       class="border-t border-slate-200/70 dark:border-white/10 hover:bg-slate-50/70 dark:hover:bg-white/5 transition"
                     >
-                      <td class="px-5 py-3 text-sm font-black text-slate-900 dark:text-neutral-100 align-top">
-                        {{ c.id }}
-                      </td>
 
                       <td class="px-5 py-3 text-sm text-slate-800 dark:text-neutral-100 align-top">
                         {{ fmtLong(c.fecha_emision) }}
@@ -553,7 +549,7 @@ const {
               </div>
 
               <!-- Cards < xl (responsive) -->
-              <div class="xl:hidden p-4 space-y-3">
+              <div class="2xl:hidden p-4 space-y-3">
                 <div
                   v-for="c in rows"
                   :key="c.id"
