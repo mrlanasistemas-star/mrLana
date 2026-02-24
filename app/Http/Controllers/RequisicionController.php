@@ -267,7 +267,7 @@ class RequisicionController extends Controller {
             'can_print' => true,
             'print_url' => null,
             'filename' => ($requisicion->folio ?? 'requisicion') . '.pdf',
-            'files' => $pagosFiles, 
+            'files' => $pagosFiles,
         ];
         return Inertia::render('Requisiciones/Show', [
             'requisicion' => (new RequisicionResource($requisicion))->resolve(),
@@ -580,6 +580,21 @@ class RequisicionController extends Controller {
     private function denormalizeSortForUi(string $sort): string {
         // Mantén compatibilidad si tu front usa created_at
         return $sort;
+    }
+
+    public function ajustes(Requisicion $requisicion): Response {
+        $requisicion->load(['ajustes' => fn($q) => $q->orderByDesc('id')]);
+        return Inertia::render('Requisiciones/Ajustes', [
+            'requisicionId' => $requisicion->id,
+            'ajustes' => $requisicion->ajustes->map(fn($a) => [
+                'id' => $a->id,
+                'tipo' => $a->tipo,
+                'monto' => (string) $a->monto,
+                'descripcion' => $a->descripcion,
+                'fecha' => optional($a->fecha)->format('Y-m-d'),
+                'estatus' => $a->estatus,
+            ])->values(),
+        ]);
     }
 
 }

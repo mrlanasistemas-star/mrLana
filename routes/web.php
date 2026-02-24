@@ -26,6 +26,8 @@ use App\Http\Controllers\RequisicionComprobanteController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\RequisicionAjusteController;
+
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -135,6 +137,26 @@ Route::middleware('auth')->group(function () {
     // Notify (para que tu composable encuentre requisiciones.comprobaciones.notify)
     Route::post('/requisiciones/{requisicion}/comprobaciones/notify', [RequisicionComprobanteController::class, 'notify'])
         ->name('requisiciones.comprobaciones.notify');
+
+    // Página de Ajustes
+    Route::get('/requisiciones/{requisicion}/ajustes', [RequisicionController::class, 'ajustes'])
+        ->name('requisiciones.ajustes');
+
+    // Crear ajuste
+    Route::post('/requisiciones/{requisicion}/ajustes', [RequisicionAjusteController::class, 'store'])
+        ->name('requisiciones.ajustes.store');
+
+    // Aprobar / rechazar
+    Route::patch('/requisiciones/ajustes/{ajuste}/review', [RequisicionAjusteController::class, 'review'])
+        ->name('requisiciones.ajustes.review');
+
+    // Aplicar (impacta monto_total)
+    Route::post('/requisiciones/ajustes/{ajuste}/apply', [RequisicionAjusteController::class, 'apply'])
+        ->name('requisiciones.ajustes.apply');
+
+    // Cancelar (si quieres: para que el colaborador cancele mientras está PENDIENTE)
+    Route::post('/requisiciones/ajustes/{ajuste}/cancel', [RequisicionAjusteController::class, 'cancel'])
+        ->name('requisiciones.ajustes.cancel');
 
     // =========================
     // Plantillas

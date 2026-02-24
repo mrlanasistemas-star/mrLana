@@ -15,7 +15,6 @@ use App\Mail\RequisicionComprobacionesNotifyMail;
 class RequisicionComprobanteController extends Controller {
 
     public function create(Requisicion $requisicion) {
-        // ---- Datos auxiliares sin “casarte” con relaciones (evita reventar si cambiaste nombres)
         $solicitante = DB::table('users')->where('id', $requisicion->solicitante_id)->first();
         $conceptoNombre = DB::table('conceptos')->where('id', $requisicion->concepto_id)->value('nombre');
         $corp = DB::table('corporativos')->where('id', $requisicion->comprador_corp_id)->first();
@@ -23,9 +22,11 @@ class RequisicionComprobanteController extends Controller {
             ->where('requisicion_id', $requisicion->id)
             ->orderByDesc('id')
             ->get();
+
         $totalReq = (float) $requisicion->monto_total;
         $sumCargados = (float) $comprobantes->sum('monto');
         $sumAprobados = (float) $comprobantes->where('estatus', 'APROBADO')->sum('monto');
+
         $canReview = $this->canReview();
         return Inertia::render('Requisiciones/Comprobar', [
             'requisicion' => [
@@ -73,8 +74,8 @@ class RequisicionComprobanteController extends Controller {
             'totales' => [
                 'cargado' => $sumCargados,
                 'aprobado' => $sumAprobados,
-                'pendiente_por_comprobar' => max(0, $totalReq - $sumCargados),
-                'pendiente_por_aprobar' => max(0, $totalReq - $sumAprobados),
+                'pendiente_por_comprobar' => max(0, $totalReq - $sumAprobados),
+                'pendiente_por_cargar' => max(0, $totalReq - $sumCargados),
             ],
             'tipoDocOptions' => [
                 ['id' => 'FACTURA', 'nombre' => 'Factura'],
@@ -96,8 +97,8 @@ class RequisicionComprobanteController extends Controller {
         ]);
         return DB::transaction(function () use ($data, $request, $requisicion) {
             // Pendiente contra lo ya cargado (sum de monto)
-            $sumCargados = (float) $requisicion->comprobantes()->sum('monto');
-            $pendiente = max(0, (float) $requisicion->monto_total - $sumCargados);
+            $sumAprobados = (float) $requisicion->comprobantes()->where('estatus','APROBADO')->sum('monto');
+            $pendiente = max(0, (float) $requisicion->monto_total - $sumAprobados);
             $monto = round((float) $data['monto'], 2);
             // No exceder pendiente
             if ($pendiente > 0 && $monto > ($pendiente + 0.00001)) {

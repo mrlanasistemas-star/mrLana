@@ -1,31 +1,62 @@
-<?php // app/Models/Ajuste.php
+<?php
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\LogsActivity;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 class Ajuste extends Model {
 
-    use HasFactory, LogsActivity;
+    protected $table = 'ajustes';
 
-    // Protección contra asignación masiva.
-    protected $guarded = ['id'];
-
-    // Cast de fecha de registro.
-    protected $casts = [
-        'fecha_registro' => 'datetime',
+    protected $fillable = [
+        'requisicion_id',
+        'tipo',
+        'sentido',
+        'monto',
+        'monto_anterior',
+        'monto_nuevo',
+        'estatus',
+        'metodo',
+        'referencia',
+        'motivo',
+        'fecha_registro',
+        'fecha_resolucion',
+        'user_registro_id',
+        'user_resuelve_id',
+        'notas',
     ];
 
-    // Ajuste ligado a una requisición.
-    public function requisicion() {
+    protected $casts = [
+        'monto' => 'decimal:2',
+        'monto_anterior' => 'decimal:2',
+        'monto_nuevo' => 'decimal:2',
+        'fecha_registro' => 'datetime',
+        'fecha_resolucion' => 'datetime',
+    ];
+
+    public function requisicion(): BelongsTo {
         return $this->belongsTo(Requisicion::class);
     }
 
-    // Usuario que registró el ajuste.
-    public function usuarioRegistro() {
-        return $this->belongsTo(User::class, 'user_registro_id');
+    public function getDescripcionAttribute(): ?string {
+        return $this->motivo;
+    }
+
+    public function setDescripcionAttribute($value): void {
+        $this->attributes['motivo'] = $value;
+    }
+
+    public function getFechaAttribute(): ?string {
+        return $this->fecha_registro
+            ? Carbon::parse($this->fecha_registro)->toDateString()
+            : null;
+    }
+
+    public function setFechaAttribute($value): void {
+        if (!$value) return;
+        $this->attributes['fecha_registro'] = Carbon::parse($value)->startOfDay();
     }
 
 }

@@ -1,5 +1,3 @@
-// resources/js/Pages/Requisiciones/useRequisicionAjustes.ts
-
 import { reactive, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { swalOk, swalErr } from '@/lib/swal'
@@ -19,7 +17,7 @@ type Props = {
 
 export function useRequisicionAjustes(props: Props) {
   const form = reactive({
-    tipo: 'DEVOLUCION', // DEVOLUCION, FALTANTE, INCREMENTO
+    tipo: 'INCREMENTO_AUTORIZADO', // DEVOLUCION, FALTANTE, INCREMENTO_AUTORIZADO
     monto: '',
     descripcion: '',
     fecha: '',
@@ -30,7 +28,7 @@ export function useRequisicionAjustes(props: Props) {
   async function save() {
     try {
       await router.post(
-        route('requisiciones.ajustes.store', props.requisicionId),
+        route('requisiciones.ajustes.store', { requisicion: props.requisicionId }),
         {
           tipo: form.tipo,
           monto: form.monto,

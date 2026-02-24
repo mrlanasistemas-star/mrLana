@@ -145,18 +145,34 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   }
 
   /** =========================================================
-   * Helpers cents + pendiente
-   * ========================================================= */
-  const toNumber = (v: any) => {
+ * Helpers cents + pendiente
+ * ========================================================= */
+    const toNumber = (v: any) => {
     const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(',', '.'))
     return Number.isFinite(n) ? n : 0
-  }
-  const toCents = (v: any) => Math.round((toNumber(v) + Number.EPSILON) * 100)
+    }
+    const toCents = (v: any) => Math.round((toNumber(v) + Number.EPSILON) * 100)
 
-  const totalCents = computed(() => toCents(req.value?.monto_total ?? 0))
-  const usedCents = computed(() => rows.value.reduce((acc, c) => acc + toCents(c?.monto ?? 0), 0))
-  const pendienteRawCents = computed(() => totalCents.value - usedCents.value)
-  const pendienteCents = computed(() => Math.max(0, pendienteRawCents.value))
+    // Total requisición
+    const totalCents = computed(() => toCents(req.value?.monto_total ?? 0))
+
+    // SUMA SOLO APROBADOS (esto es lo que “cuenta” para comprobar)
+    const approvedCents = computed(() =>
+    rows.value.reduce((acc, c) => {
+        const est = String(c?.estatus ?? '').toUpperCase()
+        if (est !== 'APROBADO') return acc
+        return acc + toCents(c?.monto ?? 0)
+    }, 0),
+    )
+
+// Pendiente por comprobar = total - aprobados
+const pendienteCents = computed(() => Math.max(0, totalCents.value - approvedCents.value))
+
+// (Opcional) si quieres seguir mostrando “pendiente por cargar”
+const loadedCents = computed(() =>
+  rows.value.reduce((acc, c) => acc + toCents(c?.monto ?? 0), 0),
+)
+const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - loadedCents.value))
 
   /** =========================================================
    * Autocompletar monto con el pendiente (tu intención original)
