@@ -87,246 +87,415 @@
     })
 
     const sectionsAll: Section[] = [
-    {
-        id: 'dashboard',
-        title: 'Dashboard',
-        desc: 'Lectura ejecutiva del sistema: indicadores, actividad y exportaciones para evidencias.',
-        audience: 'colaborador',
-        tags: ['KPIs', 'Export', 'Monitoreo'],
-        quickLinks: [
-        { label: 'Ir a Dashboard', kind: 'inertia', href: safeRoute('dashboard') },
-        ],
-        steps: [
         {
-            id: 'dash-1',
-            title: 'Qué es y para qué te sirve',
-            goal: 'Tener visibilidad inmediata de lo que está pasando sin abrir 10 pantallas.',
-            bullets: [
-            'Revisa KPIs clave del periodo (montos, conteos, tendencias).',
-            'Valida actividad diaria: si hoy “no se movió nada”, aquí lo detectas primero.',
-            'Usa exportaciones como evidencia: PDF para compartir, Excel para análisis.',
-            ],
-            proTips: [
-            'Antes de exportar, ajusta filtros/periodo para que la evidencia salga limpia.',
-            'Si ves valores “raros”, revisa primero fechas y estatus (no te vayas directo al pánico).',
-            ],
-            pitfalls: [
-            'Exportar sin filtrar y después “arreglar” a mano: eso mata trazabilidad.',
+            id: 'dashboard',
+            title: 'Dashboard',
+            desc: 'Panel de consulta para monitorear indicadores, actividad y generar exportaciones como evidencia operativa.',
+            audience: 'colaborador',
+            quickLinks: [{ label: 'Ir a Dashboard', kind: 'inertia', href: safeRoute('dashboard') }],
+            steps: [
+            {
+                id: 'dash-1',
+                title: 'Propósito del Dashboard',
+                goal: 'Comprender qué información ofrece el panel y cómo utilizarla para tomar decisiones operativas.',
+                bullets: [
+                'Identifique los indicadores principales (montos, conteos, tendencias) correspondientes al periodo seleccionado.',
+                'Revise la actividad diaria para confirmar si existe movimiento en el sistema y detectar anomalías de forma temprana.',
+                'Utilice el panel como punto de partida antes de consultar módulos específicos, para reducir tiempos de búsqueda.',
+                ],
+                proTips: [
+                'Si observa valores inesperados, valide primero el periodo, los filtros y el estatus de los registros antes de solicitar soporte.',
+                ],
+                pitfalls: [
+                'Interpretar datos sin validar filtros o rango de fechas puede llevar a conclusiones incorrectas.',
+                ],
+            },
+            {
+                id: 'dash-2',
+                title: 'Filtros y periodos',
+                goal: 'Asegurar que la información mostrada sea consistente con lo que se desea consultar o exportar.',
+                bullets: [
+                'Seleccione el periodo de consulta antes de revisar indicadores o descargar reportes.',
+                'Si existen filtros adicionales (por sucursal, corporativo u otro), aplíquelos de forma intencional y verifique el resultado.',
+                'Después de cambiar filtros, confirme que los indicadores se actualicen y correspondan al nuevo contexto.',
+                ],
+                proTips: [
+                'Para auditoría o seguimiento, utilice periodos cerrados (por ejemplo, semanas o meses completos) y documente el rango consultado.',
+                ],
+                pitfalls: [
+                'Exportar con filtros incompletos o erróneos genera evidencia poco confiable.',
+                ],
+            },
+            {
+                id: 'dash-3',
+                title: 'Exportaciones (PDF y Excel)',
+                goal: 'Generar evidencia formal para compartir y, cuando aplique, un archivo para análisis detallado.',
+                bullets: [
+                'Use PDF cuando requiera un documento estable para envío o evidencia (lectura ejecutiva).',
+                'Use Excel cuando requiera análisis (tablas dinámicas, conciliaciones, validación de totales).',
+                'Si un reporte se muestra vacío, confirme que el periodo tenga datos y que su rol tenga acceso a ese reporte.',
+                ],
+                proTips: [
+                'Al compartir un PDF, incluya también el rango de fechas o folios relevantes para facilitar la verificación.',
+                ],
+                pitfalls: [
+                'Modificar manualmente un export para “corregir” datos rompe la trazabilidad y la confiabilidad del reporte.',
+                ],
+            },
+            {
+                id: 'dash-4',
+                title: 'Acciones recomendadas ante inconsistencias',
+                goal: 'Resolver problemas comunes sin interrumpir la operación.',
+                bullets: [
+                'Verifique que el periodo seleccionado sea el correcto.',
+                'Revise si existen registros en estatus que no se consideran en el cálculo (por ejemplo, borradores o cancelados).',
+                'Si persiste la inconsistencia, genere evidencia (captura + rango/folio) y levante un ticket a soporte.',
+                ],
+                proTips: [
+                'Para soporte, incluya siempre: fecha/hora, módulo, acción realizada y evidencia visual.',
+                ],
+            },
             ],
         },
+
         {
-            id: 'dash-2',
-            title: 'Exportaciones (PDF / Excel)',
-            goal: 'Generar evidencia formal y reutilizable para auditoría interna o seguimiento.',
-            bullets: [
-            'PDF: entrega rápida, lectura ejecutiva, evidencia “congelada”.',
-            'Excel: revisión, pivots, conciliación y análisis detallado.',
-            'Si el reporte se ve vacío: confirma que el periodo tenga datos y que tu rol tenga acceso.',
-            ],
-            proTips: [
-            'Si compartes PDF, acompaña con folio(s) o rango de fechas para que sea verificable.',
+            id: 'proveedores',
+            title: 'Proveedores',
+            desc: 'Gestión del catálogo de proveedores personales para el flujo de compras.',
+            audience: 'colaborador',
+            quickLinks: [{ label: 'Ir a Proveedores', kind: 'inertia', href: safeRoute('proveedores.index') }],
+            steps: [
+            {
+                id: 'prov-1',
+                title: 'Búsqueda previa (evitar duplicados)',
+                goal: 'Confirmar si el proveedor ya existe antes de crear un nuevo registro.',
+                bullets: [
+                'Busque por nombre comercial y, si aplica, por razón social.',
+                'Si maneja RFC u otro identificador, utilícelo como criterio principal de búsqueda.',
+                'Revise coincidencias similares para evitar crear variantes del mismo proveedor.',
+                ],
+                proTips: [
+                'Defina un criterio de nombre consistente (por ejemplo, “Razón social (Nombre comercial)”) para mejorar la localización.',
+                ],
+                pitfalls: [
+                'Crear duplicados genera confusión en reportes y dificulta el seguimiento operativo.',
+                ],
+            },
+            {
+                id: 'prov-2',
+                title: 'Alta de proveedor',
+                goal: 'Registrar proveedores con información mínima suficiente para operar sin retrabajo.',
+                bullets: [
+                'Capture los datos básicos: nombre/razón social, contacto, teléfono y correo.',
+                'Si se utiliza dirección, complete la información con un formato estándar (calle, número, colonia, CP).',
+                'Guarde y confirme que el proveedor aparece en el listado y es seleccionable en los formularios del sistema.',
+                ],
+                proTips: [
+                'Complete la información desde el inicio cuando sea un proveedor recurrente; reduce incidencias posteriores.',
+                ],
+                pitfalls: [
+                'Registrar proveedores con datos incompletos suele provocar fallas o correcciones urgentes en momentos críticos.',
+                ],
+            },
+            {
+                id: 'prov-3',
+                title: 'Edición y actualización',
+                goal: 'Mantener el catálogo actualizado sin perder consistencia histórica.',
+                bullets: [
+                'Actualice teléfono/correo cuando cambien, para mantener canales de contacto vigentes.',
+                'Si cambia el nombre, valide que no exista otro registro equivalente.',
+                'Cuando aplique, prefiera inactivar en lugar de eliminar registros con historial.',
+                ],
+                proTips: [
+                'Documente internamente cambios relevantes (por ejemplo, cambio de razón social) para facilitar auditoría.',
+                ],
+                pitfalls: [
+                'Cambiar nombres sin validar duplicados dificulta reporteo y trazabilidad.',
+                ],
+            },
+            {
+                id: 'prov-4',
+                title: 'Buenas prácticas de calidad de datos',
+                goal: 'Estandarizar el catálogo para búsquedas rápidas y reportes consistentes.',
+                bullets: [
+                'Evite abreviaturas inconsistentes y nombres genéricos.',
+                'Mantenga correos en formato válido y teléfonos con estructura uniforme.',
+                'Revise periódicamente el catálogo para detectar duplicados o registros incompletos.',
+                ],
+            },
             ],
         },
-        ],
-    },
-    {
-        id: 'proveedores',
-        title: 'Proveedores',
-        desc: 'Alta, edición y limpieza de datos para que compras/cotizaciones no se rompan por información incompleta.',
-        audience: 'colaborador',
-        tags: ['Catálogo', 'Datos', 'Operación'],
-        quickLinks: [
-        { label: 'Ir a Proveedores', kind: 'inertia', href: safeRoute('proveedores.index') },
-        ],
-        steps: [
+
         {
-            id: 'prov-1',
-            title: 'Alta de proveedor (bien hecha)',
-            goal: 'Crear proveedores sin duplicados y con datos listos para operar.',
-            bullets: [
-            'Busca antes de crear: razón social / nombre comercial / RFC (si aplica).',
-            'Captura datos mínimos consistentes: nombre, contacto, teléfono y correo.',
-            'Si manejas direcciones: usa un formato estándar (calle, número, colonia, CP).',
-            'Guarda y valida: que aparezca en listados y sea seleccionable en flujos.',
-            ],
-            proTips: [
-            'Define una convención: “RAZÓN SOCIAL (COMERCIAL)” o similar para no duplicar.',
-            'Si el proveedor es recurrente, completa datos desde el inicio: te ahorra retrabajo.',
-            ],
-            pitfalls: [
-            'Crear “Proveedor 1 / Proveedor nuevo”: después nadie lo encuentra.',
+            id: 'organizacion',
+            title: 'Organización (Corporativos / Sucursales / Áreas)',
+            desc: 'Estructura interna para asignación correcta de registros, segmentación operativa y consistencia de reportes.',
+            audience: 'admin_contador',
+            steps: [
+            {
+                id: 'org-1',
+                title: 'Corporativos',
+                goal: 'Centralizar la estructura por entidad para control, segmentación y reporteo.',
+                bullets: [
+                'Registre corporativos con nombres oficiales y consistentes.',
+                'Valide que la relación con sucursales se mantenga correcta.',
+                'Evite duplicados por variaciones de escritura (acentos, mayúsculas, abreviaturas).',
+                ],
+                pitfalls: [
+                'Duplicar corporativos impacta selectores, reportes y asignación de registros.',
+                ],
+            },
+            {
+                id: 'org-2',
+                title: 'Sucursales',
+                goal: 'Organizar la operación por ubicación para mejorar trazabilidad y control.',
+                bullets: [
+                'Registre sucursales con nombre claro y, si aplica, dirección.',
+                'Mantenga una convención de nombres (por ejemplo: “Matriz”, “Centro”, “Norte”).',
+                'Cuando una sucursal deje de operar, inactívela para evitar uso accidental.',
+                ],
+                proTips: [
+                'La inactivación reduce errores sin perder historial.',
+                ],
+            },
+            {
+                id: 'org-3',
+                title: 'Áreas',
+                goal: 'Clasificar registros por departamento para control interno y reportes consistentes.',
+                bullets: [
+                'Registre áreas reales y alineadas a la estructura organizacional.',
+                'Evite duplicados por variaciones mínimas de nombre.',
+                'Inactive áreas que ya no se utilicen para mantener listados limpios.',
+                ],
+            },
+            {
+                id: 'org-4',
+                title: 'Validación de relaciones y consistencia',
+                goal: 'Garantizar que la estructura funcione correctamente en formularios, filtros y reportes.',
+                bullets: [
+                'Confirme que cada sucursal pertenezca al corporativo correcto.',
+                'Revise que las áreas disponibles correspondan a la operación actual.',
+                'Valide que los selectores del sistema no muestren elementos inactivos (si esa es la regla definida).',
+                ],
+                proTips: [
+                'Realice revisiones periódicas (mensuales o trimestrales) para mantener la estructura vigente.',
+                ],
+            },
             ],
         },
+
         {
-            id: 'prov-2',
-            title: 'Edición / depuración (sin romper operación)',
-            goal: 'Actualizar datos sin perder consistencia histórica.',
-            bullets: [
-            'Si solo cambió el teléfono/correo: edita y listo.',
-            'Si cambió nombre/razón social: valida que no dupliques otro registro.',
-            'Evita borrar si ya existe historial vinculado: prefiere inactivar (si tu sistema lo permite).',
-            ],
-            proTips: [
-            'Cuando ajustes datos, hazlo con intención: “para que sea localizable”.',
+            id: 'empleados',
+            title: 'Empleados',
+            desc: 'Directorio interno para asignaciones, segmentación y trazabilidad (con enfoque en control de datos).',
+            audience: 'admin_contador',
+            steps: [
+            {
+                id: 'emp-1',
+                title: 'Alta y mantenimiento',
+                goal: 'Mantener un directorio confiable para asignaciones y auditoría.',
+                bullets: [
+                'Registre datos completos y consistentes (nombre, área, sucursal y datos de contacto si aplica).',
+                'Verifique duplicados antes de crear un nuevo empleado.',
+                'Cuando un empleado deje de operar, inactívelo para mantener trazabilidad sin afectar historial.',
+                ],
+                proTips: [
+                'Utilice criterios estandarizados para nombres y apellidos para evitar duplicidad y errores de búsqueda.',
+                ],
+                pitfalls: [
+                'Eliminar registros con historial puede afectar integridad y trazabilidad.',
+                ],
+            },
+            {
+                id: 'emp-2',
+                title: 'Asignación a estructura (área y sucursal)',
+                goal: 'Asegurar que los registros se clasifiquen correctamente en filtros y reportes.',
+                bullets: [
+                'Asigne el empleado al área correcta para segmentación y control.',
+                'Verifique la sucursal correspondiente para reportes por ubicación.',
+                'Revise que la estructura organizacional esté actualizada antes de asignar masivamente.',
+                ],
+            },
+            {
+                id: 'emp-3',
+                title: 'Revisión periódica del catálogo',
+                goal: 'Evitar registros obsoletos y mantener consistencia operativa.',
+                bullets: [
+                'Revise empleados inactivos y confirme que no aparezcan en flujos donde no deban participar.',
+                'Corrija datos incompletos o inconsistentes.',
+                'Asegure que los empleados activos tengan estructura asignada.',
+                ],
+            },
             ],
         },
-        ],
-    },
-    {
-        id: 'organizacion',
-        title: 'Organización (Corporativos / Sucursales / Áreas)',
-        desc: 'Estructura interna para asignación correcta de operación.',
-        audience: 'admin_contador',
-        tags: ['Estructura'],
-        steps: [
+
         {
-            id: 'org-1',
-            title: 'Corporativos',
-            goal: 'Centralizar estructura por entidad (control y reporteo).',
-            bullets: [
-            'Crea corporativos con nombres oficiales.',
-            'Valida que las sucursales queden ligadas correctamente.',
-            'Evita duplicados con nombres casi iguales.',
+            id: 'requisiciones',
+            title: 'Requisiciones',
+            desc: 'Flujo operativo para solicitudes con control de información, estatus y evidencia documental.',
+            audience: 'admin_contador',
+            quickLinks: [{ label: 'Ir a Requisiciones', kind: 'inertia', href: safeRoute('requisiciones.index') }],
+            steps: [
+            {
+                id: 'req-1',
+                title: 'Creación de requisición (captura correcta)',
+                goal: 'Registrar una requisición con información completa para evitar rechazos y retrabajo.',
+                bullets: [
+                'Seleccione la información organizacional requerida (corporativo/sucursal/área) según el diseño del sistema.',
+                'Seleccione proveedor y concepto conforme a la operación.',
+                'Capture montos y valide coherencia (subtotal, total y condiciones aplicables).',
+                'Guarde y confirme que el registro queda en el estatus inicial esperado.',
+                ],
+                proTips: [
+                'Si el sistema solicita notas u observaciones, utilícelas para describir el propósito de la requisición de forma clara.',
+                ],
+                pitfalls: [
+                'Registrar sin proveedor o con concepto incorrecto provoca inconsistencias en reportes y auditoría.',
+                ],
+            },
+            {
+                id: 'req-2',
+                title: 'Validación de datos antes de avanzar',
+                goal: 'Asegurar que la requisición sea verificable y consistente.',
+                bullets: [
+                'Confirme que el proveedor sea el correcto y que sus datos estén completos.',
+                'Revise que el concepto corresponda al gasto o solicitud.',
+                'Verifique que el monto no contenga errores de captura (por ejemplo, ceros adicionales).',
+                ],
+            },
+            {
+                id: 'req-3',
+                title: 'Seguimiento por estatus',
+                goal: 'Controlar la vida del registro para evitar solicitudes sin seguimiento.',
+                bullets: [
+                'Revise el estatus actual y la fecha de registro.',
+                'Identifique si requiere acciones adicionales (documentos, validaciones, aprobaciones, etc.).',
+                'Mantenga el seguimiento hasta el cierre operativo conforme a las reglas del sistema.',
+                ],
+                proTips: [
+                'El estatus es el mecanismo de control. No lo omita ni lo utilice de forma informal.',
+                ],
+            },
+            {
+                id: 'req-4',
+                title: 'Evidencia y exportación',
+                goal: 'Contar con soporte documental para auditoría interna o validaciones.',
+                bullets: [
+                'Adjunte evidencia cuando aplique, conforme a los permisos del rol.',
+                'Genere exportaciones (PDF/Excel) cuando se requiera documentación del proceso.',
+                'Conserve el folio o identificador para trazabilidad.',
+                ],
+                pitfalls: [
+                'Operar sin evidencia incrementa tiempos de verificación y eleva el riesgo de discrepancias.',
+                ],
+            },
             ],
         },
+
         {
-            id: 'org-2',
-            title: 'Sucursales',
-            goal: 'Operación por ubicación sin confusión.',
-            bullets: [
-            'Alta con nombre y dirección (si aplica).',
-            'Mantén consistencia: “Centro”, “Matriz”, “Norte”… con convención.',
-            'Inactiva sucursales cerradas para no aparecer en selects.',
+            id: 'plantillas',
+            title: 'Plantillas',
+            desc: 'Estandarización de solicitudes recurrentes para reducir errores y acelerar la operación.',
+            audience: 'admin_contador',
+            quickLinks: [{ label: 'Ir a Plantillas', kind: 'inertia', href: safeRoute('plantillas.index') }],
+            steps: [
+            {
+                id: 'pla-1',
+                title: 'Cuándo utilizar plantillas',
+                goal: 'Aprovechar plantillas cuando la solicitud se repite con estructura similar.',
+                bullets: [
+                'Utilice plantillas para gastos o solicitudes recurrentes.',
+                'Evite capturar desde cero cuando la mayor parte de la información es constante.',
+                'Defina plantillas por tipo de operación para mantener orden.',
+                ],
+            },
+            {
+                id: 'pla-2',
+                title: 'Creación de una plantilla útil',
+                goal: 'Registrar una plantilla clara, reutilizable y fácil de identificar.',
+                bullets: [
+                'Asigne un nombre descriptivo y específico.',
+                'Incluya proveedor y concepto correctos (si aplica).',
+                'Incluya valores base que sirvan como referencia, considerando que pueden cambiar.',
+                ],
+                proTips: [
+                'Nombres recomendados: “Renta mensual”, “Servicio de internet - Sucursal X”, “Mantenimiento trimestral”.',
+                ],
+                pitfalls: [
+                'Plantillas con nombres genéricos reducen la adopción y generan confusión.',
+                ],
+            },
+            {
+                id: 'pla-3',
+                title: 'Uso operativo de plantillas',
+                goal: 'Aplicar la plantilla y validar antes de guardar la solicitud generada.',
+                bullets: [
+                'Genere la solicitud a partir de la plantilla.',
+                'Revise montos y condiciones antes de confirmar.',
+                'Ajuste información puntual cuando corresponda (por ejemplo, fechas o cantidades).',
+                ],
+            },
+            {
+                id: 'pla-4',
+                title: 'Mantenimiento y revisión',
+                goal: 'Evitar que las plantillas se vuelvan obsoletas.',
+                bullets: [
+                'Revise plantillas periódicamente y actualice información base cuando cambien condiciones.',
+                'Inhabilite o depure plantillas que ya no se utilicen (si el sistema lo permite).',
+                'Mantenga un catálogo reducido y relevante para facilitar la selección.',
+                ],
+            },
             ],
         },
+
         {
-            id: 'org-3',
-            title: 'Áreas',
-            goal: 'Asignación por departamento para orden interno.',
-            bullets: [
-            'Crea áreas reales (no inventadas).',
-            'Evita duplicar áreas por mayúsculas/acentos.',
-            'Inactiva áreas que ya no operan.',
+            id: 'auditoria',
+            title: 'Auditoría (Logs / System Log)',
+            desc: 'Registro de acciones para trazabilidad: permite verificar cambios, identificar responsables y apoyar auditorías internas.',
+            audience: 'admin_contador',
+            quickLinks: [{ label: 'Ir a System Log', kind: 'inertia', href: safeRoute('systemlogs.index') }],
+            steps: [
+            {
+                id: 'log-1',
+                title: 'Qué revisar en los logs',
+                goal: 'Identificar eventos relevantes para control y auditoría.',
+                bullets: [
+                'Cambios de estatus en registros operativos.',
+                'Creación, edición o inactivación de catálogos críticos.',
+                'Operaciones masivas o acciones con impacto amplio.',
+                ],
+                proTips: [
+                'Al detectar un evento relevante, registre el identificador/folio y el usuario asociado para seguimiento.',
+                ],
+            },
+            {
+                id: 'log-2',
+                title: 'Búsqueda y filtrado',
+                goal: 'Reducir el tiempo de análisis y ubicar la información con precisión.',
+                bullets: [
+                'Filtre por rango de fechas para acotar el análisis.',
+                'Filtre por módulo o tipo de acción cuando sea posible.',
+                'Busque por folio o identificador del registro afectado si está disponible.',
+                ],
+                pitfalls: [
+                'Analizar sin filtros incrementa el tiempo y aumenta la probabilidad de omitir información relevante.',
+                ],
+            },
+            {
+                id: 'log-3',
+                title: 'Uso operativo y correctivo',
+                goal: 'Utilizar los logs para mejorar el proceso, no únicamente para inspección.',
+                bullets: [
+                'Detecte patrones de errores recurrentes (por ejemplo, datos incompletos o duplicados).',
+                'Identifique cuellos de botella por estatus o acciones repetitivas.',
+                'Si se requiere soporte, adjunte evidencia y referencias exactas del evento.',
+                ],
+                proTips: [
+                'Para soporte, indique: fecha/hora, usuario, acción, módulo y folio asociado.',
+                ],
+            },
             ],
         },
-        ],
-    },
-    {
-        id: 'empleados',
-        title: 'Empleados',
-        desc: 'Gestión de personas internas con control de acceso y trazabilidad.',
-        audience: 'admin_contador',
-        tags: ['Accesos', 'Estructura'],
-        steps: [
-        {
-            id: 'emp-1',
-            title: 'Alta y mantenimiento',
-            goal: 'Tener el directorio interno correcto para asignaciones y auditoría.',
-            bullets: [
-            'Alta con datos completos y consistentes (nombre, área, sucursal, etc.).',
-            'Evita duplicados: busca antes de crear.',
-            'Si el empleado ya no está: inactiva (mejor que borrar).',
-            ],
-        },
-        ],
-    },
-    {
-        id: 'requisiciones',
-        title: 'Requisiciones',
-        desc: 'Flujo operativo para solicitudes con evidencia.',
-        audience: 'admin_contador',
-        tags: ['Operación', 'Evidencia'],
-        quickLinks: [
-        { label: 'Ir a Requisiciones', kind: 'inertia', href: safeRoute('requisiciones.index') },
-        ],
-        steps: [
-        {
-            id: 'req-1',
-            title: 'Crear requisición (base sólida)',
-            goal: 'Capturar correctamente para que el flujo sea aprobable/auditable.',
-            bullets: [
-            'Selecciona solicitante/sucursal/corporativo (según tu diseño).',
-            'Selecciona concepto y proveedor.',
-            'Captura montos y valida coherencia.',
-            'Guarda y confirma estatus inicial.',
-            ],
-            pitfalls: [
-            'Crear sin proveedor/concepto correcto: después no cuadra ni el reporte.',
-            ],
-        },
-        {
-            id: 'req-2',
-            title: 'Seguimiento y evidencia',
-            goal: 'Que no sea “solicitud fantasma”.',
-            bullets: [
-            'Revisa estatus y cambios.',
-            'Adjunta evidencia cuando aplique (pagos/comprobantes).',
-            'Exporta PDF cuando necesites respaldo formal.',
-            ],
-        },
-        ],
-    },
-    {
-        id: 'plantillas',
-        title: 'Plantillas',
-        desc: 'Estandariza requisiciones recurrentes para velocidad y menos errores.',
-        audience: 'admin_contador',
-        tags: ['Estandarización'],
-        quickLinks: [
-        { label: 'Ir a Plantillas', kind: 'inertia', href: safeRoute('plantillas.index') },
-        ],
-        steps: [
-        {
-            id: 'pla-1',
-            title: 'Cuándo usar plantillas',
-            goal: 'Reducir retrabajo en solicitudes repetidas.',
-            bullets: [
-            'Gastos recurrentes: mismo proveedor, mismo concepto, estructura similar.',
-            'Evita capturar “desde cero” si el 80% es igual.',
-            ],
-        },
-        {
-            id: 'pla-2',
-            title: 'Buenas prácticas',
-            goal: 'Plantillas útiles, no basura.',
-            bullets: [
-            'Nombres claros: “Renta mensual”, “Servicio internet sucursal X”…',
-            'Revisa montos antes de reutilizar (precios cambian).',
-            ],
-        },
-        ],
-    },
-    {
-        id: 'auditoria',
-        title: 'Auditoría (Logs / System Log)',
-        desc: 'Trazabilidad: quién hizo qué y cuándo.',
-        audience: 'admin_contador',
-        tags: ['Auditoría', 'Riesgo'],
-        quickLinks: [
-        { label: 'Ir a System Log', kind: 'inertia', href: safeRoute('systemlogs.index') },
-        ],
-        steps: [
-        {
-            id: 'log-1',
-            title: 'Qué revisar',
-            goal: 'Detectar cambios críticos y anomalías rápido.',
-            bullets: [
-            'Cambios de estatus.',
-            'Operaciones masivas.',
-            'Creaciones/ediciones en catálogos críticos.',
-            ],
-        },
-        {
-            id: 'log-2',
-            title: 'Uso ejecutivo',
-            goal: 'Mejorar operación, no solo “vigilar”.',
-            bullets: [
-            'Detecta cuellos de botella.',
-            'Detecta patrones de errores (datos incompletos, duplicados).',
-            ],
-        },
-        ],
-    },
     ]
 
     /** Aplica tu regla exacta */
@@ -400,7 +569,7 @@
         </h2>
         </template>
 
-        <div class="mx-auto w-full max-w-7xl px-4 py-6">
+        <div class="mx-auto w-full max-w-7xl px-4 py-6 xl:max-w-screen-2xl 2xl:max-w-[1680px] xl:px-6 2xl:px-10">
         <!-- HERO -->
         <div
             class="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm
@@ -583,17 +752,6 @@
                     <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                         {{ s.desc }}
                     </p>
-
-                    <div v-if="s.tags?.length" class="mt-3 flex flex-wrap gap-2">
-                        <span
-                        v-for="t in s.tags"
-                        :key="t"
-                        class="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-semibold text-neutral-700
-                                dark:border-neutral-800 dark:bg-neutral-950/30 dark:text-neutral-300"
-                        >
-                        {{ t }}
-                        </span>
-                    </div>
                     </div>
 
                     <div v-if="s.quickLinks?.length" class="flex flex-wrap gap-2">
@@ -684,7 +842,7 @@
                             >
                                 <div class="flex items-center gap-2 text-sm font-extrabold text-neutral-900 dark:text-neutral-100">
                                 <Sparkles class="h-4 w-4" />
-                                Pro tips
+                                Consejos
                                 </div>
                                 <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-700 dark:text-neutral-300">
                                 <li v-for="(b, i) in st.proTips" :key="i">{{ b }}</li>
