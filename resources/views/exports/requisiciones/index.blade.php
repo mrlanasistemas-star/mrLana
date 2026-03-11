@@ -63,14 +63,14 @@
       white-space: nowrap;
     }
 
-    /* Content starts below header */
-    .content { margin-top: 76px; }
+    /* Content starts below header: mayor margen para separar el encabezado de la tabla */
+    .content { margin-top: 90px; }
 
     /* Table */
     table.report {
       width: 100%;
       border-collapse: collapse;
-      table-layout: fixed; /* key to avoid “culero” stretching */
+      table-layout: fixed; /* key to avoid stretching */
     }
 
     table.report thead th {
@@ -113,28 +113,25 @@
       border: 1px solid transparent;
       white-space: nowrap;
     }
-    .b-draft { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }     /* BORRADOR/CAPTURADA */
-    .b-pend  { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }     /* POR_COMPROBAR */
-    .b-ok    { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }     /* PAGO_AUTORIZADO/PAGADA/COMPROBACION_ACEPTADA */
-    .b-bad   { background:#fff1f2; color:#9f1239; border-color:#fecdd3; }     /* RECHAZADAS */
-    .b-dead  { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }     /* ELIMINADA/otros */
+    .b-draft { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+    .b-pend  { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
+    .b-ok    { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+    .b-bad   { background:#fff1f2; color:#9f1239; border-color:#fecdd3; }
+    .b-dead  { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
 
-    /* Column widths (landscape) - ajusta si agregas/quitas */
-    th.c-folio, td.c-folio { width: 15%; }
-    th.c-tipo, td.c-tipo { width: 6%; }
-    th.c-status, td.c-status { width: 10%; }
-    th.c-compr, td.c-compr { width: 9%; }
-    th.c-corp, td.c-corp { width: 9%; }
-    th.c-suc, td.c-suc { width: 9%; }
-    th.c-sol, td.c-sol { width: 10%; }
-    th.c-prov, td.c-prov { width: 8%; }
-    th.c-conc, td.c-conc { width: 8%; }
-    th.c-sub, td.c-sub { width: 6.5%; }
-    th.c-iva, td.c-iva { width: 5.5%; }
-    th.c-tot, td.c-tot { width: 6.5%; }
-    th.c-cap, td.c-cap { width: 7.5%; }
-    th.c-pag, td.c-pag { width: 6%; }
-    th.c-by, td.c-by { width: 7%; }
+    /* Column widths (landscape) para tabla con detalles de items */
+    th.c-folio,        td.c-folio        { width: 12%; }
+    th.c-prov,         td.c-prov         { width: 10%; }
+    th.c-conc,         td.c-conc         { width: 7%; }
+    th.c-qty,          td.c-qty          { width: 5%; }
+    th.c-desc,         td.c-desc         { width: 20%; }
+    th.c-price,        td.c-price        { width: 7%; }
+    th.c-iva-item,     td.c-iva-item     { width: 6%; }
+    th.c-total-item,   td.c-total-item   { width: 8%; }
+    th.c-subreq,       td.c-subreq       { width: 7%; }
+    th.c-ivareq,       td.c-ivareq       { width: 6%; }
+    th.c-totreq,       td.c-totreq       { width: 7%; }
+    th.c-cap,          td.c-cap          { width: 10%; }
   </style>
 </head>
 
@@ -156,8 +153,8 @@
       return 'b-dead';
     };
 
-    // Totales (por si quieres mostrar arriba o abajo)
-    $totalRows = (int)($totals['total'] ?? (is_array($rows ?? null) ? count($rows) : 0));
+    // Totales para mostrar en encabezado
+    $totalRows   = (int)($totals['total'] ?? (is_array($rows ?? null) ? count($rows) : 0));
     $sumSubtotal = 0.0; $sumIva = 0.0; $sumTotal = 0.0;
     foreach(($rows ?? []) as $rr){
       $sumSubtotal += (float)($rr['subtotal'] ?? 0);
@@ -191,24 +188,10 @@
           @if(!empty($meta['generated_by']))
             <div class="metaLine"><b>Por:</b> {{ $meta['generated_by'] }}</div>
           @endif
-          <div class="metaLine"><b>Total registros:</b> {{ $totalRows }}</div>
           <div class="metaLine"><b>Subtotal:</b> {{ $money($sumSubtotal) }}</div>
           <div class="metaLine"><b>IVA:</b> {{ $money($sumIva) }}</div>
           <div class="metaLine"><b>Total:</b> {{ $money($sumTotal) }}</div>
-        </td>
-      </tr>
-    </table>
-  </div>
-
-  <!-- FOOTER -->
-  <div class="footer">
-    <table style="width:100%; border-collapse:collapse;">
-      <tr>
-        <td style="width:50%; text-align:left;">
-          {{ $meta['footer_left'] ?? 'ERP MR-Lana' }}
-        </td>
-        <td style="width:50%; text-align:right;">
-          Página <span class="pageNumber"></span> de <span class="totalPages"></span>
+          <br><br>
         </td>
       </tr>
     </table>
@@ -220,51 +203,45 @@
       <thead>
         <tr>
           <th class="c-folio">Folio</th>
-          <th class="c-tipo">Tipo</th>
-          <th class="c-status">Estatus</th>
-          <th class="c-compr">Comprador</th>
-          <th class="c-corp">Corporativo</th>
-          <th class="c-suc">Sucursal</th>
-          <th class="c-sol">Solicitante</th>
           <th class="c-prov">Proveedor</th>
           <th class="c-conc">Concepto</th>
-          <th class="c-sub right">Subtotal</th>
-          <th class="c-iva right">IVA</th>
-          <th class="c-tot right">Total</th>
+          <th class="c-qty right">Cantidad</th>
+          <th class="c-desc">Descripción</th>
+          <th class="c-price right">P.Unit</th>
+          <th class="c-iva-item right">IVA item</th>
+          <th class="c-total-item right">Total item</th>
+          <th class="c-subreq right">Subtotal req.</th>
+          <th class="c-ivareq right">IVA req.</th>
+          <th class="c-totreq right">Total req.</th>
           <th class="c-cap">Captura</th>
-          <th class="c-pag">Pago</th>
-          <th class="c-by">Creada por</th>
         </tr>
       </thead>
 
       <tbody>
         @forelse(($rows ?? []) as $r)
           @php
-            $st = strtoupper((string)($r['status'] ?? ''));
+            $st  = strtoupper((string)($r['estatus'] ?? $r['status'] ?? ''));
             $cls = $statusClass($st);
           @endphp
           <tr>
-            <td class="c-folio nowrap cut">{{ $r['folio'] ?? '—' }}</td>
-            <td class="c-tipo nowrap cut">{{ $r['tipo'] ?? '—' }}</td>
-            <td class="c-status nowrap">
-              <span class="badge {{ $cls }}">{{ $r['status'] ?? '—' }}</span>
-            </td>
-            <td class="c-compr cut">{{ $r['comprador'] ?? '—' }}</td>
-            <td class="c-corp cut">{{ $r['corporativo'] ?? '—' }}</td>
-            <td class="c-suc cut">{{ $r['sucursal'] ?? '—' }}</td>
-            <td class="c-sol cut">{{ $r['solicitante'] ?? '—' }}</td>
+            <td class="c-folio">{{ $r['folio'] ?? '—' }}</td>
             <td class="c-prov cut">{{ $r['proveedor'] ?? '—' }}</td>
             <td class="c-conc cut">{{ $r['concepto'] ?? '—' }}</td>
-            <td class="c-sub right nowrap">{{ $money($r['subtotal'] ?? 0) }}</td>
-            <td class="c-iva right nowrap">{{ $money($r['iva'] ?? 0) }}</td>
-            <td class="c-tot right nowrap strong">{{ $money($r['total'] ?? 0) }}</td>
-            <td class="c-cap nowrap small">{{ $r['fecha_captura'] ?? '—' }}</td>
-            <td class="c-pag nowrap small">{{ $r['fecha_pago'] ?? '—' }}</td>
-            <td class="c-by cut">{{ $r['created_by'] ?? '—' }}</td>
+            <td class="c-qty right nowrap">{{ $r['cantidad'] ?? '' }}</td>
+            <td class="c-desc cut">{{ $r['descripcion_item'] ?? '' }}</td>
+            <td class="c-price right nowrap">{{ isset($r['precio_unitario']) ? number_format((float)$r['precio_unitario'], 2, '.', ',') : '' }}</td>
+            <td class="c-iva-item right nowrap">{{ isset($r['iva_item']) ? number_format((float)$r['iva_item'], 2, '.', ',') : '' }}</td>
+            <td class="c-total-item right nowrap">{{ isset($r['total_item']) ? number_format((float)$r['total_item'], 2, '.', ',') : '' }}</td>
+            <td class="c-subreq right nowrap">{{ isset($r['subtotal']) ? number_format((float)$r['subtotal'], 2, '.', ',') : '' }}</td>
+            <td class="c-ivareq right nowrap">{{ isset($r['iva']) ? number_format((float)$r['iva'], 2, '.', ',') : '' }}</td>
+            <td class="c-totreq right nowrap">{{ isset($r['total']) ? number_format((float)$r['total'], 2, '.', ',') : '' }}</td>
+            <td class="c-cap nowrap small">
+                {{ isset($r['fecha_captura']) && $r['fecha_captura'] !== '' ? \Carbon\Carbon::parse($r['fecha_captura'])->format('Y-m-d') : '—' }}
+            </td>
           </tr>
         @empty
           <tr>
-            <td colspan="15" class="muted" style="padding:10px;">
+            <td colspan="14" class="muted" style="padding:10px;">
               Sin resultados con los filtros actuales.
             </td>
           </tr>

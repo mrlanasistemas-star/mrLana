@@ -8,27 +8,21 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class RequisicionesExport implements WithMultipleSheets {
 
-    /** @var array<int, array<string, mixed>> */
     private array $rows;
-
-    /** @var array<string, string> */
     private array $filters;
+    private array $meta;
 
-    /**
-     * @param array<int, array<string, mixed>> $rows
-     * @param array<string, string> $filters
-     */
-    public function __construct(array $rows, array $filters = [])
-    {
-        $this->rows = $rows;
+    public function __construct(array $rows, array $filters, array $meta) {
+        $this->rows    = $rows;
         $this->filters = $filters;
+        $this->meta    = $meta;
     }
 
-    public function sheets(): array
-    {
+    public function sheets(): array {
         return [
-            new RequisicionesDataSheet($this->rows),
-            new RequisicionesFiltersSheet($this->filters),
+            new RequisicionesDataSheet($this->rows, $this->filters, $this->meta),
+            new RequisicionesFiltersSheet($this->filters, $this->meta),
         ];
     }
+
 }
