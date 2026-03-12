@@ -11,6 +11,7 @@
     declare const route: any
     import type { RequisicionesPageProps, RequisicionRow } from './Requisiciones.types'
     import { useRequisicionesIndex } from './useRequisicionesIndex'
+    import { Send } from 'lucide-vue-next'
 
     import {
         Plus,
@@ -57,6 +58,7 @@
         goShow,
         goCreate,
         destroyRow,
+        captureRow,
         fmtDateLong,
         money,
         displayName,
@@ -591,6 +593,15 @@
                     </div>
 
                     <div class="mt-4 flex items-center justify-end gap-2">
+                        <button v-if="String((r as any).status).toUpperCase() === 'BORRADOR'"
+                        class="inline-flex items-center justify-center h-9 w-9 rounded-2xl
+                        border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99]
+                        disabled:opacity-40 disabled:pointer-events-none
+                        dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
+                        title="Capturar" :disabled="rowDisabled(r)" @click="captureRow(r.id)">
+                            <Send class="h-4 w-4 text-slate-700 dark:text-zinc-200" />
+                        </button>
+
                         <button class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
                         border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99]
                         dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"

@@ -8,6 +8,8 @@ use App\Models\Requisicion;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class RequisicionPagoController extends Controller {
 
@@ -54,6 +56,7 @@ class RequisicionPagoController extends Controller {
                     'solicitante_nombre' => $this->safeNombre($requisicion->solicitante),
                     'beneficiario' => $benef,
                     'status' => (string) ($requisicion->status ?? ''),
+                    'fecha_autorizacion' => $requisicion->fecha_autorizacion,
                 ],
             ],
             'pagos' => [
@@ -73,14 +76,41 @@ class RequisicionPagoController extends Controller {
         ]);
     }
 
+    public function authorizePago(Request $request, Requisicion $requisicion) {
+        // Solo Admin o Contador pueden autorizar
+        $rol = strtoupper((string) (auth()->user()->rol ?? 'COLABORADOR'));
+        abort_unless(in_array($rol, ['ADMIN','CONTADOR'], true), 403);
+        // Validar la fecha de pago (requerida)
+        $data = $request->validate([
+            'fecha_pago' => ['required','date'],
+        ]);
+        // Sólo se autoriza si la requisición está capturada
+        if (strtoupper((string)$requisicion->status) !== 'CAPTURADA') {
+            return back()->with('error', 'La requisición no se puede autorizar en su estado actual.');
+        }
+        // Actualiza status y fecha de pago
+        $requisicion->update([
+            'fecha_autorizacion' => $data['fecha_pago'],
+            'status'             => 'PAGO_AUTORIZADO',
+        ]);
+        // Envía correo al colaborador avisando que se autorizó el pago
+        $colaborador = $requisicion->solicitante?->user; // suponiendo relación Empleado->user
+        if ($colaborador && $colaborador->email) {
+            Mail::to($colaborador->email)->send(new \App\Mail\RequisicionPagoAutorizadoMail($requisicion, $data['fecha_pago']));
+        }
+        return back()->with('success','Pago autorizado correctamente.');
+    }
+
     public function store(StorePagoRequest $request, Requisicion $requisicion) {
         $requisicion->load(['proveedor', 'solicitante']);
-        // Nota: aquí protejo la regla de negocio clave: NO pagar de más.
-        // Y mantengo consistencia con Comprobantes: si pendiente=0, solo acepto 0.00.
         return DB::transaction(function () use ($request, $requisicion) {
-            $pagado = (float) $requisicion->pagos()->sum('monto');
-            $pendiente = max(0, (float) $requisicion->monto_total - $pagado);
+            // Calcula el total ya pagado ANTES de este nuevo pago
+            $pagadoActual = (float) $requisicion->pagos()->sum('monto');
+            $montoTotal   = (float) $requisicion->monto_total;
+            $pendiente    = max(0, $montoTotal - $pagadoActual);
+            // Monto que se intenta registrar
             $monto = round((float) $request->input('monto'), 2);
+            // Valida que no se pague de más
             if ($pendiente > 0 && $monto > ($pendiente + 0.00001)) {
                 return back()->withErrors([
                     'monto' => "El monto ($monto) excede lo pendiente ($pendiente).",
@@ -91,36 +121,46 @@ class RequisicionPagoController extends Controller {
                     'monto' => "Pendiente en 0. Solo se permite monto 0.00.",
                 ]);
             }
-            $file = $request->file('archivo');
-            // Nota: guardo en /requisiciones/{id}/pagos para que todo quede ordenado por requisición.
+            // Guarda el archivo
+            $file   = $request->file('archivo');
             $folder = "requisiciones/{$requisicion->id}/pagos";
             $stored = null;
             try {
                 $stored = $file->storePublicly($folder, 'public');
+                // Crea el registro del pago
                 $benef = $this->buildBeneficiario($requisicion);
-                // Nota: uso forceFill para no depender de $fillable (me evita “se guardó en 0” o campos ignorados).
                 (new Pago())->forceFill([
-                    'requisicion_id' => $requisicion->id,
-                    // Si esta columna existe en pagos, la puedes dejar como “snapshot” del nombre.
-                    'beneficiario_nombre' => $benef['nombre'] ?? '—',
-                    'tipo_pago' => $request->input('tipo_pago'),
-                    'monto' => $monto,
-                    'fecha_pago' => $request->input('fecha_pago'),
-                    'archivo_path' => $stored,
-                    'archivo_original' => $file->getClientOriginalName(),
-                    'mime' => $file->getClientMimeType(),
-                    'size' => $file->getSize(),
-                    'referencia' => $request->input('referencia'),
-                    'user_carga_id' => (int) auth()->id(),
+                    'requisicion_id'     => $requisicion->id,
+                    'beneficiario_nombre'=> $benef['nombre'] ?? '—',
+                    'tipo_pago'          => $request->input('tipo_pago'),
+                    'monto'              => $monto,
+                    'fecha_pago'         => $request->input('fecha_pago'),
+                    'archivo_path'       => $stored,
+                    'archivo_original'   => $file->getClientOriginalName(),
+                    'mime'               => $file->getClientMimeType(),
+                    'size'               => $file->getSize(),
+                    'referencia'         => $request->input('referencia'),
+                    'user_carga_id'      => (int) auth()->id(),
                 ])->save();
-                // Regla de negocio: al registrar pago, la requisición pasa a POR_COMPROBAR.
+                // Calcula el pendiente DESPUÉS de registrar este pago
+                $pendienteDespues = max(0, $pendiente - $monto);
+                // Si ya se cubrió todo el monto, cambia a PAGADA; de lo contrario mantiene PAGO_AUTORIZADO
+                $nuevoStatus = ($pendienteDespues <= 0.00001) ? 'PAGADA' : 'PAGO_AUTORIZADO';
+                // Actualiza la requisición con la fecha de pago (último pago) y el nuevo status
                 $requisicion->update([
                     'fecha_pago' => $request->input('fecha_pago'),
-                    'status' => 'POR_COMPROBAR',
+                    'status'     => $nuevoStatus,
                 ]);
-                return back()->with('success', 'Pago registrado.');
+                // Si ya se pagó por completo, envía el correo de requisición pagada
+                if ($nuevoStatus === 'PAGADA') {
+                    $colaborador = $requisicion->solicitante?->user;
+                    if ($colaborador && $colaborador->email) {
+                        Mail::to($colaborador->email)->send(new \App\Mail\RequisicionPagadaMail($requisicion));
+                    }
+                }
+                return back()->with('success', 'Pago registrado correctamente.');
             } catch (\Throwable $e) {
-                // Nota: si algo revienta después de guardar archivo, lo limpio para no dejar basura en storage.
+                // Si falla algo, elimina el archivo subido para no dejar basura
                 if ($stored) {
                     Storage::disk('public')->delete($stored);
                 }

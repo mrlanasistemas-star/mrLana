@@ -1,6 +1,5 @@
-// resources/js/Pages/Requisiciones/useRequisicionPago.ts
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { router, useForm } from '@inertiajs/vue3'
+import { router, useForm, usePage} from '@inertiajs/vue3'
 import type { RequisicionPagoPageProps, PagoRow } from './Pagar.types'
 
 declare const route: any
@@ -137,6 +136,23 @@ export function useRequisicionPago(props: RequisicionPagoPageProps) {
     referencia: null,
     archivo: null,
   })
+
+  // Calcula el rol del usuario conectado
+  const page = usePage<any>()
+  const role = computed(() =>
+    String(page.props?.auth?.user?.rol ?? 'COLABORADOR').toUpperCase()
+  )
+
+  // Sólo ADMIN/CONTADOR pueden autorizar (y sólo si el status es CAPTURADA)
+  const canAuthorize = computed(() =>
+    ['ADMIN', 'CONTADOR'].includes(role.value) &&
+    req.value?.status === 'CAPTURADA'
+  )
+
+  // Sólo ADMIN/CONTADOR pueden subir pagos
+  const canUploadPago = computed(() =>
+    ['ADMIN', 'CONTADOR'].includes(role.value)
+  )
 
   const submitting = computed(() => form.processing)
 
@@ -318,7 +334,8 @@ export function useRequisicionPago(props: RequisicionPagoPageProps) {
     onDragLeave,
 
     uploadPreview,
-
+    canAuthorize,
+    canUploadPago,
     montoText,
     onMontoInput,
     onMontoBlur,

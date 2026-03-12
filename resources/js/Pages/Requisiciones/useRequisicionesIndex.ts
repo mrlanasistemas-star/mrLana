@@ -428,15 +428,43 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     if (!canDelete.value) return
     const ok = await confirmDanger('Eliminar requisición', `Se eliminara la requisición con folio: ${row.folio}`)
     if (!ok) return
-
     router.delete(route('requisiciones.destroy', row.id), {
-      preserveScroll: true,
-      onSuccess: () => {
+        preserveScroll: true,
+        onSuccess: () => {
         selectedIds.value.delete(row.id)
         swalNotify('La requisición se marcó como eliminada.', 'ok')
-      },
+        },
     })
-  }
+    }
+
+    /**
+     * Permite capturar una requisición en estado BORRADOR.
+     * Pregunta al usuario y, si confirma, llama a la ruta requisiciones.capturar.
+     */
+    async function captureRow(id: number | string) {
+    const res = await Swal.fire({
+        title: '¿Capturar requisición?',
+        text: 'Al confirmar se enviará la requisición y ya no podrá editarse.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Capturar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        focusCancel: true,
+    })
+    if (!res.isConfirmed) return
+
+    router.post(route('requisiciones.capturar', { requisicion: id }), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+        swalNotify('Requisición capturada y correo enviado.', 'ok')
+        selectedIds.value.delete(Number(id))
+        },
+        onError: () => {
+        swalNotify('No se pudo capturar la requisición.', 'err')
+        },
+    })
+    }
 
   /**
    * Utilidad de UI: mostrar nombre sin depender del tipo exacto.
@@ -503,7 +531,7 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     goComprobar,
     printReq,
     destroyRow,
-
+    captureRow,
     statusPill,
     fmtDateLong,
     money,

@@ -1,13 +1,14 @@
 <!-- resources/js/Pages/Requisiciones/Pagar.vue -->
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Head, Link } from '@inertiajs/vue3'
+import { computed, ref } from 'vue'
+import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
 
 import { ArrowLeft, Upload, FileText, X } from 'lucide-vue-next'
 import type { RequisicionPagoPageProps } from './Pagar.types'
 import { useRequisicionPago } from './useRequisicionPago'
+import Swal from 'sweetalert2'
 
 declare const route: any
 
@@ -52,10 +53,70 @@ const {
 
 const tot = computed(() => (props as any).totales ?? { pagado: 0, pendiente: 0 })
 
+// Obtiene datos del usuario autenticado para determinar permisos
+const page = usePage<any>()
+const role = computed(() => String(page.props?.auth?.user?.rol ?? 'COLABORADOR').toUpperCase())
+// Solo ADMIN o CONTADOR pueden autorizar cuando la requisición está capturada
+const canAuthorize = computed(() =>
+  ['ADMIN','CONTADOR'].includes(role.value) && req.value?.status === 'CAPTURADA'
+)
+// Solo ADMIN o CONTADOR pueden subir pagos
+const canUploadPago = computed(() =>
+  ['ADMIN','CONTADOR'].includes(role.value)
+)
+
+// Fecha de pago para autorizar y función para llamar la ruta
+const fechaAutorizacion = ref<string>('')
+function authorizePago() {
+  if (!req.value?.id) return
+  if (!fechaAutorizacion.value) {
+    Swal.fire({
+      title: 'Fecha requerida',
+      text: 'Debes elegir una fecha de pago antes de autorizar.',
+      icon: 'error',
+    })
+    return
+  }
+  router.post(
+    route('requisiciones.autorizarPago', { requisicion: req.value.id }),
+    { fecha_pago: fechaAutorizacion.value },
+    {
+      preserveScroll: true,
+      onSuccess: () => {
+        fechaAutorizacion.value = ''
+        Swal.fire({
+          title: 'Pago autorizado',
+          text: 'La fecha de pago ha sido guardada y se notificará al solicitante.',
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false,
+        })
+        // Recarga la página o sólo las props necesarias para que req.value.status se actualice
+        router.reload({ only: ['requisicion', 'pagos', 'totales'] })
+      },
+      onError: () => {
+        Swal.fire({
+          title: 'Error al autorizar',
+          text: 'Ocurrió un problema al autorizar el pago.',
+          icon: 'error',
+        })
+      },
+    }
+  )
+}
+
+// Estilos base para inputs
 const inputBase =
   'w-full rounded-2xl border border-slate-200/70 bg-white/90 px-4 py-3 text-sm font-semibold text-slate-900 ' +
   'placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 ' +
   'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:placeholder:text-neutral-500'
+
+const canSelectFile = computed(() => {
+  return (
+    String(req.value?.status ?? '').toUpperCase() === 'PAGO_AUTORIZADO' ||
+    !!req.value?.fecha_autorizacion
+  )
+})
 </script>
 
 <template>
@@ -84,6 +145,7 @@ const inputBase =
 
         <!-- Resumen -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Datos de la requisición -->
           <div class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-5">
             <div class="text-xs font-black text-slate-500 dark:text-neutral-300">DATOS DE LA REQUISICIÓN</div>
 
@@ -115,8 +177,24 @@ const inputBase =
                 </div>
               </div>
             </div>
+
+            <!-- Sección para autorizar pago -->
+            <div v-if="canAuthorize" class="mt-4 p-4 border-t border-slate-200/70 dark:border-white/10">
+              <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Fecha de pago (autorización)</label>
+              <DatePickerShadcn v-model="fechaAutorizacion" placeholder="Selecciona fecha" />
+
+              <button
+                type="button"
+                class="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black
+                       bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                @click="authorizePago"
+              >
+                Autorizar pago
+              </button>
+            </div>
           </div>
 
+          <!-- Datos del beneficiario -->
           <div class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-5">
             <div class="text-xs font-black text-slate-500 dark:text-neutral-300">DATOS DEL BENEFICIARIO</div>
 
@@ -150,7 +228,7 @@ const inputBase =
             </div>
           </div>
 
-          <!-- TABLE (lg+) -->
+          <!-- Tabla para escritorio -->
           <div class="hidden lg:block">
             <table class="w-full">
               <thead class="bg-slate-50/80 dark:bg-neutral-950/40">
@@ -197,7 +275,7 @@ const inputBase =
             </table>
           </div>
 
-          <!-- CARDS (mobile/tablet) -->
+          <!-- Tarjetas para móvil/tablet -->
           <div class="lg:hidden divide-y divide-slate-200/70 dark:divide-white/10">
             <div v-if="pagos.length === 0" class="px-5 py-8 text-center text-sm text-slate-500 dark:text-neutral-400">
               Aún no hay pagos registrados.
@@ -236,7 +314,7 @@ const inputBase =
             </div>
           </div>
 
-          <!-- Preview pagos ya hechos -->
+          <!-- Vista previa de comprobantes -->
           <div class="px-5 pb-5">
             <div class="mt-4 rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 overflow-hidden">
               <div class="px-4 py-3 border-b border-slate-200/70 dark:border-white/10">
@@ -295,137 +373,99 @@ const inputBase =
             </div>
           </div>
 
-          <!-- Form carga -->
-          <div class="p-5 border-t border-slate-200/70 dark:border-white/10">
+          <!-- Formulario para registrar pagos -->
+            <div v-if="canUploadPago" class="p-5 border-t border-slate-200/70 dark:border-white/10">
             <div class="space-y-4">
-              <!-- Archivo -->
-              <div class="min-w-0">
+                <!-- Selección de archivo -->
+                <div class="min-w-0">
                 <div class="flex items-center justify-between gap-3">
-                  <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Comprobante de pago</label>
-                  <div class="text-[12px] font-black text-slate-500 dark:text-neutral-300">
+                    <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Comprobante de pago</label>
+                    <div class="text-[12px] font-black text-slate-500 dark:text-neutral-300">
                     Pendiente:
                     <span class="text-slate-900 dark:text-neutral-100">{{ money(pendiente) }}</span>
-                  </div>
+                    </div>
                 </div>
 
+                <!-- Zona de arrastrar y soltar -->
                 <div
-                  class="mt-1 rounded-3xl border bg-white/80 dark:bg-neutral-950/40 p-3 select-none min-w-0
-                         transition duration-200 hover:shadow-sm hover:-translate-y-[1px]"
-                  :class="dragActive
+                class="mt-1 rounded-3xl border bg-white/80 dark:bg-neutral-950/40 p-3 select-none min-w-0
+                        transition duration-200 hover:shadow-sm hover:-translate-y-[1px]"
+                :class="[
+                    dragActive
                     ? 'border-emerald-400/60 ring-2 ring-emerald-500/20 dark:border-emerald-400/40'
-                    : 'border-slate-200/70 dark:border-white/10'"
-                  @dragenter="onDragEnter"
-                  @dragover="onDragOver"
-                  @dragleave="onDragLeave"
-                  @drop="onDropFile"
+                    : 'border-slate-200/70 dark:border-white/10',
+                    !canSelectFile ? 'pointer-events-none opacity-60' : ''
+                ]"
+                @dragenter="onDragEnter"
+                @dragover="onDragOver"
+                @dragleave="onDragLeave"
+                @drop="onDropFile"
                 >
-                  <div class="flex items-center gap-3 min-w-0">
-                    <input
-                      :key="fileKey"
-                      id="pago-file"
-                      type="file"
-                      class="sr-only"
-                      accept=".pdf,.png,.jpg,.jpeg,.webp"
-                      @change="onPickFile"
-                    />
-
-                    <label
-                      for="pago-file"
-                      class="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-black
-                             bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md
-                             transition active:scale-[0.98] cursor-pointer shrink-0"
-                    >
-                      <Upload class="h-4 w-4" />
-                      Seleccionar archivo
-                    </label>
-
-                    <div class="min-w-0 flex-1">
-                      <div
-                        class="text-sm font-black truncate"
-                        :class="hasPicked ? 'text-slate-900 dark:text-neutral-100' : 'text-slate-500 dark:text-neutral-400'"
-                        :title="pickedName"
-                      >
-                        {{ pickedName }}
-                      </div>
-                      <div class="text-[12px] text-slate-500 dark:text-neutral-400">
-                        {{ dragActive ? 'Suelta aquí para adjuntar.' : (hasPicked ? 'Listo para registrar.' : 'Arrastra y suelta o selecciona un archivo.') }}
-                        (PDF/PNG/JPG/WebP, máx. 10MB)
-                      </div>
-                    </div>
-
-                    <button
-                      v-if="hasPicked"
-                      type="button"
-                      class="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-slate-200 bg-white
-                             hover:bg-slate-50 hover:shadow-sm dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15
-                             transition active:scale-[0.98] shrink-0"
-                      title="Quitar archivo"
-                      @click="clearFile"
-                    >
-                      <X class="h-4 w-4 text-slate-700 dark:text-neutral-100" />
-                    </button>
-                  </div>
+                …
+                <div v-if="!canSelectFile" class="mt-2 text-xs text-rose-600">
+                    Autoriza el pago y selecciona una fecha para poder subir comprobantes de pago.
+                </div>
                 </div>
 
                 <div v-if="form.errors.archivo" class="mt-1 text-xs font-bold text-rose-600">
-                  {{ form.errors.archivo }}
+                    {{ form.errors.archivo }}
                 </div>
 
-                <!-- Preview antes de subir -->
+                <!-- Preview del archivo antes de subir -->
                 <div
-                  v-if="uploadPreview"
-                  class="mt-3 rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 overflow-hidden"
+                    v-if="uploadPreview"
+                    class="mt-3 rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 overflow-hidden"
                 >
-                  <div class="px-4 py-3 border-b border-slate-200/70 dark:border-white/10">
+                    <div class="px-4 py-3 border-b border-slate-200/70 dark:border-white/10">
                     <div class="text-xs font-black text-slate-500 dark:text-neutral-300">PREVISUALIZACIÓN ANTES DE SUBIR</div>
                     <div class="text-sm font-black text-slate-900 dark:text-neutral-100 truncate" :title="uploadPreview.name">
-                      {{ uploadPreview.name }}
+                        {{ uploadPreview.name }}
                     </div>
-                  </div>
+                    </div>
 
-                  <div class="p-3">
+                    <div class="p-3">
                     <div class="rounded-3xl border border-slate-200/60 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 overflow-hidden">
-                      <div class="h-[38vh] sm:h-[42vh] max-h-[420px]">
+                        <div class="h-[38vh] sm:h-[42vh] max-h-[420px]">
                         <iframe
-                          v-if="uploadPreview.kind === 'pdf'"
-                          :src="uploadPreview.url"
-                          class="w-full h-full block"
-                          style="border: 0"
-                          title="Preview antes de subir"
+                            v-if="uploadPreview.kind === 'pdf'"
+                            :src="uploadPreview.url"
+                            class="w-full h-full block"
+                            style="border: 0"
+                            title="Preview antes de subir"
                         />
                         <div v-else-if="uploadPreview.kind === 'image'" class="w-full h-full flex items-center justify-center">
-                          <img :src="uploadPreview.url" alt="Preview" class="w-full h-full object-contain" />
+                            <img :src="uploadPreview.url" alt="Preview" class="w-full h-full object-contain" />
                         </div>
                         <div v-else class="w-full h-full flex items-center justify-center p-6 text-center">
-                          <div class="text-sm text-slate-600 dark:text-neutral-300">
+                            <div class="text-sm text-slate-600 dark:text-neutral-300">
                             Este archivo no tiene preview aquí. Igual se puede subir.
-                          </div>
+                            </div>
                         </div>
-                      </div>
+                        </div>
                     </div>
-                  </div>
+                    </div>
                 </div>
-              </div>
+                </div>
 
-              <!-- Campos -->
-              <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end min-w-0">
+                <!-- Campos para fecha, monto y tipo -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end min-w-0">
                 <div class="lg:col-span-4 min-w-0">
-                  <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Fecha de pago</label>
-                  <DatePickerShadcn v-model="form.fecha_pago" placeholder="Selecciona fecha" />
-                  <div v-if="form.errors.fecha_pago" class="mt-1 text-xs font-bold text-rose-600">
+                    <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Fecha de pago</label>
+                    <DatePickerShadcn v-model="form.fecha_pago" placeholder="Selecciona fecha" />
+                    <div v-if="form.errors.fecha_pago" class="mt-1 text-xs font-bold text-rose-600">
                     {{ form.errors.fecha_pago }}
-                  </div>
+                    </div>
                 </div>
 
                 <div class="lg:col-span-4 min-w-0">
-                  <div class="flex items-end justify-between gap-3">
+                    <div class="flex items-end justify-between gap-3">
                     <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Monto pagado</label>
                     <div class="text-[11px] font-black text-slate-500 dark:text-neutral-300">
-                      Máx: {{ money(pendiente) }}
+                        Máx: {{ money(pendiente) }}
                     </div>
-                  </div>
+                    </div>
 
-                  <input
+                    <input
                     :value="montoText"
                     type="text"
                     inputmode="decimal"
@@ -435,46 +475,50 @@ const inputBase =
                     placeholder="0.00"
                     @input="onMontoInput"
                     @blur="onMontoBlur"
-                  />
+                    />
 
-                  <div v-if="form.errors.monto" class="mt-1 text-xs font-bold text-rose-600">
+                    <div v-if="form.errors.monto" class="mt-1 text-xs font-bold text-rose-600">
                     {{ form.errors.monto }}
-                  </div>
+                    </div>
 
-                  <div class="mt-1 text-[12px] text-slate-500 dark:text-neutral-400">
+                    <div class="mt-1 text-[12px] text-slate-500 dark:text-neutral-400">
                     Pendiente: <span class="font-black">{{ money(pendiente) }}</span>
-                  </div>
+                    </div>
                 </div>
 
                 <div class="lg:col-span-4 min-w-0">
-                  <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Tipo de pago</label>
-                  <select v-model="form.tipo_pago" :class="inputBase" class="mt-1">
+                    <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Tipo de pago</label>
+                    <select v-model="form.tipo_pago" :class="inputBase" class="mt-1">
                     <option v-for="t in props.tipoPagoOptions" :key="t.id" :value="t.id">
-                      {{ t.nombre }}
+                        {{ t.nombre }}
                     </option>
-                  </select>
-                  <div v-if="form.errors.tipo_pago" class="mt-1 text-xs font-bold text-rose-600">
+                    </select>
+                    <div v-if="form.errors.tipo_pago" class="mt-1 text-xs font-bold text-rose-600">
                     {{ form.errors.tipo_pago }}
-                  </div>
+                    </div>
                 </div>
 
                 <div class="lg:col-span-12 min-w-0">
-                  <button
+                    <button
                     type="button"
                     :disabled="!canSubmit || submitting"
                     @click="submit"
                     class="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black
-                           bg-slate-900 text-white hover:bg-slate-950 dark:bg-white dark:text-slate-900 dark:hover:bg-neutral-200
-                           transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
+                            bg-slate-900 text-white hover:bg-slate-950 dark:bg-white dark:text-slate-900 dark:hover:bg-neutral-200
+                            transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
                     <Upload class="h-4 w-4" />
                     Registrar pago
-                  </button>
+                    </button>
                 </div>
-              </div>
-
+                </div>
             </div>
-          </div>
+            </div>
+
+            <!-- Mensaje si no tiene permiso para subir pagos -->
+            <div v-else class="p-5 border-t border-slate-200/70 dark:border-white/10 text-sm text-slate-500 dark:text-neutral-400">
+            Sólo administradores o contadores pueden registrar pagos. Aquí sólo puedes ver los pagos existentes.
+            </div>
         </div>
 
       </div>

@@ -4,6 +4,7 @@
     import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
     import Swal from 'sweetalert2'
     import { X } from 'lucide-vue-next'
+    import { Send } from 'lucide-vue-next'
 
     import {
         ArrowLeft,
@@ -39,6 +40,30 @@
         comprobantes?: any[]
         pdf?: { print_url?: string | null; files?: { label: string; url: string }[] }
     }>()
+
+    const capture = () => {
+        if (!req.value?.id) return
+        Swal.fire({
+            title: '¿Capturar requisición?',
+            text: 'Se enviará y ya no podrá editarse.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Capturar',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+            router.post(route('requisiciones.capturar', { requisicion: req.value.id }), {}, {
+                onSuccess: () => {
+                toast('Requisición capturada y enviada', 'success')
+                router.visit(route('requisiciones.show', { requisicion: req.value.id }))
+                },
+                onError: () => {
+                toast('No se pudo capturar la requisición', 'error')
+                },
+            })
+            }
+        })
+    }
 
     /** ========== Toast (SweetAlert2) ========== */
     const toast = (title: string, icon: 'success' | 'error' | 'info' = 'success') => {
@@ -286,6 +311,14 @@
 
                                     <!-- Nav pills -->
                                     <div class="mt-3 flex flex-wrap gap-2">
+                                        <button v-if="String(req?.status).toUpperCase() === 'BORRADOR'"
+                                        type="button" @click="capture" class="inline-flex
+                                        items-center gap-2 rounded-2xl px-3 py-2 text-xs
+                                        sm:text-sm font-black text-white bg-indigo-600
+                                        hover:bg-indigo-700 active:scale-[0.99]">
+                                            <Send class="h-4 w-4" />
+                                            <span class="hidden sm:inline">Capturar</span>
+                                        </button>
                                         <button
                                         type="button"
                                         class="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-black ring-1 ring-black/5 dark:ring-white/10
@@ -375,32 +408,6 @@
                                     <Link2 class="h-4 w-4" />
                                     <span class="sm:hidden">Enlace</span>
                                     <span class="hidden sm:inline">Copiar enlace</span>
-                                </button>
-
-                                <a
-                                    v-if="pdfUrl"
-                                    :href="pdfUrl"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    @click="toast('Generando PDF…', 'info')"
-                                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs sm:text-sm font-black text-white
-                                        bg-gradient-to-r from-slate-900 to-slate-800 dark:from-indigo-500 dark:to-emerald-500
-                                        hover:brightness-105 transition hover:-translate-y-[1px] active:scale-[0.99]"
-                                >
-                                    <Printer class="h-4 w-4" />
-                                    PDF
-                                </a>
-
-                                <button
-                                    v-else
-                                    type="button"
-                                    disabled
-                                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs sm:text-sm font-black
-                                        text-slate-400 dark:text-neutral-500
-                                        ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900"
-                                >
-                                    <Printer class="h-4 w-4" />
-                                    PDF
                                 </button>
                                 </div>
                             </div>

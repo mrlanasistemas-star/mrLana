@@ -125,8 +125,12 @@ Route::middleware('auth')->group(function () {
 
     // Rutas para capturar una requisicion ya en borrador
     Route::post('/requisiciones/{requisicion}/capturar', [RequisicionController::class, 'capture'])
-    ->middleware(['auth','verified'])
-    ->name('requisiciones.capturar');
+        ->middleware(['auth','verified'])
+        ->name('requisiciones.capturar');
+
+    Route::post('/requisiciones/{requisicion}/autorizar-pago', [RequisicionPagoController::class, 'authorizePago'])
+        ->middleware(['auth','verified'])
+        ->name('requisiciones.autorizarPago');
 
     // Pagos
     Route::get('/requisiciones/{requisicion}/pagar', [RequisicionPagoController::class, 'create'])
