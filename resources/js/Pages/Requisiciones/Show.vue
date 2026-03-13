@@ -38,6 +38,12 @@
         requisicion: any
         detalles?: any[]
         comprobantes?: any[]
+        ajustes?: any[]
+        auditoria?: {
+            total_items_original?: number
+            total_ajustes_aplicados?: number
+            total_final?: number
+        }
         pdf?: { print_url?: string | null; files?: { label: string; url: string }[] }
     }>()
 
@@ -85,6 +91,8 @@
 
     const detalles = computed(() => (Array.isArray(props.detalles) ? props.detalles : []))
     const comprobantes = computed(() => (Array.isArray(props.comprobantes) ? props.comprobantes : []))
+    const ajustes = computed(() => (Array.isArray(props.ajustes) ? props.ajustes : []))
+    const auditoria = computed(() => props.auditoria ?? {})
     const pagosFiles = computed(() => (Array.isArray(props.pdf?.files) ? props.pdf?.files : []))
     const pdfUrl = computed(() => props.pdf?.print_url ?? null)
 
@@ -121,7 +129,7 @@
         return maybe ? onlyDate(maybe) : 'AÚN SIN ENTREGAR'
     })
 
-    const mainTab = ref<'items' | 'comprobantes' | 'pagos'>('items')
+    const mainTab = ref<'items' | 'ajustes' | 'comprobantes' | 'pagos'>('items')
 
     const money = (v: Money) => {
         const n = typeof v === 'string' ? Number(String(v).replace(/,/g, '')) : Number(v ?? 0)
@@ -247,6 +255,54 @@
     const subtotalShown = computed(() => req.value?.monto_subtotal ?? subtotalCalc.value)
     const ivaShown = computed(() => (req.value?.monto_total != null ? ivaCalc.value : ivaCalc.value))
     const totalShown = computed(() => req.value?.monto_total ?? totalCalc.value)
+
+    const totalItemsOriginal = computed(() => {
+        if (auditoria.value?.total_items_original != null) {
+            return Number(auditoria.value.total_items_original)
+        }
+        return totalCalc.value
+    })
+
+    const totalAjustesAplicados = computed(() => {
+        return Number(totalFinalAuditado.value) - Number(totalItemsOriginal.value)
+    })
+
+    const totalFinalAuditado = computed(() => {
+        if (auditoria.value?.total_final != null) {
+            return Number(auditoria.value.total_final)
+        }
+        return Number(req.value?.monto_total ?? 0)
+    })
+
+    const ajusteTipoLabel = (tipo?: string | null) => {
+        const t = String(tipo ?? '').toUpperCase()
+        if (t === 'INCREMENTO_AUTORIZADO') return 'Incremento autorizado'
+        if (t === 'FALTANTE') return 'Faltante'
+        if (t === 'DEVOLUCION') return 'Devolución'
+        return t || '—'
+    }
+
+    const ajusteSentidoLabel = (sentido?: string | null) => {
+        const s = String(sentido ?? '').toUpperCase()
+        if (s === 'A_FAVOR_EMPRESA') return 'Resta al total'
+        if (s === 'A_FAVOR_SOLICITANTE') return 'Suma al total'
+        return '—'
+    }
+
+    const ajusteImpacto = (a: any) => {
+        const monto = Number(a?.monto ?? 0)
+        const sentido = String(a?.sentido ?? '').toUpperCase()
+        return sentido === 'A_FAVOR_EMPRESA' ? -monto : monto
+    }
+
+    const ajusteEstatusTone = (estatus?: string | null) => {
+        const s = String(estatus ?? '').toUpperCase()
+        if (s === 'APLICADO') return 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-200 ring-indigo-500/20'
+        if (s === 'APROBADO') return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-200 ring-emerald-500/20'
+        if (s === 'RECHAZADO') return 'bg-rose-500/10 text-rose-700 dark:text-rose-200 ring-rose-500/20'
+        if (s === 'CANCELADO') return 'bg-slate-500/10 text-slate-700 dark:text-slate-200 ring-slate-500/20'
+        return 'bg-amber-500/10 text-amber-700 dark:text-amber-200 ring-amber-500/20'
+    }
 
     const scrollToId = (id: string) => {
         const el = document.getElementById(id)
@@ -452,8 +508,20 @@
                             Resumen financiero
                             </div>
                             <div class="mt-1 text-sm font-black text-slate-900 dark:text-neutral-100 tabular-nums">
-                            {{ money(totalShown) }}
-                            <span class="text-slate-500 dark:text-neutral-400 font-semibold">• IVA {{ money(ivaCalc) }}</span>
+                                {{ money(totalFinalAuditado) }}
+                                <span class="text-slate-500 dark:text-neutral-400 font-semibold">• IVA {{ money(ivaCalc) }}</span>
+                            </div>
+
+                            <div class="mt-2 text-[11px] text-slate-500 dark:text-neutral-400">
+                                Items:
+                                <span class="font-black text-slate-900 dark:text-neutral-100">{{ money(totalItemsOriginal) }}</span>
+                                <span class="mx-1 opacity-50">•</span>
+                                Ajustes:
+                                <span class="font-black"
+                                    :class="totalAjustesAplicados >= 0 ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'"
+                                >
+                                    {{ money(totalAjustesAplicados) }}
+                                </span>
                             </div>
                         </div>
                         </div>
@@ -639,6 +707,15 @@
                         Items ({{ detalles.length }})
                     </button>
 
+                    <button type="button"
+                    class="px-3 py-1.5 text-xs sm:text-sm font-black rounded-full transition"
+                    :class="mainTab === 'ajustes'
+                    ? 'bg-white dark:bg-neutral-900 text-slate-900 dark:text-neutral-100 shadow-sm ring-1 ring-black/5 dark:ring-white/10'
+                    : 'text-slate-600 dark:text-neutral-300 hover:text-slate-900 dark:hover:text-white'"
+                    @click="mainTab = 'ajustes'">
+                        Ajustes ({{ ajustes.length }})
+                    </button>
+
                     <button
                         type="button"
                         class="px-3 py-1.5 text-xs sm:text-sm font-black rounded-full transition"
@@ -670,7 +747,7 @@
                     <span class="font-black text-slate-900 dark:text-neutral-100">{{ money(ivaCalc) }}</span>
                     <span class="mx-2 opacity-50">•</span>
                     <span class="font-semibold">Total:</span>
-                    <span class="font-black text-slate-900 dark:text-neutral-100">{{ money(totalShown) }}</span>
+                    <span class="font-black text-slate-900 dark:text-neutral-100">{{ money(totalFinalAuditado) }}</span>
                     </div>
                 </header>
 
@@ -743,6 +820,132 @@
                         </tbody>
                         </table>
                     </div>
+                    </div>
+                </div>
+
+                <div v-else-if="mainTab === 'ajustes'" class="px-4 sm:px-6 pb-6">
+                    <div class="grid grid-cols-1 xl:grid-cols-12 gap-4">
+                        <div class="xl:col-span-4">
+                            <div class="rounded-3xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-4">
+                                <div class="text-sm font-black text-slate-900 dark:text-neutral-100">
+                                    Resumen de auditoría
+                                </div>
+
+                                <div class="mt-4 space-y-3 text-sm">
+                                    <div class="rounded-2xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-3">
+                                        <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                            Total original por items
+                                        </div>
+                                        <div class="mt-1 font-black text-slate-900 dark:text-neutral-100">
+                                            {{ money(totalItemsOriginal) }}
+                                        </div>
+                                    </div>
+
+                                    <div class="rounded-2xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-3">
+                                        <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                            Ajustes aplicados
+                                        </div>
+                                        <div
+                                            class="mt-1 font-black"
+                                            :class="totalAjustesAplicados >= 0 ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'"
+                                        >
+                                            {{ money(totalAjustesAplicados) }}
+                                        </div>
+                                    </div>
+
+                                    <div class="rounded-2xl bg-indigo-500/10 ring-1 ring-indigo-500/20 px-3 py-3">
+                                        <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-neutral-300">
+                                            Total final requisición
+                                        </div>
+                                        <div class="mt-1 text-lg font-black text-slate-900 dark:text-neutral-100">
+                                            {{ money(totalFinalAuditado) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="xl:col-span-8">
+                            <div
+                                v-if="ajustes.length === 0"
+                                class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-slate-50 dark:bg-neutral-950 p-4 text-sm font-black text-slate-700 dark:text-neutral-200"
+                            >
+                                No hay ajustes registrados.
+                            </div>
+
+                            <div v-else class="grid gap-3">
+                                <div
+                                    v-for="a in ajustes"
+                                    :key="a.id"
+                                    class="rounded-3xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-4"
+                                >
+                                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <div class="text-sm font-black text-slate-900 dark:text-neutral-100">
+                                                    Ajuste #{{ a.id }} · {{ ajusteTipoLabel(a.tipo) }}
+                                                </div>
+
+                                                <span
+                                                    class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black ring-1"
+                                                    :class="ajusteEstatusTone(a.estatus)"
+                                                >
+                                                    {{ a.estatus }}
+                                                </span>
+                                            </div>
+
+                                            <div class="mt-2 text-xs text-slate-500 dark:text-neutral-400">
+                                                Registro: {{ a.fecha_registro || '—' }}
+                                                <span class="mx-2 opacity-50">•</span>
+                                                Resolución: {{ a.fecha_resolucion ? fmtDate(a.fecha_resolucion) : '—' }}
+                                            </div>
+                                        </div>
+
+                                        <div class="text-right shrink-0">
+                                            <div class="text-[11px] text-slate-500 dark:text-neutral-400">Impacto</div>
+                                            <div
+                                                class="text-sm font-black"
+                                                :class="ajusteImpacto(a) >= 0 ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200'"
+                                            >
+                                                {{ money(ajusteImpacto(a)) }}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2 text-xs">
+                                        <div class="rounded-xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-2">
+                                            <span class="font-black text-slate-700 dark:text-neutral-200">Sentido:</span>
+                                            {{ ajusteSentidoLabel(a.sentido) }}
+                                        </div>
+
+                                        <div class="rounded-xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-2">
+                                            <span class="font-black text-slate-700 dark:text-neutral-200">Monto:</span>
+                                            {{ money(a.monto) }}
+                                        </div>
+
+                                        <div class="rounded-xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-2">
+                                            <span class="font-black text-slate-700 dark:text-neutral-200">Anterior:</span>
+                                            {{ money(a.monto_anterior) }}
+                                        </div>
+
+                                        <div class="rounded-xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-2">
+                                            <span class="font-black text-slate-700 dark:text-neutral-200">Nuevo:</span>
+                                            {{ money(a.monto_nuevo) }}
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 rounded-2xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-3 text-xs text-slate-700 dark:text-neutral-200 break-words">
+                                        <span class="font-black text-slate-700 dark:text-neutral-100">Motivo:</span>
+                                        {{ a.motivo || '—' }}
+                                        <template v-if="a.notas">
+                                            <br />
+                                            <span class="font-black text-slate-700 dark:text-neutral-100">Notas:</span>
+                                            {{ a.notas }}
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
