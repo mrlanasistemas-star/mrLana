@@ -27,6 +27,7 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   const canUseFoliosPanel = computed(() => ['ADMIN', 'CONTADOR'].includes(role.value))
   const canEditFolio = computed(() => role.value === 'ADMIN')
   const canNotify = computed(() => role.value === 'COLABORADOR')
+  const canSendNotification = computed(() => canNotify.value && pendienteCents.value <= 0)
 
   /** =========================================================
    * Req + rows
@@ -40,6 +41,14 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
     const raw: any = props.comprobantes
     return raw?.data ?? raw ?? []
   })
+
+  const reqStatus = computed(() =>
+    String(req.value?.status ?? '').toUpperCase()
+    )
+
+    const isFinalizada = computed(() =>
+    reqStatus.value === 'COMPROBACION_ACEPTADA'
+    )
 
   const money = (v: any) => {
     const n = Number(v ?? 0)
@@ -117,27 +126,35 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   }
 
   const onPickFile = (e: Event) => {
+    if (isFullyApproved.value) return
+
     const input = e.target as HTMLInputElement
     form.archivo = input.files?.[0] ?? null
-  }
+    }
 
-  const onDropFile = (e: DragEvent) => {
+    const onDropFile = (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
     dragActive.value = false
+
+    if (isFullyApproved.value) return
+
     const f = e.dataTransfer?.files?.[0] ?? null
     if (f) form.archivo = f
-  }
+    }
 
   const onDragEnter = (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (isFullyApproved.value) return
     dragActive.value = true
-  }
-  const onDragOver = (e: DragEvent) => {
+    }
+
+    const onDragOver = (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-  }
+    if (isFullyApproved.value) return
+    }
   const onDragLeave = (e: DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -167,6 +184,12 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
 
 // Pendiente por comprobar = total - aprobados
 const pendienteCents = computed(() => Math.max(0, totalCents.value - approvedCents.value))
+
+const isFullyApproved = computed(() => pendienteCents.value <= 0)
+
+const canUploadMore = computed(() => {
+  return role.value === 'COLABORADOR' && !isFullyApproved.value && !isFinalizada.value
+})
 
 // (Opcional) si quieres seguir mostrando “pendiente por cargar”
 const loadedCents = computed(() =>
@@ -203,13 +226,16 @@ const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - lo
    * canSubmit
    * ========================================================= */
   const canSubmit = computed(() => {
+    if (isFullyApproved.value) return false
+
     const hasFile = !!form.archivo
     const hasTipo = !!(form.tipo_doc && String(form.tipo_doc).trim())
     const hasFecha = !!(form.fecha_emision && String(form.fecha_emision).trim())
     const m = String(form.monto ?? '').trim()
     const hasMonto = m !== '' && !Number.isNaN(Number(m))
+
     return hasFile && hasTipo && hasFecha && hasMonto && !form.processing
-  })
+    })
 
   /** =========================================================
    * Submit
@@ -418,22 +444,31 @@ const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - lo
 
   const approve = async (id: number) => {
     if (!canReview.value) {
-      Swal.fire({ icon: 'warning', title: 'Sin permisos', text: 'Tu rol no puede aprobar/rechazar comprobantes.' })
-      return
+        Swal.fire({ icon: 'warning', title: 'Sin permisos', text: 'Tu rol no puede aprobar/rechazar comprobantes.' })
+        return
+    }
+
+    if (isFullyApproved.value) {
+        Swal.fire({
+        icon: 'info',
+        title: 'Requisición ya comprobada',
+        text: 'Ya no puedes aprobar más comprobantes porque el monto total ya fue cubierto.',
+        })
+        return
     }
 
     const r = await Swal.fire({
-      icon: 'question',
-      title: 'Aprobar comprobante',
-      text: `¿Confirmas aprobar el comprobante con ID ${id}?`,
-      showCancelButton: true,
-      confirmButtonText: 'Aprobar',
-      cancelButtonText: 'Cancelar',
+        icon: 'question',
+        title: 'Aprobar comprobante',
+        text: `¿Confirmas aprobar el comprobante con ID ${id}?`,
+        showCancelButton: true,
+        confirmButtonText: 'Aprobar',
+        cancelButtonText: 'Cancelar',
     })
 
     if (!r.isConfirmed) return
     await patchReview(id, 'APROBADO', null)
-  }
+    }
 
   const reject = async (id: number) => {
     if (!canReview.value) {
@@ -685,11 +720,19 @@ const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - lo
 
   const notifyWhatsApp = () => {
     if (!canNotify.value) return
-    const phone = '527774428209'
+    if (!canSendNotification.value) {
+        Swal.fire({
+        icon: 'info',
+        title: 'Aún no puedes notificar',
+        text: 'Primero debes comprobar el monto completo de la requisición para avisar a contabilidad.',
+        })
+        return
+    }
+    const phone = '522217494252'
     const text = encodeURIComponent(buildNotifyText())
     const url = `https://wa.me/${phone}?text=${text}`
     window.open(url, '_blank', 'noopener,noreferrer')
-  }
+    }
 
   const resolveNotifyEmailUrl = () => {
     const candidates = ['requisiciones.comprobaciones.notify', 'requisiciones.notify.comprobaciones']
@@ -705,38 +748,47 @@ const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - lo
     if (!canNotify.value) return
     if (!req.value?.id) return
 
+    if (!canSendNotification.value) {
+        Swal.fire({
+        icon: 'info',
+        title: 'Aún no puedes notificar',
+        text: 'Primero debes comprobar el monto completo de la requisición para avisar a contabilidad.',
+        })
+        return
+    }
+
     Swal.fire({
-      title: 'Espere mientras enviamos el correo…',
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
+        title: 'Espere mientras enviamos el correo…',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
     })
 
     let url = ''
     try {
-      url = resolveNotifyEmailUrl()
+        url = resolveNotifyEmailUrl()
     } catch (e: any) {
-      Swal.fire({ icon: 'error', title: 'Falta ruta', text: e?.message ?? 'No se encontró la ruta.' })
-      return
+        Swal.fire({ icon: 'error', title: 'Falta ruta', text: e?.message ?? 'No se encontró la ruta.' })
+        return
     }
 
     router.post(
-      url,
-      { message: buildNotifyText() },
-      {
+        url,
+        { message: buildNotifyText() },
+        {
         preserveScroll: true,
         onSuccess: () => {
-          Swal.fire({ icon: 'success', title: 'Correo enviado', timer: 1200, showConfirmButton: false })
+            Swal.fire({ icon: 'success', title: 'Correo enviado', timer: 1200, showConfirmButton: false })
         },
         onError: (e) => {
-          console.error('notifyEmail error:', e)
-          Swal.fire({ icon: 'error', title: 'No se pudo enviar', text: 'Revisa configuración de correo o consola.' })
+            console.error('notifyEmail error:', e)
+            Swal.fire({ icon: 'error', title: 'No se pudo enviar', text: 'Revisa configuración de correo o consola.' })
         },
         onFinish: () => {
-          if (Swal.isLoading()) Swal.close()
+            if (Swal.isLoading()) Swal.close()
         },
-      },
+        },
     )
-  }
+    }
 
   /** =========================================================
    * Input base
@@ -767,7 +819,8 @@ const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - lo
     approve,
     reject,
     destroyComprobante,
-
+    isFullyApproved,
+    canUploadMore,
     // upload form + UX
     form,
     fileKey,
@@ -797,7 +850,7 @@ const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - lo
     openPreview,
     closePreview,
     previewWrapRef,
-
+    canSendNotification,
     // tipo dropdown
     tipoOpen,
     tipoWrap,
@@ -812,6 +865,8 @@ const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - lo
     folioSelected,
     addFolio,
     editFolio,
+    reqStatus,
+    isFinalizada,
 
     // notifications
     canNotify,

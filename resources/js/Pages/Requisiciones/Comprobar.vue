@@ -36,6 +36,8 @@ const {
   tipoDocLabel,
   estatusLabel,
   estatusPillClass,
+    reqStatus,
+  isFinalizada,
 
   // roles/perms
   role,
@@ -70,7 +72,7 @@ const {
 
   // local preview (before upload)
   uploadPreview,
-
+    canSendNotification,
   // preview (existing uploaded docs)
   preview,
   previewTitle,
@@ -84,7 +86,8 @@ const {
   tipoOptions,
   tipoSelected,
   setTipo,
-
+    isFullyApproved,
+  canUploadMore,
   // folios panel
   foliosOpen,
   toggleFoliosOpen,
@@ -152,50 +155,91 @@ const {
                 </div>
               </div>
 
-              <!-- acciones -->
-              <div class="flex flex-wrap items-center gap-2">
-                <button
-                  v-if="canUseFoliosPanel"
-                  type="button"
-                  class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                         border border-slate-200/70 bg-white/70 text-slate-900
-                         hover:bg-white hover:shadow-sm hover:-translate-y-[1px]
-                         transition active:scale-[0.98]
-                         dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                  @click="toggleFoliosOpen"
-                >
-                  <Search class="h-4 w-4" />
-                  Buscar folios
-                </button>
+                <!-- acciones -->
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex flex-col items-start sm:items-end gap-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        v-if="canUseFoliosPanel"
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
+                            border border-slate-200/70 bg-white/70 text-slate-900
+                            hover:bg-white hover:shadow-sm hover:-translate-y-[1px]
+                            transition active:scale-[0.98]
+                            dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                        @click="toggleFoliosOpen"
+                    >
+                        <Search class="h-4 w-4" />
+                        Buscar folios
+                    </button>
 
-                <button
-                  v-if="canNotify"
-                  type="button"
-                  class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                         border border-emerald-300/30 bg-emerald-500/10 text-slate-900
-                         hover:bg-emerald-500/15 hover:shadow-sm hover:-translate-y-[1px]
-                         transition active:scale-[0.98]
-                         dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-white dark:hover:bg-emerald-500/15"
-                  @click="notifyWhatsApp"
-                >
-                  <MessageCircle class="h-4 w-4" />
-                  WhatsApp
-                </button>
+                    <button
+                        v-if="canNotify"
+                        type="button"
+                        :disabled="!canSendNotification"
+                        class="group inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
+                            border transition active:scale-[0.98]
+                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
+                        :class="canSendNotification
+                        ? 'border-emerald-300/40 bg-emerald-500/12 text-emerald-700 hover:bg-emerald-500/18 hover:shadow-md hover:-translate-y-[1px] dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/15'
+                        : 'border-slate-200/70 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-neutral-500'"
+                        @click="notifyWhatsApp"
+                        :title="canSendNotification
+                        ? 'Avisar a contabilidad por WhatsApp'
+                        : 'Primero debes dejar el pendiente por comprobar en $0.00'"
+                    >
+                        <span
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-xl transition"
+                        :class="canSendNotification
+                            ? 'bg-emerald-500/15 text-emerald-700 group-hover:bg-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300'
+                            : 'bg-slate-200/70 text-slate-400 dark:bg-white/10 dark:text-neutral-500'"
+                        >
+                        <MessageCircle class="h-4 w-4" />
+                        </span>
+                        WhatsApp
+                    </button>
 
-                <button
-                  v-if="canNotify"
-                  type="button"
-                  class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                         border border-sky-300/30 bg-sky-500/10 text-slate-900
-                         hover:bg-sky-500/15 hover:shadow-sm hover:-translate-y-[1px]
-                         transition active:scale-[0.98]
-                         dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-white dark:hover:bg-sky-500/15"
-                  @click="notifyEmail"
-                >
-                  <Mail class="h-4 w-4" />
-                  Correo
-                </button>
-              </div>
+                    <button
+                        v-if="canNotify"
+                        type="button"
+                        :disabled="!canSendNotification"
+                        class="group inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
+                            border transition active:scale-[0.98]
+                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
+                        :class="canSendNotification
+                        ? 'border-sky-300/40 bg-sky-500/12 text-sky-700 hover:bg-sky-500/18 hover:shadow-md hover:-translate-y-[1px] dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/15'
+                        : 'border-slate-200/70 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-neutral-500'"
+                        @click="notifyEmail"
+                        :title="canSendNotification
+                        ? 'Avisar a contabilidad por correo'
+                        : 'Primero debes dejar el pendiente por comprobar en $0.00'"
+                    >
+                        <span
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-xl transition"
+                        :class="canSendNotification
+                            ? 'bg-sky-500/15 text-sky-700 group-hover:bg-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300'
+                            : 'bg-slate-200/70 text-slate-400 dark:bg-white/10 dark:text-neutral-500'"
+                        >
+                        <Mail class="h-4 w-4" />
+                        </span>
+                        Correo
+                    </button>
+                    </div>
+
+                    <div v-if="canNotify" class="w-full sm:max-w-md text-right text-justify">
+                    <div class="text-sm leading-5 text-slate-600 dark:text-neutral-300">
+                        ¿Quieres una respuesta más rápida? Comunícate con el departamento de contabilidad para una pronta respuesta.
+                    </div>
+
+                    <div
+                        v-if="!canSendNotification"
+                        class="mt-1 text-xs font-bold text-amber-600 dark:text-amber-400"
+                    >
+                        Estos botones se habilitan cuando el pendiente por comprobar sea {{ money(0) }}.
+                    </div>
+                    </div>
+                </div>
+                </div>
             </div>
 
             <!-- PANEL INLINE: FOLIOS -->
@@ -471,14 +515,15 @@ const {
                       <td v-if="canReview" class="px-5 py-3 align-top">
                         <div class="flex items-center justify-end gap-2">
                           <button
+                            v-if="!isFinalizada"
                             type="button"
-                            class="inline-flex items-center justify-center h-9 w-9 rounded-2xl
-                                   border border-emerald-200 bg-emerald-50 hover:bg-emerald-100
-                                   dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15
-                                   transition active:scale-[0.98]"
+                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
+                                    border border-emerald-200 bg-emerald-50 hover:bg-emerald-100
+                                    dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15
+                                    transition active:scale-[0.98]"
                             title="Aprobar"
                             @click="approve(c.id)"
-                          >
+                            >
                             <Check class="h-4 w-4 text-emerald-700 dark:text-emerald-200" />
                           </button>
 
@@ -596,14 +641,15 @@ const {
                       <div class="text-[11px] font-black text-slate-600 dark:text-neutral-300">Acciones</div>
                       <div class="mt-2 flex items-center justify-end gap-2">
                         <button
-                          type="button"
-                          class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
-                                 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100
-                                 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15
-                                 transition active:scale-[0.98]"
-                          title="Aprobar"
-                          @click="approve(c.id)"
-                        >
+                            v-if="!isFinalizada"
+                            type="button"
+                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
+                                    border border-emerald-200 bg-emerald-50 hover:bg-emerald-100
+                                    dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15
+                                    transition active:scale-[0.98]"
+                            title="Aprobar"
+                            @click="approve(c.id)"
+                            >
                           <Check class="h-4 w-4 text-emerald-700 dark:text-emerald-200" />
                         </button>
 
@@ -656,25 +702,37 @@ const {
                     <div
                       class="mt-1 rounded-3xl border bg-white/80 dark:bg-neutral-950/40 p-3 select-none
                              transition duration-200 hover:shadow-sm hover:-translate-y-[1px] min-w-0"
-                      :class="dragActive
-                        ? 'border-indigo-400/60 ring-2 ring-indigo-500/20 dark:border-indigo-400/40'
-                        : 'border-slate-200/70 dark:border-white/10'"
+                        :class="[
+                            dragActive
+                                ? 'border-indigo-400/60 ring-2 ring-indigo-500/20 dark:border-indigo-400/40'
+                                : 'border-slate-200/70 dark:border-white/10',
+                            !canUploadMore ? 'pointer-events-none opacity-60' : ''
+                        ]"
                       @dragenter="onDragEnter"
                       @dragover="onDragOver"
                       @dragleave="onDragLeave"
                       @drop="onDropFile"
                     >
                       <div class="flex items-center gap-3 min-w-0">
-                        <input :key="fileKey" id="comprobante-file" type="file" class="sr-only" @change="onPickFile" />
+                        <input
+                            :key="fileKey"
+                            id="comprobante-file"
+                            type="file"
+                            class="sr-only"
+                            :disabled="!canUploadMore"
+                            @change="onPickFile"
+                        />
 
                         <label
-                          for="comprobante-file"
-                          class="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-black
-                                 bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md
-                                 transition active:scale-[0.98] cursor-pointer shrink-0"
-                        >
-                          <Upload class="h-4 w-4" />
-                          Seleccionar archivo
+                            for="comprobante-file"
+                            class="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-black
+                                    transition active:scale-[0.98] shrink-0"
+                            :class="canUploadMore
+                                ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md cursor-pointer'
+                                : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
+                            >
+                            <Upload class="h-4 w-4" />
+                            Seleccionar archivo
                         </label>
 
                         <div class="min-w-0 flex-1">
@@ -688,6 +746,10 @@ const {
                           <div class="text-[12px] text-slate-500 dark:text-neutral-400">
                             {{ dragActive ? 'Suelta aquí para adjuntar.' : (hasPicked ? 'Listo para subir.' : 'Adjunta el comprobante correspondiente.') }}
                           </div>
+
+                            <div v-if="!canUploadMore" class="mt-2 text-xs font-bold text-rose-600">
+                                Esta requisición ya fue comprobada completamente. Ya no puedes subir más comprobantes.
+                            </div>
                         </div>
 
                         <button
@@ -770,6 +832,7 @@ const {
                         v-model="form.monto"
                         type="number"
                         step="0.01"
+                        :disabled="!canUploadMore"
                         :class="inputBase"
                         class="mt-1"
                         placeholder="0.00"
@@ -798,14 +861,16 @@ const {
 
                       <button
                         type="button"
+                        :disabled="!canUploadMore"
                         class="mt-1 w-full rounded-2xl border px-4 py-3 text-sm font-semibold text-left
-                               bg-white/90 text-slate-900 hover:bg-slate-50 hover:shadow-sm
-                               dark:bg-neutral-950/40 dark:text-neutral-100 dark:hover:bg-white/5
-                               border-slate-200/70 dark:border-white/10
-                               focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/40
-                               transition active:scale-[0.99]"
-                        @click="tipoOpen = !tipoOpen"
-                      >
+                                bg-white/90 text-slate-900 hover:bg-slate-50 hover:shadow-sm
+                                dark:bg-neutral-950/40 dark:text-neutral-100 dark:hover:bg-white/5
+                                border-slate-200/70 dark:border-white/10
+                                focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/40
+                                transition active:scale-[0.99]
+                                disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white/90 disabled:hover:shadow-none"
+                        @click="canUploadMore && (tipoOpen = !tipoOpen)"
+                        >
                         <div class="flex items-center justify-between gap-2 min-w-0">
                           <span class="truncate">
                             {{ tipoSelected?.nombre ?? 'Selecciona tipo' }}
@@ -861,7 +926,11 @@ const {
                         Fecha del comprobante
                       </label>
 
-                      <DatePickerShadcn v-model="form.fecha_emision" placeholder="Selecciona fecha" />
+                      <DatePickerShadcn
+                        v-model="form.fecha_emision"
+                        placeholder="Selecciona fecha"
+                        :disabled="!canUploadMore"
+                        />
 
                       <div v-if="form.errors.fecha_emision" class="mt-1 text-xs font-bold text-rose-600">
                         {{ form.errors.fecha_emision }}
@@ -895,7 +964,7 @@ const {
           <!-- RIGHT -->
           <div ref="previewWrapRef" class="xl:col-span-4 2xl:col-span-5 min-w-0 space-y-4">
             <!-- CTA Ajustes (bien puesto, no “colgando”) -->
-            <div class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-4">
+            <div v-if="!isFinalizada" class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-4">
               <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0">
                   <p class="font-black text-slate-900 dark:text-white">
@@ -907,13 +976,13 @@ const {
                 </div>
 
                 <Link
-                  :href="route('requisiciones.ajustes', req.id)"
-                  class="shrink-0 inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-black
-                         bg-slate-900 text-white hover:bg-slate-800 hover:shadow-sm hover:-translate-y-[1px]
-                         transition active:scale-[0.98]
-                         dark:bg-white dark:text-slate-900 dark:hover:bg-neutral-200"
-                >
-                  Ir a Ajustes
+                    :href="route('requisiciones.ajustes', req.id)"
+                    class="shrink-0 inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-black
+                            bg-slate-900 text-white hover:bg-slate-800 hover:shadow-sm hover:-translate-y-[1px]
+                            transition active:scale-[0.98]
+                            dark:bg-white dark:text-slate-900 dark:hover:bg-neutral-200"
+                    >
+                    Ir a Ajustes
                 </Link>
               </div>
             </div>

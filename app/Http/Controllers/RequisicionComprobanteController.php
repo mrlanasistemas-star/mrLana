@@ -38,6 +38,7 @@ class RequisicionComprobanteController extends Controller {
                     'concepto' => $conceptoNombre ?: '—',
                     'monto_total' => (float) $requisicion->monto_total,
                     'solicitante_nombre' => $solicitante->name ?? '—',
+                    'status' => (string) ($requisicion->status ?? ''),
                     // Facturación (ajusta nombres si tu tabla usa otros)
                     'razon_social' => $corp->nombre ?? '—',
                     'rfc' => $corp->rfc ?? '—',
@@ -239,8 +240,14 @@ class RequisicionComprobanteController extends Controller {
         $data = $request->validate([
             'message' => ['required', 'string', 'max:2000'],
         ]);
-        $to = config('erp.notify_email');
-        abort_if(!$to, 500, 'Configura ERP_NOTIFY_EMAIL en .env');
+        $rawTo = env('REQUISICION_NOTIFY_TO');
+        abort_if(blank($rawTo), 500, 'Configura REQUISICION_NOTIFY_TO en .env');
+        $to = collect(explode(',', $rawTo))
+            ->map(fn ($email) => trim($email))
+            ->filter()
+            ->values()
+            ->all();
+        abort_if(empty($to), 500, 'No hay correos válidos en REQUISICION_NOTIFY_TO');
         Mail::to($to)->send(new RequisicionComprobacionesNotifyMail(
             requisicion: $requisicion,
             messageText: $data['message'],
