@@ -17,7 +17,7 @@ use App\Mail\ComprobanteRechazadoMail;
 class RequisicionComprobanteController extends Controller {
 
     public function create(Requisicion $requisicion) {
-        $solicitante = DB::table('users')->where('id', $requisicion->solicitante_id)->first();
+        $solicitante = DB::table('empleados')->where('id', $requisicion->solicitante_id)->first();
         $conceptoNombre = DB::table('conceptos')->where('id', $requisicion->concepto_id)->value('nombre');
         $corp = DB::table('corporativos')->where('id', $requisicion->comprador_corp_id)->first();
         $comprobantes = DB::table('comprobantes')
@@ -37,7 +37,9 @@ class RequisicionComprobanteController extends Controller {
                     'folio' => $requisicion->folio,
                     'concepto' => $conceptoNombre ?: '—',
                     'monto_total' => (float) $requisicion->monto_total,
-                    'solicitante_nombre' => $solicitante->name ?? '—',
+                    'solicitante_nombre' => $solicitante
+                    ? trim(($solicitante->nombre ?? '') . ' ' . ($solicitante->apellido ?? ''))
+                    : '—',
                     'status' => (string) ($requisicion->status ?? ''),
                     // Facturación (ajusta nombres si tu tabla usa otros)
                     'razon_social' => $corp->nombre ?? '—',
@@ -229,7 +231,9 @@ class RequisicionComprobanteController extends Controller {
     }
 
     private function getSolicitanteEmail(Requisicion $requisicion): ?string {
-        $user = DB::table('users')->where('id', $requisicion->solicitante_id)->first();
+        $user = DB::table('users')
+            ->where('empleado_id', $requisicion->solicitante_id)
+            ->first();
         $email = $user->email ?? null;
         return $email && filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
     }
