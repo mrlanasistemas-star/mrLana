@@ -188,7 +188,9 @@ const pendienteCents = computed(() => Math.max(0, totalCents.value - approvedCen
 const isFullyApproved = computed(() => pendienteCents.value <= 0)
 
 const canUploadMore = computed(() => {
-  return role.value === 'COLABORADOR' && !isFullyApproved.value && !isFinalizada.value
+  return ['COLABORADOR', 'ADMIN', 'CONTADOR'].includes(role.value)
+    && !isFullyApproved.value
+    && !isFinalizada.value
 })
 
 // (Opcional) si quieres seguir mostrando “pendiente por cargar”
