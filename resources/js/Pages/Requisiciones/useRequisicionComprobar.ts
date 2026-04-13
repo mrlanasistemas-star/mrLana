@@ -187,24 +187,31 @@ const pendienteCents = computed(() => Math.max(0, totalCents.value - approvedCen
 
 const isFullyApproved = computed(() => pendienteCents.value <= 0)
 
+const nonRejectedCents = computed(() =>
+  rows.value.reduce((acc, c) => {
+    const est = String(c?.estatus ?? '').toUpperCase()
+    if (est === 'RECHAZADO') return acc
+    return acc + toCents(c?.monto ?? 0)
+  }, 0),
+)
+
+const pendientePorCargarCents = computed(() =>
+  Math.max(0, totalCents.value - nonRejectedCents.value),
+)
+
+const isFullyLoaded = computed(() => pendientePorCargarCents.value <= 0)
+
 const canUploadMore = computed(() => {
   return ['COLABORADOR', 'ADMIN', 'CONTADOR'].includes(role.value)
     && !isFullyLoaded.value
     && !isFinalizada.value
 })
 
-// (Opcional) si quieres seguir mostrando “pendiente por cargar”
-const loadedCents = computed(() =>
-  rows.value.reduce((acc, c) => acc + toCents(c?.monto ?? 0), 0),
-)
-const pendientePorCargarCents = computed(() => Math.max(0, totalCents.value - loadedCents.value))
-
   /** =========================================================
    * Autocompletar monto con el pendiente (tu intención original)
    * ========================================================= */
   const montoTouched = ref(false)
   const centsToFixed = (c: number) => (c / 100).toFixed(2)
-  const isFullyLoaded = computed(() => pendientePorCargarCents.value <= 0)
 
   const syncMontoToPendiente = () => {
     form.monto = centsToFixed(pendientePorCargarCents.value)

@@ -101,8 +101,10 @@ class RequisicionComprobanteController extends Controller {
         ]);
         return DB::transaction(function () use ($data, $request, $requisicion) {
             // Pendiente contra lo ya cargado (sum de monto)
-            $sumCargados = (float) $requisicion->comprobantes()->sum('monto');
-            $pendiente = max(0, (float) $requisicion->monto_total - $sumCargados);
+            $sumNoRechazados = (float) $requisicion->comprobantes()
+                ->where('estatus', '!=', 'RECHAZADO')
+                ->sum('monto');
+            $pendiente = max(0, (float) $requisicion->monto_total - $sumNoRechazados);
             $monto = round((float) $data['monto'], 2);
             // No exceder pendiente
             if ($pendiente > 0 && $monto > ($pendiente + 0.00001)) {
