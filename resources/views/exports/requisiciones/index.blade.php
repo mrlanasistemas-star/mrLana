@@ -8,7 +8,7 @@
     @page { margin: 18px 18px 44px 18px; }
 
     * { font-family: DejaVu Sans, sans-serif; }
-    body { font-size: 10.5px; color: #111827; }
+    body { font-size: 9.5px; color: #111827; }
 
     .muted { color: #6b7280; }
     .strong { font-weight: 800; }
@@ -60,7 +60,7 @@
       white-space: nowrap;
     }
 
-    .content { margin-top: 90px; }
+    .content { margin-top: 105px; }
 
     table.report {
       width: 100%;
@@ -145,107 +145,107 @@
   @endphp
 
   <div class="header">
-    <table class="hwrap">
-      <tr>
-        <td style="width: 70%;">
-          <div class="title">{{ $meta['title'] ?? 'Reporte de Requisiciones' }}</div>
-          <div class="subtitle muted">{{ $meta['subtitle'] ?? 'Exportación con filtros actuales' }}</div>
+    <table class="report">
+  <thead>
+    <tr>
+      <th style="width: 14%;">Folio / Estatus</th>
+      <th style="width: 20%;">Origen</th>
+      <th style="width: 18%;">Proveedor</th>
+      <th style="width: 16%;">Concepto</th>
+      <th style="width: 20%;">Descripción / Observación</th>
+      <th style="width: 12%;" class="right">Importes</th>
+    </tr>
+  </thead>
 
-          @if(!empty($filters) && is_array($filters))
-            <div class="filters">
-              @foreach($filters as $k => $v)
-                @php $vv = is_array($v) ? implode(', ', $v) : (string)$v; @endphp
-                @if(trim($vv) !== '')
-                  <span class="pill"><span class="strong">{{ $k }}:</span> <span class="muted">{{ $vv }}</span></span>
-                @endif
-              @endforeach
+  <tbody>
+    @forelse(($rows ?? []) as $r)
+      <tr class="{{ ($r['row_kind'] ?? '') === 'AJUSTE' ? 'row-ajuste' : '' }}">
+        <td>
+          <div class="strong">{{ $r['folio'] ?? '—' }}</div>
+          @if(!empty($r['estatus']))
+            <div class="small muted">{{ $r['estatus'] }}</div>
+          @endif
+          @if(!empty($r['tipo']))
+            <div class="small muted">{{ $r['tipo'] }}</div>
+          @endif
+          @if(!empty($r['fecha_captura']))
+            <div class="small muted">Cap: {{ \Carbon\Carbon::parse($r['fecha_captura'])->format('Y-m-d') }}</div>
+          @endif
+          @if(!empty($r['fecha_solicitud']))
+            <div class="small muted">Entrega: {{ $r['fecha_solicitud'] }}</div>
+          @endif
+        </td>
+
+        <td>
+          @if(!empty($r['corporativo']))
+            <div class="strong">{{ $r['corporativo'] }}</div>
+          @endif
+          @if(!empty($r['sucursal']))
+            <div>{{ $r['sucursal'] }}</div>
+          @endif
+          @if(!empty($r['sucursal_codigo']))
+            <div class="small muted">Código: {{ $r['sucursal_codigo'] }}</div>
+          @endif
+          @if(!empty($r['solicitante']))
+            <div class="small muted">Solicita: {{ $r['solicitante'] }}</div>
+          @endif
+        </td>
+
+        <td>
+          <div>{{ $r['proveedor'] ?? '—' }}</div>
+          @if(!empty($r['proveedor_rfc']))
+            <div class="small muted">RFC: {{ $r['proveedor_rfc'] }}</div>
+          @endif
+        </td>
+
+        <td>
+          {{ $r['concepto'] ?? '—' }}
+        </td>
+
+        <td>
+          <div>{{ $r['descripcion_item'] ?? '' }}</div>
+          @if(!empty($r['observaciones']))
+            <div class="small muted" style="margin-top: 4px;">
+              Obs: {{ $r['observaciones'] }}
             </div>
           @endif
         </td>
 
-        <td style="width: 30%;" class="metaBox">
-          <div class="metaLine"><b>Generado:</b> {{ $meta['generated_at'] ?? now()->format('Y-m-d H:i') }}</div>
-          @if(!empty($meta['generated_by']))
-            <div class="metaLine"><b>Por:</b> {{ $meta['generated_by'] }}</div>
+        <td class="right nowrap">
+          @if(isset($r['cantidad']) && $r['cantidad'] !== '')
+            <div class="small muted">Cant: {{ $r['cantidad'] }}</div>
           @endif
-          <div class="metaLine"><b>Subtotal items:</b> {{ $money($sumSubtotal) }}</div>
-          <div class="metaLine"><b>IVA items:</b> {{ $money($sumIva) }}</div>
-          <div class="metaLine"><b>Total items:</b> {{ $money($sumTotalItems) }}</div>
-          <div class="metaLine"><b>Ajustes netos:</b> {{ $money($sumAjustesNetos) }}</div>
-          <div class="metaLine"><b>Total final:</b> {{ $money($sumTotalFinal) }}</div>
+
+          @if(isset($r['total_item']) && $r['total_item'] !== '')
+            <div>Ítem: {{ number_format((float)$r['total_item'], 2, '.', ',') }}</div>
+          @endif
+
+          @if(isset($r['subtotal']) && $r['subtotal'] !== '')
+            <div class="small muted">Sub: {{ number_format((float)$r['subtotal'], 2, '.', ',') }}</div>
+          @endif
+
+          @if(isset($r['iva']) && $r['iva'] !== '')
+            <div class="small muted">IVA: {{ number_format((float)$r['iva'], 2, '.', ',') }}</div>
+          @endif
+
+          @if(isset($r['ajustes_netos']) && $r['ajustes_netos'] !== '')
+            <div class="small muted">Ajuste: {{ number_format((float)$r['ajustes_netos'], 2, '.', ',') }}</div>
+          @endif
+
+          @if(isset($r['total_final']) && $r['total_final'] !== '')
+            <div class="strong">Final: {{ number_format((float)$r['total_final'], 2, '.', ',') }}</div>
+          @endif
         </td>
       </tr>
-    </table>
-  </div>
-
-  <br><br>
-
-  <div class="content">
-    <table class="report">
-      <thead>
-        <tr>
-          <th class="c-folio">Folio</th>
-          <th class="c-prov">Proveedor</th>
-          <th class="c-conc">Concepto</th>
-          <th class="c-qty right">Cantidad</th>
-          <th class="c-desc">Descripción</th>
-          <th class="c-price right">P.Unit</th>
-          <th class="c-iva-item right">IVA item</th>
-          <th class="c-total-item right">Total item</th>
-          <th class="c-subreq right">Subtotal req.</th>
-          <th class="c-ivareq right">IVA req.</th>
-          <th class="c-totreq right">Total items req.</th>
-          <th class="c-ajuste right">Ajuste neto</th>
-          <th class="c-final right">Total final</th>
-          <th class="c-cap">Captura</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        @forelse(($rows ?? []) as $r)
-          <tr class="{{ ($r['row_kind'] ?? '') === 'AJUSTE' ? 'row-ajuste' : '' }}">
-            <td class="c-folio">{{ $r['folio'] ?? '—' }}</td>
-            <td class="c-prov cut">{{ $r['proveedor'] ?? '—' }}</td>
-            <td class="c-conc cut">{{ $r['concepto'] ?? '—' }}</td>
-            <td class="c-qty right nowrap">{{ $r['cantidad'] ?? '' }}</td>
-            <td class="c-desc cut">{{ $r['descripcion_item'] ?? '' }}</td>
-            <td class="c-price right nowrap">
-              {{ isset($r['precio_unitario']) && $r['precio_unitario'] !== '' ? number_format((float)$r['precio_unitario'], 2, '.', ',') : '' }}
-            </td>
-            <td class="c-iva-item right nowrap">
-              {{ isset($r['iva_item']) && $r['iva_item'] !== '' ? number_format((float)$r['iva_item'], 2, '.', ',') : '' }}
-            </td>
-            <td class="c-total-item right nowrap">
-              {{ isset($r['total_item']) && $r['total_item'] !== '' ? number_format((float)$r['total_item'], 2, '.', ',') : '' }}
-            </td>
-            <td class="c-subreq right nowrap">
-              {{ isset($r['subtotal']) && $r['subtotal'] !== '' ? number_format((float)$r['subtotal'], 2, '.', ',') : '' }}
-            </td>
-            <td class="c-ivareq right nowrap">
-              {{ isset($r['iva']) && $r['iva'] !== '' ? number_format((float)$r['iva'], 2, '.', ',') : '' }}
-            </td>
-            <td class="c-totreq right nowrap">
-              {{ isset($r['total']) && $r['total'] !== '' ? number_format((float)$r['total'], 2, '.', ',') : '' }}
-            </td>
-            <td class="c-ajuste right nowrap">
-              {{ isset($r['ajustes_netos']) && $r['ajustes_netos'] !== '' ? number_format((float)$r['ajustes_netos'], 2, '.', ',') : '' }}
-            </td>
-            <td class="c-final right nowrap">
-              {{ isset($r['total_final']) && $r['total_final'] !== '' ? number_format((float)$r['total_final'], 2, '.', ',') : '' }}
-            </td>
-            <td class="c-cap nowrap small">
-              {{ isset($r['fecha_captura']) && $r['fecha_captura'] !== '' ? \Carbon\Carbon::parse($r['fecha_captura'])->format('Y-m-d') : '—' }}
-            </td>
-          </tr>
-        @empty
-          <tr>
-            <td colspan="14" class="muted" style="padding:10px;">
-              Sin resultados con los filtros actuales.
-            </td>
-          </tr>
-        @endforelse
-      </tbody>
-    </table>
+    @empty
+      <tr>
+        <td colspan="6" class="muted" style="padding:10px;">
+          Sin resultados con los filtros actuales.
+        </td>
+      </tr>
+    @endforelse
+  </tbody>
+</table>
   </div>
 
   <script type="text/php">

@@ -62,7 +62,8 @@ class RequisicionController extends Controller {
         $query = Requisicion::query()
             ->with([
                 'sucursal:id,nombre,codigo,corporativo_id',
-                'solicitante:id,nombre,apellido_paterno,apellido_materno',
+                'sucursal.corporativo:id,nombre',
+                'solicitante:id,nombre,apellido_paterno,apellido_materno,puesto',
                 'proveedor:id,razon_social,rfc,clabe,banco,status',
                 'concepto:id,nombre',
                 'comprador:id,nombre',
@@ -112,7 +113,11 @@ class RequisicionController extends Controller {
                     ->orWhereHas('proveedor', fn($p) => $p->where('razon_social', 'like', "%{$q}%"))
                     ->orWhereHas('concepto', fn($c) => $c->where('nombre', 'like', "%{$q}%"))
                     ->orWhereHas('comprador', fn($c) => $c->where('nombre', 'like', "%{$q}%"))
-                    ->orWhereHas('sucursal', fn($s) => $s->where('nombre', 'like', "%{$q}%"));
+                    ->orWhereHas('sucursal', fn($s) => $s
+                        ->where('nombre', 'like', "%{$q}%")
+                        ->orWhere('codigo', 'like', "%{$q}%")
+                    )
+                    ->orWhereHas('sucursal.corporativo', fn($c) => $c->where('nombre', 'like', "%{$q}%"));
             });
         }
 

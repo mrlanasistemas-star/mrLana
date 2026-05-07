@@ -13,10 +13,9 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
-class RequisicionExportController
-{
-    public function excel(Request $request)
-    {
+class RequisicionExportController {
+
+    public function excel(Request $request) {
         $rows    = $this->buildRows($request);
         $filters = $this->presentFilters($request);
 
@@ -34,8 +33,7 @@ class RequisicionExportController
         );
     }
 
-    public function pdf(Request $request)
-    {
+    public function pdf(Request $request) {
         $rows    = $this->buildRows($request);
         $filters = $this->presentFilters($request);
 
@@ -65,8 +63,7 @@ class RequisicionExportController
      *   se agrega UNA sola fila adicional con descripción "AJUSTE".
      * - No se agregan ajustes uno por uno.
      */
-    private function buildRows(Request $request): array
-    {
+    private function buildRows(Request $request): array {
         $q             = trim((string) $request->query('q', ''));
         $tab           = strtoupper((string) $request->query('tab', 'ACTIVAS'));
         $status        = (string) $request->query('status', '');
@@ -165,54 +162,69 @@ class RequisicionExportController
             $ajusteNeto = round($totalReq - $totalItems, 2);
 
             $common = [
-                'folio'         => $req->folio,
-                'fecha_captura' => optional($req->created_at)->format('Y-m-d H:i'),
-                'tipo'          => $req->tipo,
-                'estatus'       => $req->status,
-                'comprador'     => $req->comprador?->nombre,
-                'corporativo'   => $req->sucursal?->corporativo?->nombre,
-                'sucursal'      => $req->sucursal?->nombre,
-                'solicitante'   => $req->solicitante
+                'folio'           => $req->folio,
+                'fecha_captura'   => optional($req->created_at)->format('Y-m-d H:i'),
+                'fecha_solicitud' => $req->fecha_solicitud ? optional($req->fecha_solicitud)->format('Y-m-d') : '',
+                'fecha_pago'      => $req->fecha_pago ? optional($req->fecha_pago)->format('Y-m-d') : '',
+                'tipo'            => $req->tipo,
+                'estatus'         => $req->status,
+
+                'comprador'       => $req->comprador?->nombre,
+                'corporativo'     => $req->sucursal?->corporativo?->nombre ?: $req->comprador?->nombre,
+                'sucursal'        => $req->sucursal?->nombre,
+                'sucursal_codigo' => $req->sucursal?->codigo,
+
+                'solicitante'     => $req->solicitante
                     ? trim($req->solicitante->nombre . ' ' . $req->solicitante->apellido_paterno . ' ' . ($req->solicitante->apellido_materno ?? ''))
                     : '',
-                'proveedor'     => $req->proveedor?->razon_social,
-                'concepto'      => $req->concepto?->nombre,
-                'fecha_pago'    => $req->fecha_pago ? optional($req->fecha_pago)->format('Y-m-d') : '',
-                'subtotal'      => $subtotalReq,
-                'iva'           => $ivaReq,
-                'total'         => $totalItems,     // total de items
-                'ajustes_netos' => $ajusteNeto,     // diferencia neta
-                'total_final'   => $totalReq,       // total final real de la requisición
+
+                'proveedor'       => $req->proveedor?->razon_social,
+                'proveedor_rfc'   => $req->proveedor?->rfc,
+
+                'concepto'        => $req->concepto?->nombre,
+                'observaciones'   => $req->observaciones,
+
+                'subtotal'        => $subtotalReq,
+                'iva'             => $ivaReq,
+                'total'           => $totalItems,
+                'ajustes_netos'   => $ajusteNeto,
+                'total_final'     => $totalReq,
             ];
 
             $printedHeader = false;
 
             foreach ($detalles as $detalle) {
                 $rows[] = [
-                    'folio'           => !$printedHeader ? $common['folio'] : '',
-                    'fecha_captura'   => !$printedHeader ? $common['fecha_captura'] : '',
-                    'tipo'            => !$printedHeader ? $common['tipo'] : '',
-                    'estatus'         => !$printedHeader ? $common['estatus'] : '',
-                    'comprador'       => !$printedHeader ? $common['comprador'] : '',
-                    'corporativo'     => !$printedHeader ? $common['corporativo'] : '',
-                    'sucursal'        => !$printedHeader ? $common['sucursal'] : '',
-                    'solicitante'     => !$printedHeader ? $common['solicitante'] : '',
-                    'proveedor'       => !$printedHeader ? $common['proveedor'] : '',
-                    'concepto'        => !$printedHeader ? $common['concepto'] : '',
-                    'fecha_pago'      => !$printedHeader ? $common['fecha_pago'] : '',
-                    'cantidad'        => (float) ($detalle->cantidad ?? 0),
-                    'descripcion_item'=> (string) ($detalle->descripcion ?? ''),
-                    'precio_unitario' => (float) ($detalle->precio_unitario ?? 0),
-                    'genera_iva'      => !empty($detalle->genera_iva) ? 'Sí' : 'No',
-                    'subtotal_item'   => (float) ($detalle->subtotal ?? 0),
-                    'iva_item'        => (float) ($detalle->iva ?? 0),
-                    'total_item'      => (float) ($detalle->total ?? 0),
-                    'subtotal'        => !$printedHeader ? $common['subtotal'] : '',
-                    'iva'             => !$printedHeader ? $common['iva'] : '',
-                    'total'           => !$printedHeader ? $common['total'] : '',
-                    'ajustes_netos'   => !$printedHeader ? $common['ajustes_netos'] : '',
-                    'total_final'     => !$printedHeader ? $common['total_final'] : '',
-                    'row_kind'        => 'ITEM',
+                    'folio'             => !$printedHeader ? $common['folio'] : '',
+                    'fecha_captura'     => !$printedHeader ? $common['fecha_captura'] : '',
+                    'fecha_solicitud'   => !$printedHeader ? $common['fecha_solicitud'] : '',
+                    'fecha_pago'        => !$printedHeader ? $common['fecha_pago'] : '',
+                    'tipo'              => !$printedHeader ? $common['tipo'] : '',
+                    'estatus'           => !$printedHeader ? $common['estatus'] : '',
+                    'comprador'         => !$printedHeader ? $common['comprador'] : '',
+                    'corporativo'       => !$printedHeader ? $common['corporativo'] : '',
+                    'sucursal'          => !$printedHeader ? $common['sucursal'] : '',
+                    'sucursal_codigo'   => !$printedHeader ? $common['sucursal_codigo'] : '',
+                    'solicitante'       => !$printedHeader ? $common['solicitante'] : '',
+                    'proveedor'         => !$printedHeader ? $common['proveedor'] : '',
+                    'proveedor_rfc'     => !$printedHeader ? $common['proveedor_rfc'] : '',
+                    'concepto'          => !$printedHeader ? $common['concepto'] : '',
+                    'observaciones'     => !$printedHeader ? $common['observaciones'] : '',
+
+                    'cantidad'          => (float) ($detalle->cantidad ?? 0),
+                    'descripcion_item'  => (string) ($detalle->descripcion ?? ''),
+                    'precio_unitario'   => (float) ($detalle->precio_unitario ?? 0),
+                    'genera_iva'        => !empty($detalle->genera_iva) ? 'Sí' : 'No',
+                    'subtotal_item'     => (float) ($detalle->subtotal ?? 0),
+                    'iva_item'          => (float) ($detalle->iva ?? 0),
+                    'total_item'        => (float) ($detalle->total ?? 0),
+
+                    'subtotal'          => !$printedHeader ? $common['subtotal'] : '',
+                    'iva'               => !$printedHeader ? $common['iva'] : '',
+                    'total'             => !$printedHeader ? $common['total'] : '',
+                    'ajustes_netos'     => !$printedHeader ? $common['ajustes_netos'] : '',
+                    'total_final'       => !$printedHeader ? $common['total_final'] : '',
+                    'row_kind'          => 'ITEM',
                 ];
 
                 $printedHeader = true;
@@ -221,30 +233,36 @@ class RequisicionExportController
             // Si no hubo detalles, igual metemos una fila base vacía
             if (!$printedHeader) {
                 $rows[] = [
-                    'folio'           => $common['folio'],
-                    'fecha_captura'   => $common['fecha_captura'],
-                    'tipo'            => $common['tipo'],
-                    'estatus'         => $common['estatus'],
-                    'comprador'       => $common['comprador'],
-                    'corporativo'     => $common['corporativo'],
-                    'sucursal'        => $common['sucursal'],
-                    'solicitante'     => $common['solicitante'],
-                    'proveedor'       => $common['proveedor'],
-                    'concepto'        => $common['concepto'],
-                    'fecha_pago'      => $common['fecha_pago'],
-                    'cantidad'        => '',
-                    'descripcion_item'=> '',
-                    'precio_unitario' => '',
-                    'genera_iva'      => '',
-                    'subtotal_item'   => '',
-                    'iva_item'        => '',
-                    'total_item'      => '',
-                    'subtotal'        => $common['subtotal'],
-                    'iva'             => $common['iva'],
-                    'total'           => $common['total'],
-                    'ajustes_netos'   => $common['ajustes_netos'],
-                    'total_final'     => $common['total_final'],
-                    'row_kind'        => 'BASE',
+                    'folio'             => $common['folio'],
+                    'fecha_captura'     => $common['fecha_captura'],
+                    'fecha_solicitud'   => $common['fecha_solicitud'],
+                    'fecha_pago'        => $common['fecha_pago'],
+                    'tipo'              => $common['tipo'],
+                    'estatus'           => $common['estatus'],
+                    'comprador'         => $common['comprador'],
+                    'corporativo'       => $common['corporativo'],
+                    'sucursal'          => $common['sucursal'],
+                    'sucursal_codigo'   => $common['sucursal_codigo'],
+                    'solicitante'       => $common['solicitante'],
+                    'proveedor'         => $common['proveedor'],
+                    'proveedor_rfc'     => $common['proveedor_rfc'],
+                    'concepto'          => $common['concepto'],
+                    'observaciones'     => $common['observaciones'],
+
+                    'cantidad'          => '',
+                    'descripcion_item'  => '',
+                    'precio_unitario'   => '',
+                    'genera_iva'        => '',
+                    'subtotal_item'     => '',
+                    'iva_item'          => '',
+                    'total_item'        => '',
+
+                    'subtotal'          => $common['subtotal'],
+                    'iva'               => $common['iva'],
+                    'total'             => $common['total'],
+                    'ajustes_netos'     => $common['ajustes_netos'],
+                    'total_final'       => $common['total_final'],
+                    'row_kind'          => 'BASE',
                 ];
 
                 $printedHeader = true;
@@ -253,30 +271,36 @@ class RequisicionExportController
             // Agrega SOLO una fila general de ajuste, si la diferencia neta existe
             if (abs($ajusteNeto) > 0.00001) {
                 $rows[] = [
-                    'folio'           => '',
-                    'fecha_captura'   => '',
-                    'tipo'            => '',
-                    'estatus'         => '',
-                    'comprador'       => '',
-                    'corporativo'     => '',
-                    'sucursal'        => '',
-                    'solicitante'     => '',
-                    'proveedor'       => '',
-                    'concepto'        => '',
-                    'fecha_pago'      => '',
-                    'cantidad'        => 1,
-                    'descripcion_item'=> 'AJUSTE',
-                    'precio_unitario' => $ajusteNeto,
-                    'genera_iva'      => 'No',
-                    'subtotal_item'   => $ajusteNeto,
-                    'iva_item'        => 0,
-                    'total_item'      => $ajusteNeto,
-                    'subtotal'        => '',
-                    'iva'             => '',
-                    'total'           => '',
-                    'ajustes_netos'   => '',
-                    'total_final'     => '',
-                    'row_kind'        => 'AJUSTE',
+                    'folio'             => '',
+                    'fecha_captura'     => '',
+                    'fecha_solicitud'   => '',
+                    'fecha_pago'        => '',
+                    'tipo'              => '',
+                    'estatus'           => '',
+                    'comprador'         => '',
+                    'corporativo'       => '',
+                    'sucursal'          => '',
+                    'sucursal_codigo'   => '',
+                    'solicitante'       => '',
+                    'proveedor'         => '',
+                    'proveedor_rfc'     => '',
+                    'concepto'          => '',
+                    'observaciones'     => '',
+
+                    'cantidad'          => 1,
+                    'descripcion_item'  => 'AJUSTE',
+                    'precio_unitario'   => $ajusteNeto,
+                    'genera_iva'        => 'No',
+                    'subtotal_item'     => $ajusteNeto,
+                    'iva_item'          => 0,
+                    'total_item'        => $ajusteNeto,
+
+                    'subtotal'          => '',
+                    'iva'               => '',
+                    'total'             => '',
+                    'ajustes_netos'     => '',
+                    'total_final'       => '',
+                    'row_kind'          => 'AJUSTE',
                 ];
             }
         }
@@ -284,8 +308,7 @@ class RequisicionExportController
         return $rows;
     }
 
-    private function presentFilters(Request $request): array
-    {
+    private function presentFilters(Request $request): array {
         $sortRaw = (string) $request->query('sort', 'created_at');
         $sort    = $this->normalizeSort($sortRaw);
 
@@ -349,14 +372,12 @@ class RequisicionExportController
         ], fn ($v) => $v !== null && $v !== '');
     }
 
-    private function safeYmd($v): ?string
-    {
+    private function safeYmd($v): ?string {
         if (!is_string($v) || $v === '') return null;
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
     }
 
-    private function normalizeSort(string $sort): string
-    {
+    private function normalizeSort(string $sort): string {
         $map = [
             'fecha_captura' => 'created_at',
             'createdAt'     => 'created_at',
@@ -367,9 +388,8 @@ class RequisicionExportController
             'tipo'          => 'tipo',
             'id'            => 'id',
         ];
-
         $sort = trim($sort);
-
         return $map[$sort] ?? 'created_at';
     }
+
 }
