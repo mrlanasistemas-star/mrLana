@@ -22,7 +22,16 @@ class RequisicionIndexRequest extends FormRequest {
             'proveedor_id'      => ['nullable', 'integer', 'min:1'],
             'fecha_from' => ['nullable', 'date_format:Y-m-d'],
             'fecha_to'   => ['nullable', 'date_format:Y-m-d', 'after_or_equal:fecha_from'],
-            'perPage' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'perPage' => [
+                'nullable',
+                function ($attribute, $value, $fail) {
+                    if ($value === 'all' || $value === 'todos' || is_numeric($value)) {
+                        return;
+                    }
+
+                    $fail('El valor de por página no es válido.');
+                },
+            ],
             'sort'    => ['nullable', 'string', 'max:40'],
             'dir'     => ['nullable', 'in:asc,desc'],
         ];

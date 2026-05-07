@@ -159,14 +159,17 @@ class RequisicionExportController {
             $sort = 'created_at';
         }
 
-        $perPage = (int) $request->query('perPage', 0);
+        $perPageRaw = $request->query('perPage', 0);
+        $showAll = $perPageRaw === 'all' || $perPageRaw === 'todos';
+
+        $perPage = $showAll ? 0 : (int) $perPageRaw;
         $page    = (int) $request->query('page', 0);
 
         $itemsQuery = $query
             ->orderBy($sort, $dir)
             ->orderBy('id', 'desc');
 
-        if ($perPage > 0 && $page > 0) {
+        if (!$showAll && $perPage > 0 && $page > 0) {
             $itemsQuery
                 ->skip(($page - 1) * $perPage)
                 ->take($perPage);

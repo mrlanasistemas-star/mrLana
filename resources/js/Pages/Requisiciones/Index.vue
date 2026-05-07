@@ -658,6 +658,7 @@ const scrollHide =
                                 <option :value="15">15</option>
                                 <option :value="20">20</option>
                                 <option :value="50">50</option>
+                                <option value="all">Todos</option>
                             </select>
                         </div>
 

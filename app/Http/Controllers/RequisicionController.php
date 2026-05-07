@@ -37,9 +37,18 @@ class RequisicionController extends Controller {
         $v = $request->validated();
         $raw = array_merge($request->query(), $v);
 
-        $perPage = (int)($raw['perPage'] ?? 10);
-        if ($perPage <= 0) $perPage = 10;
-        if ($perPage > 100) $perPage = 100;
+        $perPageRaw = $raw['perPage'] ?? 10;
+        $showAll = $perPageRaw === 'all' || $perPageRaw === 'todos';
+
+        $perPage = $showAll ? 999999 : (int) $perPageRaw;
+
+        if ($perPage <= 0) {
+            $perPage = 10;
+        }
+
+        if (!$showAll && $perPage > 100) {
+            $perPage = 100;
+        }
 
         $dir = strtolower((string)($raw['dir'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
         $sort = (string)($raw['sort'] ?? 'created_at');
@@ -156,7 +165,7 @@ class RequisicionController extends Controller {
                 'tipo' => $tipo,
                 'fecha_from' => $fechaFrom ?? '',
                 'fecha_to' => $fechaTo ?? '',
-                'perPage' => $perPage,
+                'perPage' => $showAll ? 'all' : $perPage,
                 'sort' => $this->denormalizeSortForUi($sort),
                 'dir' => $dir,
             ],
