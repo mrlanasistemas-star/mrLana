@@ -76,11 +76,18 @@ const {
     copyText,
 } = useRequisicionesIndex(props);
 
+const exportParams = computed(() => ({
+    ...(state as any),
+    page: meta.value?.current_page ?? 1,
+    perPage: state.perPage ?? meta.value?.per_page ?? 10,
+}));
+
 const exportPdfUrl = computed(
-    () => route("requisiciones.export.pdf") + toQS(state as any),
+    () => route("requisiciones.export.pdf") + toQS(exportParams.value),
 );
+
 const exportExcelUrl = computed(
-    () => route("requisiciones.export.excel") + toQS(state as any),
+    () => route("requisiciones.export.excel") + toQS(exportParams.value),
 );
 
 const pageSummary = computed(() => {

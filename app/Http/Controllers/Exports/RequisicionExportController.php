@@ -79,6 +79,9 @@ class RequisicionExportController {
         $sortRaw       = (string) $request->query('sort', 'created_at');
         $sort          = $this->normalizeSort($sortRaw);
 
+        $user = $request->user();
+        $rol  = strtoupper((string)($user->rol ?? 'COLABORADOR'));
+
         $query = Requisicion::query()
             ->with([
                 'sucursal:id,nombre,codigo,corporativo_id',
@@ -89,6 +92,14 @@ class RequisicionExportController {
                 'comprador:id,nombre',
                 'detalles',
             ]);
+
+        if ($rol === 'COLABORADOR') {
+            if ($user && $user->empleado_id) {
+                $query->where('solicitante_id', (int) $user->empleado_id);
+            } else {
+                $query->whereRaw('1=0');
+            }
+        }
 
         if ($status === 'ELIMINADA' || $tab === 'ELIMINADAS') {
             $query->where('status', 'ELIMINADA');
@@ -101,14 +112,20 @@ class RequisicionExportController {
                 case 'BORRADOR':
                     $query->where('status', 'BORRADOR');
                     break;
+
                 case 'CAPTURADAS':
                     $query->whereNotIn('status', ['BORRADOR', 'ELIMINADA']);
                     break;
+
                 case 'ELIMINADAS':
                     $query->where('status', 'ELIMINADA');
                     break;
+
                 case 'ACTIVAS':
                 default:
+                    if ($rol !== 'COLABORADOR') {
+                        $query->whereNotIn('status', ['BORRADOR', 'ELIMINADA']);
+                    }
                     break;
             }
         } else {
@@ -128,7 +145,9 @@ class RequisicionExportController {
 
         if (!empty($corpId))        $query->where('comprador_corp_id', (int) $corpId);
         if (!empty($sucursalId))    $query->where('sucursal_id', (int) $sucursalId);
-        if (!empty($solicitanteId)) $query->where('solicitante_id', (int) $solicitanteId);
+        if ($rol !== 'COLABORADOR' && !empty($solicitanteId)) {
+            $query->where('solicitante_id', (int) $solicitanteId);
+        }
         if (!empty($conceptoId))    $query->where('concepto_id', (int) $conceptoId);
         if (!empty($proveedorId))   $query->where('proveedor_id', (int) $proveedorId);
         if ($tipo !== '')           $query->where('tipo', $tipo);
@@ -140,10 +159,20 @@ class RequisicionExportController {
             $sort = 'created_at';
         }
 
-        $items = $query
+        $perPage = (int) $request->query('perPage', 0);
+        $page    = (int) $request->query('page', 0);
+
+        $itemsQuery = $query
             ->orderBy($sort, $dir)
-            ->orderBy('id', 'desc')
-            ->get();
+            ->orderBy('id', 'desc');
+
+        if ($perPage > 0 && $page > 0) {
+            $itemsQuery
+                ->skip(($page - 1) * $perPage)
+                ->take($perPage);
+        }
+
+        $items = $itemsQuery->get();
 
         $rows = [];
 
