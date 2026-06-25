@@ -30,21 +30,21 @@ class RequisicionesDataSheet extends BaseReportExport
             'RFC proveedor',
             'Concepto',
             'Observaciones',
-            'Fecha captura',
-            'Fecha entrega',
-            'Fecha pago',
+            'Fecha de registro',
+            'Fecha de solicitud',
+            'Fecha de pago',
             'Descripción',
             'Cantidad',
-            'P. unitario',
+            'Precio unitario',
             'Genera IVA',
             'Subtotal ítem',
             'IVA ítem',
             'Total ítem',
             'Subtotal requisición',
             'IVA requisición',
-            'Total items requisición',
+            'Total items req.',
             'Ajuste neto',
-            'Total final requisición',
+            'Total final req.',
         ];
     }
 
@@ -77,6 +77,23 @@ class RequisicionesDataSheet extends BaseReportExport
             'X' => 22,
             'Y' => 16,
             'Z' => 22,
+        ];
+    }
+
+    protected function columnFormats(): array
+    {
+        // S=subtotal_item, T=iva_item, U=total_item, V=subtotal_req, W=iva_req, X=total_items_req, Y=ajuste, Z=total_final
+        $currency = '"$"#,##0.00';
+        return [
+            'Q' => '#,##0.00',  // P. unitario
+            'S' => $currency,   // Subtotal ítem
+            'T' => $currency,   // IVA ítem
+            'U' => $currency,   // Total ítem
+            'V' => $currency,   // Subtotal req
+            'W' => $currency,   // IVA req
+            'X' => $currency,   // Total items req
+            'Y' => $currency,   // Ajuste neto
+            'Z' => $currency,   // Total final
         ];
     }
 

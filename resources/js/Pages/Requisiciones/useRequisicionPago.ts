@@ -1,20 +1,12 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { router, useForm, usePage} from '@inertiajs/vue3'
 import type { RequisicionPagoPageProps, PagoRow } from './Pagar.types'
+import { formatDateOnlyEsMx } from '@/Utils/date'
 
 declare const route: any
 
 type PreviewKind = 'pdf' | 'image' | 'other'
 type Preview = { url: string; name: string; kind: PreviewKind }
-
-function normalizeIso(iso?: string | null) {
-  if (!iso) return ''
-  const s = String(iso).trim()
-  if (!s) return ''
-  if (s.includes('T')) return s
-  if (s.includes(' ')) return s.replace(' ', 'T')
-  return s
-}
 
 function detectKindFromName(name?: string | null): PreviewKind {
   const n = (name ?? '').toLowerCase()
@@ -37,15 +29,7 @@ function moneyMx(v: any) {
 }
 
 function fmtLongEs(iso?: string | null) {
-  if (!iso) return '—'
-  const s = normalizeIso(iso)
-  const d = new Date(s)
-  if (Number.isNaN(d.getTime())) return String(iso)
-  return new Intl.DateTimeFormat('es-MX', {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  }).format(d)
+  return formatDateOnlyEsMx(iso)
 }
 
 function sanitizeDecimalInput(raw: string) {

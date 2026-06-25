@@ -33,6 +33,7 @@
         "@unovis/vue": "^1.6.2",
         "@vuepic/vue-datepicker": "^12.1.0",
         "@vueuse/core": "^14.1.0",
+        "apexcharts": "^5.15.2",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "date-fns": "^4.1.0",
@@ -43,6 +44,7 @@
         "sweetalert2": "^11.26.4",
         "tailwind-merge": "^3.4.0",
         "tailwindcss-animate": "^1.0.7",
+        "vue3-apexcharts": "^1.11.1",
         "vue3-date-time-picker": "^2.8.3",
         "ziggy-js": "^2.6.0"
     }

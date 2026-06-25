@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Head, router } from "@inertiajs/vue3";
+import { Head, Link, router } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import SearchableSelect from "@/Components/ui/SearchableSelect.vue";
 import DatePickerShadcn from "@/Components/ui/DatePickerShadcn.vue";
@@ -74,6 +74,10 @@ const {
     money,
     displayName,
     copyText,
+    showUrl,
+    payUrl,
+    comprobarUrl,
+    printUrl,
 } = useRequisicionesIndex(props);
 
 const exportParams = computed(() => ({
@@ -283,6 +287,35 @@ function shortText(v: any, max = 90) {
 
 const scrollHide =
     "overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+function statusAccentColor(s: any): string {
+    const st = String(s ?? '').toUpperCase()
+    if (st === 'PAGADA')               return '#10b981'
+    if (st === 'PAGO_AUTORIZADO')      return '#f59e0b'
+    if (st === 'CAPTURADA')            return '#0ea5e9'
+    if (st === 'BORRADOR')             return '#94a3b8'
+    if (st === 'ELIMINADA')            return '#ef4444'
+    if (st === 'POR_COMPROBAR')        return '#8b5cf6'
+    if (st === 'COMPROBACION_ACEPTADA') return '#14b8a6'
+    if (st === 'COMPROBACION_RECHAZADA') return '#d946ef'
+    return '#cbd5e1'
+}
+
+// Base icon button — transparent, amber hover en dark y light
+const iconLink =
+    "inline-flex items-center justify-center h-8 w-8 rounded-lg border transition-all duration-150 active:scale-[0.93] " +
+    "border-slate-200 bg-transparent text-slate-500 " +
+    "hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 " +
+    "dark:border-zinc-700 dark:bg-transparent dark:text-zinc-400 " +
+    "dark:hover:bg-amber-400/20 dark:hover:border-amber-400/40 dark:hover:text-amber-300"
+
+const iconBtn =
+    "inline-flex items-center justify-center h-8 w-8 rounded-lg border transition-all duration-150 active:scale-[0.93] " +
+    "border-slate-200 bg-transparent text-slate-500 " +
+    "hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 " +
+    "dark:border-zinc-700 dark:bg-transparent dark:text-zinc-400 " +
+    "dark:hover:bg-amber-400/20 dark:hover:border-amber-400/40 dark:hover:text-amber-300 " +
+    "disabled:opacity-40 disabled:pointer-events-none"
 </script>
 
 <template>
@@ -474,7 +507,7 @@ const scrollHide =
                         >
                         <div class="relative mt-1">
                             <Search
-                                class="h-4 w-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                                class="h-4 w-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none"
                             />
                             <input
                                 v-model="state.q"
@@ -521,15 +554,15 @@ const scrollHide =
                         <label
                             class="block text-xs font-black text-slate-600 dark:text-zinc-300"
                         >
-                            Fecha de registro (rango)
+                            Fecha de pago de la requisición
                         </label>
                         <div class="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <DatePickerShadcn
-                                v-model="state.fecha_from"
+                                v-model="state.fecha_pago_from"
                                 placeholder="Desde"
                             />
                             <DatePickerShadcn
-                                v-model="state.fecha_to"
+                                v-model="state.fecha_pago_to"
                                 placeholder="Hasta"
                             />
                         </div>
@@ -693,248 +726,219 @@ const scrollHide =
                                 valueKey="id"
                             />
                         </div>
+
+                        <div class="lg:col-span-12 min-w-0">
+                            <label
+                                class="block text-xs font-black text-slate-600 dark:text-zinc-300"
+                            >
+                                Fecha de registro
+                            </label>
+                            <div class="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <DatePickerShadcn
+                                    v-model="state.fecha_registro_from"
+                                    placeholder="Desde"
+                                />
+                                <DatePickerShadcn
+                                    v-model="state.fecha_registro_to"
+                                    placeholder="Hasta"
+                                />
+                            </div>
+                        </div>
                     </div>
                 </details>
             </div>
 
             <!-- DESKTOP -->
-            <div class="hidden xl:block space-y-3">
+            <div class="hidden xl:block space-y-2">
                 <div
                     v-for="r in rows"
                     :key="r.id"
-                    class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-neutral-900/60 backdrop-blur shadow-sm overflow-hidden transition hover:shadow-md hover:border-slate-300 dark:hover:border-white/20"
-                    :class="rowDisabled(r) ? 'opacity-60' : ''"
+                    class="group border border-l-4 border-slate-200/80 dark:border-white/10 rounded-2xl
+                           bg-white dark:bg-neutral-900/90
+                           shadow-sm hover:shadow-lg hover:-translate-y-0.5
+                           transition-all duration-200
+                           hover:border-slate-300/80 dark:hover:border-white/20"
+                    :style="{ borderLeftColor: statusAccentColor((r as any).status) }"
+                    :class="rowDisabled(r) ? 'opacity-50 pointer-events-none' : ''"
                 >
-                    <div
-                        class="grid grid-cols-[44px_1.1fr_1fr_1fr_1fr_auto] gap-4 px-4 py-4 items-start"
-                    >
+                    <!-- Fila principal -->
+                    <div class="flex items-center gap-0 pl-4 pr-3 py-3.5">
                         <!-- Checkbox -->
-                        <div class="pt-2">
+                        <div class="shrink-0 pr-3">
                             <input
                                 type="checkbox"
                                 :disabled="rowDisabled(r)"
-                                @change="
-                                    toggleRow(
-                                        r.id,
-                                        ($event.target as HTMLInputElement)
-                                            .checked,
-                                    )
-                                "
-                                class="h-4 w-4 rounded border-slate-300 dark:border-white/20"
+                                @change="toggleRow(r.id, ($event.target as HTMLInputElement).checked)"
+                                class="h-4 w-4 rounded border-slate-300 dark:border-white/20 accent-slate-900 dark:accent-white cursor-pointer"
                             />
                         </div>
 
-                        <!-- Folio / estatus -->
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <div
-                                    class="font-black text-slate-900 dark:text-zinc-100 truncate"
+                        <!-- Folio + Status badge -->
+                        <div class="shrink-0 w-[172px] pr-4">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                <span
+                                    class="font-black text-[13px] tracking-tight text-slate-900 dark:text-zinc-100 truncate leading-tight"
                                     :title="(r as any).folio"
-                                >
-                                    {{ (r as any).folio }}
-                                </div>
-
+                                >{{ (r as any).folio }}</span>
                                 <button
                                     type="button"
-                                    class="inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 shrink-0 transition"
+                                    class="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-md
+                                           border border-slate-200 bg-transparent hover:bg-slate-100
+                                           active:scale-95 transition-all
+                                           dark:border-white/10 dark:hover:bg-white/10"
                                     title="Copiar folio"
-                                    @click="copyText((r as any).folio)"
+                                    @click.stop="copyText((r as any).folio)"
                                 >
-                                    <Copy
-                                        class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                                    />
+                                    <Copy class="h-2.5 w-2.5 text-slate-400 dark:text-zinc-400" />
                                 </button>
                             </div>
+                            <div class="mt-1.5">
+                                <span :class="statusClass((r as any).status)">
+                                    <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="dotClass((r as any).status)"></span>
+                                    <span class="text-[10px] truncate">{{ pillText((r as any).status) }}</span>
+                                </span>
+                            </div>
+                        </div>
 
-                            <div class="mt-2">
-                                <div :class="statusClass((r as any).status)">
-                                    <span
-                                        class="h-2.5 w-2.5 rounded-full shrink-0"
-                                        :class="dotClass((r as any).status)"
-                                    ></span>
-                                    <span class="truncate">{{
-                                        pillText((r as any).status)
-                                    }}</span>
+                        <!-- Separador -->
+                        <div class="self-stretch w-px bg-slate-100 dark:bg-white/8 shrink-0 mr-4"></div>
+
+                        <!-- Centro: Concepto + 2 columnas info -->
+                        <div class="flex-1 min-w-0 mr-4">
+                            <div
+                                class="font-black text-sm text-slate-900 dark:text-zinc-100 truncate leading-tight"
+                                :title="displayName((r as any).concepto)"
+                            >{{ displayName((r as any).concepto) }}</div>
+                            <div class="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1">
+                                <div class="min-w-0">
+                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Corporativo</div>
+                                    <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).comprador) }}</div>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Solicitante</div>
+                                    <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).solicitante) }}</div>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Sucursal</div>
+                                    <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).sucursal) }}</div>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Proveedor</div>
+                                    <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).proveedor) }}</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Origen -->
-                        <div class="min-w-0">
-                            <div
-                                class="text-[10px] uppercase tracking-wide font-black text-slate-500 dark:text-zinc-400"
-                            >
-                                Origen
-                            </div>
+                        <!-- Separador -->
+                        <div class="self-stretch w-px bg-slate-100 dark:bg-white/8 shrink-0 mr-4"></div>
 
-                            <div
-                                class="mt-1 text-sm font-black text-slate-900 dark:text-zinc-100 truncate"
-                                :title="displayName((r as any).comprador)"
-                            >
-                                Corporativo:
-                                {{ displayName((r as any).comprador) }}
+                        <!-- Fechas — 3 filas -->
+                        <div class="shrink-0 w-[172px] space-y-1.5 mr-4">
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Registro</span>
+                                <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
+                                    {{ safeDateShort((r as any).fecha_registro_ymd ?? (r as any).created_at) }}
+                                </span>
                             </div>
-
-                            <div
-                                class="mt-1 text-xs font-semibold text-slate-500 dark:text-zinc-400 truncate"
-                                :title="displayName((r as any).sucursal)"
-                            >
-                                Sucursal: {{ displayName((r as any).sucursal) }}
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Solicitud</span>
+                                <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
+                                    {{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}
+                                </span>
                             </div>
-                        </div>
-
-                        <!-- Personas -->
-                        <div class="min-w-0">
-                            <div
-                                class="text-[10px] uppercase tracking-wide font-black text-slate-500 dark:text-zinc-400"
-                            >
-                                Solicitante
-                            </div>
-
-                            <div
-                                class="mt-1 text-sm font-semibold text-slate-900 dark:text-zinc-100 truncate"
-                                :title="displayName((r as any).solicitante)"
-                            >
-                                {{ displayName((r as any).solicitante) }}
-                            </div>
-
-                            <div
-                                class="mt-1 text-xs font-semibold text-slate-500 dark:text-zinc-400 truncate"
-                                :title="displayName((r as any).proveedor)"
-                            >
-                                Proveedor:
-                                {{ displayName((r as any).proveedor) }}
+                            <div class="flex items-baseline gap-2">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Pago</span>
+                                <span
+                                    class="text-[11px] font-semibold tabular-nums"
+                                    :class="(r as any).fecha_pago_ymd ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-zinc-600'"
+                                >{{ safeDateShort((r as any).fecha_pago_ymd) }}</span>
                             </div>
                         </div>
 
-                        <!-- Concepto / fechas -->
-                        <div class="min-w-0">
-                            <div
-                                class="text-[10px] uppercase tracking-wide font-black text-slate-500 dark:text-zinc-400"
-                            >
-                                Concepto
-                            </div>
+                        <!-- Separador -->
+                        <div class="self-stretch w-px bg-slate-100 dark:bg-white/8 shrink-0 mr-3"></div>
 
-                            <div
-                                class="mt-1 text-sm font-semibold text-slate-900 dark:text-zinc-100 truncate"
-                                :title="displayName((r as any).concepto)"
-                            >
-                                {{ displayName((r as any).concepto) }}
-                            </div>
-
-                            <div
-                                class="mt-1 text-xs font-semibold text-slate-500 dark:text-zinc-400"
-                            >
-                                Cap: {{ safeDateShort((r as any).created_at) }}
-                                <span class="mx-1">·</span>
-                                Ent:
-                                {{ safeDateShort((r as any).fecha_solicitud) }}
-                            </div>
-                        </div>
-
-                        <!-- Monto / acciones -->
-                        <div class="min-w-[230px]">
+                        <!-- Monto + Acciones -->
+                        <div class="shrink-0 w-[200px] flex flex-col items-end gap-2.5">
                             <div class="text-right">
-                                <div
-                                    class="text-base font-black text-slate-900 dark:text-zinc-100 whitespace-nowrap"
-                                >
+                                <div class="text-lg font-black text-slate-900 dark:text-zinc-100 tabular-nums leading-none whitespace-nowrap">
                                     {{ money((r as any).monto_total) }}
                                 </div>
-                                <div
-                                    class="mt-1 text-[11px] font-semibold text-slate-500 dark:text-zinc-400 whitespace-nowrap"
-                                >
-                                    Sub: {{ money((r as any).monto_subtotal) }}
+                                <div class="mt-0.5 text-[10px] text-slate-400 dark:text-zinc-500 tabular-nums">
+                                    Subtotal {{ money((r as any).monto_subtotal) }}
                                 </div>
                             </div>
 
-                            <div
-                                class="mt-3 flex items-center justify-end gap-2"
-                            >
+                            <div class="flex items-center gap-1">
+                                <!-- CAPTURAR (POST → botón) -->
                                 <button
-                                    class="inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 transition"
-                                    title="Ver"
-                                    @click="goShow(r.id)"
+                                    v-if="String((r as any).status).toUpperCase() === 'BORRADOR'"
+                                    type="button"
+                                    :class="iconBtn"
+                                    title="Capturar"
+                                    @click.stop="captureRow(r.id)"
                                 >
-                                    <Search
-                                        class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                                    />
+                                    <Send class="h-4 w-4" />
                                 </button>
 
-                                <button
-                                    v-if="canPayRow(r)"
-                                    class="inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 transition"
-                                    title="Pagar"
-                                    @click="onPay(r.id)"
-                                >
-                                    <Banknote
-                                        class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                                    />
+                                <!-- VER (enlace real) -->
+                                <a :href="showUrl(r.id)" :class="iconLink"
+                                   title="Ver">
+                                    <Search class="h-4 w-4" />
+                                </a>
+
+                                <!-- PAGAR (enlace real) -->
+                                <a v-if="canPayRow(r)" :href="payUrl(r.id)" :class="iconLink"
+                                   title="Pagar">
+                                    <Banknote class="h-4 w-4" />
+                                </a>
+
+                                <!-- COMPROBAR (enlace real) -->
+                                <a v-if="canComprobarRow(r)" :href="comprobarUrl(r.id)" :class="iconLink"
+                                   title="Comprobar">
+                                    <FileText class="h-4 w-4" />
+                                </a>
+
+                                <!-- IMPRIMIR (abre ventana → botón) -->
+                                <button type="button" :class="iconBtn"
+                                        title="Imprimir" @click.stop="onPrint(r.id)">
+                                    <Printer class="h-4 w-4" />
                                 </button>
 
-                                <button
-                                    v-if="canComprobarRow(r)"
-                                    class="inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 transition"
-                                    title="Comprobar"
-                                    @click="onComprobar(r.id)"
-                                >
-                                    <FileText
-                                        class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                                    />
-                                </button>
-
-                                <button
-                                    class="inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 transition"
-                                    title="Imprimir"
-                                    :disabled="rowDisabled(r)"
-                                    @click="onPrint(r.id)"
-                                >
-                                    <Printer
-                                        class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                                    />
-                                </button>
-
+                                <!-- ELIMINAR (DELETE → botón) -->
                                 <button
                                     v-if="canDelete"
-                                    class="inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 hover:shadow-sm active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition"
+                                    type="button"
+                                    class="inline-flex items-center justify-center h-8 w-8 rounded-lg border transition-all duration-150
+                                           border-slate-200 bg-transparent text-slate-500
+                                           hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600
+                                           active:scale-[0.93] disabled:opacity-40 disabled:pointer-events-none
+                                           dark:border-zinc-700 dark:bg-transparent dark:text-zinc-400
+                                           dark:hover:bg-rose-500/20 dark:hover:border-rose-500/40 dark:hover:text-rose-300"
                                     title="Eliminar"
                                     :disabled="rowDisabled(r)"
-                                    @click="destroyRow(r)"
+                                    @click.stop="destroyRow(r)"
                                 >
-                                    <Trash2 class="h-4 w-4 text-rose-700" />
+                                    <Trash2 class="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Segundo renglón -->
-                    <div class="grid grid-cols-[44px_1fr] gap-4 px-4 pb-4">
-                        <div></div>
-
-                        <div
-                            class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-4 py-3"
-                        >
-                            <div
-                                class="text-[10px] uppercase tracking-wide font-black text-slate-500 dark:text-zinc-400"
-                            >
-                                Observaciones
-                            </div>
-                            <div
-                                class="mt-1 text-xs font-semibold text-slate-700 dark:text-zinc-300 leading-5"
-                                :title="(r as any).observaciones || ''"
-                            >
-                                {{ shortText((r as any).observaciones, 220) }}
-                            </div>
+                    <!-- Observaciones — solo si existen -->
+                    <div v-if="(r as any).observaciones" class="px-5 pb-3 -mt-1">
+                        <div class="rounded-xl bg-slate-50/80 dark:bg-white/5 border border-slate-100/80 dark:border-white/5 px-3 py-2 flex items-start gap-2">
+                            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 mt-0.5">Observaciones</span>
+                            <span class="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">{{ shortText((r as any).observaciones, 280) }}</span>
                         </div>
                     </div>
                 </div>
 
                 <div
                     v-if="rows.length === 0"
-                    class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 backdrop-blur p-6 text-center"
+                    class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 p-10 text-center"
                 >
-                    <div
-                        class="text-sm font-semibold text-slate-500 dark:text-zinc-400"
-                    >
+                    <div class="text-sm font-semibold text-slate-400 dark:text-zinc-500">
                         No hay requisiciones con los filtros actuales.
                     </div>
                 </div>
@@ -969,279 +973,195 @@ const scrollHide =
             </div>
 
             <!-- MOBILE / TABLET -->
-            <div class="xl:hidden space-y-3">
+            <div class="xl:hidden space-y-2.5">
                 <div
                     v-for="r in rows"
                     :key="r.id"
-                    class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-neutral-900/60 backdrop-blur p-4 shadow-sm"
-                    :class="rowDisabled(r) ? 'opacity-60' : ''"
+                    class="border border-l-4 border-slate-200/80 dark:border-white/10 rounded-2xl
+                           bg-white dark:bg-neutral-900/90 p-4 shadow-sm"
+                    :style="{ borderLeftColor: statusAccentColor((r as any).status) }"
+                    :class="rowDisabled(r) ? 'opacity-60 pointer-events-none' : ''"
                 >
+                    <!-- Header: folio + checkbox -->
                     <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
+                        <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2 min-w-0">
-                                <div
-                                    class="font-black text-slate-900 dark:text-zinc-100 truncate"
-                                >
+                                <span class="font-black text-[14px] tracking-tight text-slate-900 dark:text-zinc-100 truncate">
                                     {{ (r as any).folio }}
-                                </div>
+                                </span>
                                 <button
                                     type="button"
-                                    class="inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
+                                    class="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-lg border border-slate-200 bg-transparent hover:bg-slate-100 active:scale-95 transition-all dark:border-white/10 dark:hover:bg-white/10"
                                     title="Copiar folio"
-                                    @click="copyText((r as any).folio)"
+                                    @click.stop="copyText((r as any).folio)"
                                 >
-                                    <Copy
-                                        class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                                    />
+                                    <Copy class="h-3 w-3 text-slate-400 dark:text-zinc-400" />
                                 </button>
                             </div>
 
                             <div class="mt-2">
-                                <div :class="statusClass((r as any).status)">
-                                    <span
-                                        class="h-2.5 w-2.5 rounded-full"
-                                        :class="dotClass((r as any).status)"
-                                    ></span>
-                                    {{ pillText((r as any).status) }}
-                                </div>
+                                <span :class="statusClass((r as any).status)">
+                                    <span class="h-2 w-2 rounded-full shrink-0" :class="dotClass((r as any).status)"></span>
+                                    <span class="text-[11px]">{{ pillText((r as any).status) }}</span>
+                                </span>
                             </div>
 
-                            <div
-                                class="mt-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 truncate"
-                            >
-                                {{ displayName((r as any).solicitante) }}
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                :disabled="rowDisabled(r)"
-                                @change="
-                                    toggleRow(
-                                        r.id,
-                                        ($event.target as HTMLInputElement)
-                                            .checked,
-                                    )
-                                "
-                                class="h-4 w-4 rounded border-slate-300 dark:border-white/20"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="mt-4 grid grid-cols-2 gap-3">
-                        <div
-                            class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Captura
-                            </div>
-                            <div
-                                class="text-sm font-semibold text-slate-900 dark:text-zinc-100"
-                            >
-                                {{ safeDateShort((r as any).created_at) }}
-                            </div>
-                        </div>
-
-                        <div
-                            class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Entrega
-                            </div>
-                            <div
-                                class="text-sm font-semibold text-slate-900 dark:text-zinc-100"
-                            >
-                                {{ safeDateShort((r as any).fecha_solicitud) }}
-                            </div>
-                        </div>
-
-                        <div
-                            class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Monto
-                            </div>
-                            <div
-                                class="text-sm font-black text-slate-900 dark:text-zinc-100"
-                            >
-                                {{ money((r as any).monto_total) }}
-                            </div>
-                            <div
-                                class="mt-1 text-[11px] font-semibold text-slate-500 dark:text-zinc-400"
-                            >
-                                Sub: {{ money((r as any).monto_subtotal) }}
-                            </div>
-                        </div>
-
-                        <div
-                            class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Estatus
-                            </div>
-                            <div class="mt-2">
-                                <div :class="statusClass((r as any).status)">
-                                    <span
-                                        class="h-2.5 w-2.5 rounded-full"
-                                        :class="dotClass((r as any).status)"
-                                    ></span>
-                                    {{ pillText((r as any).status) }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div
-                            class="col-span-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Proveedor
-                            </div>
-                            <div
-                                class="text-sm font-semibold text-slate-900 dark:text-zinc-100 break-words"
-                            >
-                                {{ displayName((r as any).proveedor) }}
-                            </div>
-                        </div>
-
-                        <div
-                            class="col-span-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Concepto
-                            </div>
-                            <div
-                                class="text-sm font-semibold text-slate-900 dark:text-zinc-100 break-words"
-                            >
+                            <div class="mt-1.5 text-[11px] text-slate-500 dark:text-zinc-400 truncate font-semibold">
                                 {{ displayName((r as any).concepto) }}
                             </div>
                         </div>
 
-                        <div
-                            class="col-span-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Corporativo
+                        <div class="flex items-start gap-2 shrink-0">
+                            <!-- Monto prominente en mobile -->
+                            <div class="text-right">
+                                <div class="text-base font-black text-slate-900 dark:text-zinc-100 tabular-nums">{{ money((r as any).monto_total) }}</div>
+                                <div class="text-[10px] text-slate-400 tabular-nums">Subtotal {{ money((r as any).monto_subtotal) }}</div>
                             </div>
-                            <div
-                                class="text-sm font-semibold text-slate-900 dark:text-zinc-100 break-words"
-                            >
-                                {{ displayName((r as any).comprador) }}
+                            <input
+                                type="checkbox"
+                                :disabled="rowDisabled(r)"
+                                @change="toggleRow(r.id, ($event.target as HTMLInputElement).checked)"
+                                class="h-4 w-4 rounded border-slate-300 dark:border-white/20 mt-0.5"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- Info grid mobile -->
+                    <div class="mt-3 space-y-2">
+                        <!-- Fechas en 3 filas -->
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Registro</div>
+                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
+                                    {{ safeDateShort((r as any).fecha_registro_ymd ?? (r as any).created_at) }}
+                                </div>
+                            </div>
+                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Solicitud</div>
+                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
+                                    {{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}
+                                </div>
+                            </div>
+                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Pago</div>
+                                <div class="mt-0.5 text-[11px] font-semibold tabular-nums"
+                                    :class="(r as any).fecha_pago_ymd ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-zinc-600'">
+                                    {{ safeDateShort((r as any).fecha_pago_ymd) }}
+                                </div>
                             </div>
                         </div>
 
-                        <div
-                            class="col-span-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Sucursal
+                        <!-- Proveedor + Solicitante -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Proveedor</div>
+                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
+                                    {{ displayName((r as any).proveedor) }}
+                                </div>
                             </div>
-                            <div
-                                class="text-sm font-semibold text-slate-900 dark:text-zinc-100 break-words"
-                            >
-                                {{ displayName((r as any).sucursal) }}
+                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Solicitante</div>
+                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
+                                    {{ displayName((r as any).solicitante) }}
+                                </div>
                             </div>
                         </div>
 
-                        <div
-                            class="col-span-2 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 p-3"
-                        >
-                            <div
-                                class="text-[11px] font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Observaciones
+                        <!-- Corp + Suc -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Corporativo</div>
+                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
+                                    {{ displayName((r as any).comprador) }}
+                                </div>
                             </div>
-                            <div
-                                class="text-sm font-semibold text-slate-900 dark:text-zinc-100 break-words"
-                            >
+                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Sucursal</div>
+                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
+                                    {{ displayName((r as any).sucursal) }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Observaciones (solo si existen) -->
+                        <div v-if="(r as any).observaciones" class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                            <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Observaciones</div>
+                            <div class="mt-0.5 text-[11px] text-slate-600 dark:text-zinc-300 break-words">
                                 {{ shortText((r as any).observaciones, 160) }}
                             </div>
                         </div>
                     </div>
 
                     <div class="mt-4 flex items-center justify-end gap-2">
+                        <!-- CAPTURAR (POST → botón) -->
                         <button
-                            v-if="
-                                String((r as any).status).toUpperCase() ===
-                                'BORRADOR'
-                            "
-                            class="inline-flex items-center justify-center h-9 w-9 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
+                            v-if="String((r as any).status).toUpperCase() === 'BORRADOR'"
+                            class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
+                                   text-slate-600 hover:text-blue-700 hover:bg-blue-50 hover:border-blue-200
+                                   active:scale-[0.97] transition-all duration-100 disabled:opacity-40 disabled:pointer-events-none
+                                   dark:border-white/10 dark:bg-white/8"
                             title="Capturar"
                             :disabled="rowDisabled(r)"
                             @click="captureRow(r.id)"
                         >
-                            <Send
-                                class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                            />
+                            <Send class="h-4 w-4" />
                         </button>
 
-                        <button
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                            title="Ver"
-                            @click="goShow(r.id)"
-                        >
-                            <Search
-                                class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                            />
-                        </button>
+                        <!-- VER (enlace real) -->
+                        <a :href="showUrl(r.id)"
+                           class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
+                                  text-slate-600 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200
+                                  active:scale-[0.97] transition-all duration-100
+                                  dark:border-white/10 dark:bg-white/8"
+                           title="Ver">
+                            <Search class="h-4 w-4" />
+                        </a>
 
-                        <button
-                            v-if="canPayRow(r)"
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                            title="Pagar"
-                            @click="onPay(r.id)"
-                        >
-                            <Banknote
-                                class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                            />
-                        </button>
+                        <!-- PAGAR (enlace real) -->
+                        <a v-if="canPayRow(r)" :href="payUrl(r.id)"
+                           class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
+                                  text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200
+                                  active:scale-[0.97] transition-all duration-100
+                                  dark:border-white/10 dark:bg-white/8"
+                           title="Pagar">
+                            <Banknote class="h-4 w-4" />
+                        </a>
 
-                        <button
-                            v-if="canComprobarRow(r)"
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                            title="Comprobar"
-                            @click="onComprobar(r.id)"
-                        >
-                            <FileText
-                                class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                            />
-                        </button>
+                        <!-- COMPROBAR (enlace real) -->
+                        <a v-if="canComprobarRow(r)" :href="comprobarUrl(r.id)"
+                           class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
+                                  text-slate-600 hover:text-violet-700 hover:bg-violet-50 hover:border-violet-200
+                                  active:scale-[0.97] transition-all duration-100
+                                  dark:border-white/10 dark:bg-white/8"
+                           title="Comprobar">
+                            <FileText class="h-4 w-4" />
+                        </a>
 
+                        <!-- IMPRIMIR (abre ventana → botón) -->
                         <button
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
+                            class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
+                                   text-slate-600 hover:bg-slate-100 hover:border-slate-300
+                                   active:scale-[0.97] transition-all duration-100 disabled:opacity-40 disabled:pointer-events-none
+                                   dark:border-white/10 dark:bg-white/8"
                             title="Imprimir"
                             :disabled="rowDisabled(r)"
                             @click="onPrint(r.id)"
                         >
-                            <Printer
-                                class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                            />
+                            <Printer class="h-4 w-4" />
                         </button>
 
+                        <!-- ELIMINAR (DELETE → botón) -->
                         <button
                             v-if="canDelete"
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none"
+                            class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
+                                   text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200
+                                   active:scale-[0.97] transition-all duration-100 disabled:opacity-40 disabled:pointer-events-none
+                                   dark:border-white/10 dark:bg-white/8 dark:hover:bg-rose-500/20 dark:hover:border-rose-500/30"
                             title="Eliminar"
                             :disabled="rowDisabled(r)"
                             @click="destroyRow(r)"
                         >
-                            <Trash2 class="h-4 w-4 text-rose-700" />
+                            <Trash2 class="h-4 w-4" />
                         </button>
                     </div>
                 </div>

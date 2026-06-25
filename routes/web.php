@@ -140,6 +140,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/requisiciones/{requisicion}/pagar', [RequisicionPagoController::class, 'store'])
         ->name('requisiciones.pagar.store');
 
+    Route::post('/requisiciones/{requisicion}/pagar/fecha-general', [RequisicionPagoController::class, 'updateFechaPagoGeneral'])
+        ->name('requisiciones.pagar.fechaGeneral');
+
     Route::get('/requisiciones/{requisicion}/comprobar', [RequisicionComprobanteController::class, 'create'])
         ->name('requisiciones.comprobar');
 

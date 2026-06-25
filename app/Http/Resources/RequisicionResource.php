@@ -30,9 +30,13 @@ class RequisicionResource extends JsonResource {
             'monto_total'    => $this->monto_total,
             'fecha_solicitud'    => optional($this->fecha_solicitud)->toISOString(),
             'fecha_autorizacion' => optional($this->fecha_autorizacion)->toISOString(),
-            'fecha_pago'         => optional($this->fecha_pago)->toISOString(),
+            'fecha_pago'         => optional($this->fecha_pago)->format('Y-m-d'),
             'created_at'         => optional($this->created_at)->toISOString(),
             'updated_at'         => optional($this->updated_at)->toISOString(),
+            // Campos seguros YYYY-MM-DD para mostrar fechas sin desfase de timezone
+            'fecha_registro_ymd'  => optional($this->created_at)->format('Y-m-d'),
+            'fecha_solicitud_ymd' => optional($this->fecha_solicitud)->format('Y-m-d'),
+            'fecha_pago_ymd'      => optional($this->fecha_pago)->format('Y-m-d'),
             'observaciones' => $this->observaciones,
             'comprador' => $this->whenLoaded('comprador', fn() => [
                 'id'       => $this->comprador?->id,

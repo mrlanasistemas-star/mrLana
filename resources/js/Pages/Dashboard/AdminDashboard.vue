@@ -1,387 +1,388 @@
 <script setup lang="ts">
-    import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-    import { Head } from '@inertiajs/vue3'
-    import { computed, ref } from 'vue'
-    // CSS (ubicación: resources/js/css/dashboard.css)
-    import '@/css/dashboard.css'
-    import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/Components/ui/card'
-    import { VisXYContainer, VisLine, VisArea, VisAxis, VisTooltip } from '@unovis/vue'
-    import ICON_PDF from '@/img/pdf.png'
-    import ICON_EXCEL from '@/img/excel.png'
-    import { downloadFile } from '@/Utils/exports'
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import { Head } from '@inertiajs/vue3'
+import { computed, ref } from 'vue'
+import '@/css/dashboard.css'
+import VueApexCharts from 'vue3-apexcharts'
+import { useDashboardCharts } from '@/Composables/useDashboardCharts'
+import { TrendingUp, DollarSign, FileText, CheckCircle, Clock, AlertCircle, Inbox } from 'lucide-vue-next'
+import ICON_PDF from '@/img/pdf.png'
+import ICON_EXCEL from '@/img/excel.png'
+import { downloadFile } from '@/Utils/exports'
 
-    type KPI = { label: string; value: string | number; hint?: string }
-    type Point = { name: string; value: number; value2?: number }
+type KPI   = { label: string; value: string | number; hint?: string }
+type Point = { name: string; value: number; value2?: number }
 
-    type DashboardPayload = {
-        userName?: string
-        userRole?: 'ADMIN' | 'CONTADOR' | 'COLABORADOR'
-        headline?: string
-        subheadline?: string
-        kpis?: KPI[]
-        activityDaily?: Point[]
-        amountsDaily?: Point[]
-        statusMix?: Point[]
-        comprobantesMix?: Point[]
-    }
+type DashboardPayload = {
+    userName?: string
+    userRole?: 'ADMIN' | 'CONTADOR' | 'COLABORADOR'
+    headline?: string
+    subheadline?: string
+    kpis?: KPI[]
+    activityDaily?: Point[]
+    amountsDaily?: Point[]
+    statusMix?: Point[]
+    comprobantesMix?: Point[]
+}
 
-    const props = defineProps<{ dashboard?: DashboardPayload }>()
+const props = defineProps<{ dashboard?: DashboardPayload }>()
 
-    const headline = computed(() => props.dashboard?.headline ?? 'Dashboard')
-    const subheadline = computed(() => props.dashboard?.subheadline ?? 'Visión ejecutiva del sistema: rápida, clara, accionable.')
+const charts = useDashboardCharts()
 
-    const kpis = computed<KPI[]>(() => {
-        const v = props.dashboard?.kpis
-        if (v?.length) return v
+// ── Encabezado ───────────────────────────────────────────────────────────────
+const headline    = computed(() => props.dashboard?.headline    ?? 'Centro de control')
+const subheadline = computed(() => props.dashboard?.subheadline ?? 'Visión ejecutiva del sistema: rápida, clara, accionable.')
 
-        return [
-            { label: 'Corporativos activos', value: '0', hint: 'Base operativa vigente.' },
-            { label: 'Sucursales activas', value: '0', hint: 'Cobertura actual.' },
-            { label: 'Empleados activos', value: '0', hint: 'Usuarios operando.' },
-            { label: 'Monto del mes', value: '$0.00', hint: 'Total capturado en el periodo.' },
-        ]
-    })
+const today = computed(() =>
+    new Intl.DateTimeFormat('es-MX', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    }).format(new Date())
+)
 
-    // -----------------------------
-    // Placeholders para ejes X/Y
-    // -----------------------------
-    function placeholderDays(n = 14): Point[] {
-        const out: Point[] = []
-        for (let i = n; i >= 1; i--) {
-            out.push({ name: `D-${i}`, value: 0 })
-        }
-        return out
-    }
+// ── KPIs ─────────────────────────────────────────────────────────────────────
+const kpis = computed<KPI[]>(() => {
+    const v = props.dashboard?.kpis
+    if (v?.length) return v
+    return [
+        { label: 'Corporativos activos', value: '0',     hint: 'Base operativa vigente.' },
+        { label: 'Sucursales activas',   value: '0',     hint: 'Cobertura actual.' },
+        { label: 'Empleados activos',    value: '0',     hint: 'Usuarios operando.' },
+        { label: 'Monto del mes',        value: '$0.00', hint: 'Total capturado en el periodo.' },
+    ]
+})
 
-    function placeholderStatus(): Point[] {
-        return [
-            { name: 'BORRADOR', value: 0 },
-            { name: 'CAPTURADA', value: 0 },
-            { name: 'PAGADA', value: 0 },
-            { name: 'POR_COMPROBAR', value: 0 },
-            { name: 'COMPROBADA', value: 0 },
-            { name: 'ACEPTADA', value: 0 },
-            { name: 'RECHAZADA', value: 0 },
-        ]
-    }
+const kpiAccents  = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']
+const kpiIconList = [TrendingUp, CheckCircle, AlertCircle, DollarSign, FileText, Clock]
 
-    function placeholderComprobantes(): Point[] {
-        return [
-            { name: 'FACTURA', value: 0 },
-            { name: 'TICKET', value: 0 },
-            { name: 'NOTA', value: 0 },
-            { name: 'OTRO', value: 0 },
-        ]
-    }
+// ── Placeholders ─────────────────────────────────────────────────────────────
+function placeholderDays(n = 14): Point[] {
+    const out: Point[] = []
+    for (let i = n; i >= 1; i--) out.push({ name: `D-${i}`, value: 0 })
+    return out
+}
 
-    const activityDaily = computed<Point[]>(() => {
-        const v = props.dashboard?.activityDaily ?? []
-        return v.length ? v : placeholderDays(14)
-    })
+function placeholderStatus(): Point[] {
+    return [
+        { name: 'BORRADOR',    value: 0 },
+        { name: 'CAPTURADA',   value: 0 },
+        { name: 'PAGADA',      value: 0 },
+        { name: 'POR_COMPROBAR', value: 0 },
+        { name: 'COMPROBADA',  value: 0 },
+        { name: 'ACEPTADA',    value: 0 },
+        { name: 'RECHAZADA',   value: 0 },
+    ]
+}
 
-    const amountsDaily = computed<Point[]>(() => {
-        const v = props.dashboard?.amountsDaily ?? []
-        return v.length ? v : placeholderDays(14)
-    })
+function placeholderComprobantes(): Point[] {
+    return [
+        { name: 'FACTURA', value: 0 },
+        { name: 'TICKET',  value: 0 },
+        { name: 'NOTA',    value: 0 },
+        { name: 'OTRO',    value: 0 },
+    ]
+}
 
-    const statusMix = computed<Point[]>(() => {
-        const v = props.dashboard?.statusMix ?? []
-        return v.length ? v : placeholderStatus()
-    })
+// ── Series reactivas ──────────────────────────────────────────────────────────
+const activityDaily = computed<Point[]>(() => {
+    const v = props.dashboard?.activityDaily ?? []
+    return v.length ? v : placeholderDays(14)
+})
 
-    const comprobantesMix = computed<Point[]>(() => {
-        const v = props.dashboard?.comprobantesMix ?? []
-        return v.length ? v : placeholderComprobantes()
-    })
+const amountsDaily = computed<Point[]>(() => {
+    const v = props.dashboard?.amountsDaily ?? []
+    return v.length ? v : placeholderDays(14)
+})
 
-    const hasRealActivity = computed(() => (props.dashboard?.activityDaily?.length ?? 0) > 0)
-    const hasRealAmounts = computed(() => (props.dashboard?.amountsDaily?.length ?? 0) > 0)
-    const hasRealStatus = computed(() => (props.dashboard?.statusMix?.length ?? 0) > 0)
-    const hasRealComprobantes = computed(() => (props.dashboard?.comprobantesMix?.length ?? 0) > 0)
-    const x = (_d: any, i: number) => i
+const statusMix = computed<Point[]>(() => {
+    const v = props.dashboard?.statusMix ?? []
+    return v.length ? v : placeholderStatus()
+})
 
-    // Export
-    const exporting = ref<'pdf' | 'excel' | null>(null)
-    const userRole = computed(() => props.dashboard?.userRole ?? 'ADMIN')
-    const exportPdfUrl = computed(() => route('dashboard.export.pdf', { role: userRole.value }))
-    const exportExcelUrl = computed(() => route('dashboard.export.excel', { role: userRole.value }))
+const comprobantesMix = computed<Point[]>(() => {
+    const v = props.dashboard?.comprobantesMix ?? []
+    return v.length ? v : placeholderComprobantes()
+})
 
-    const exportPdf = async () => {
-        exporting.value = 'pdf'
-        try {
-            await downloadFile(exportPdfUrl.value)
-        } finally {
-            exporting.value = null
-        }
-    }
+const hasRealActivity     = computed(() => (props.dashboard?.activityDaily?.length    ?? 0) > 0)
+const hasRealAmounts      = computed(() => (props.dashboard?.amountsDaily?.length     ?? 0) > 0)
+const hasRealStatus       = computed(() => (props.dashboard?.statusMix?.length        ?? 0) > 0)
+const hasRealComprobantes = computed(() => (props.dashboard?.comprobantesMix?.length  ?? 0) > 0)
 
-    const exportExcel = async () => {
-        exporting.value = 'excel'
-        try {
-            await downloadFile(exportExcelUrl.value)
-        } finally {
-            exporting.value = null
-        }
-    }
+// ── Chart: Actividad (área) ───────────────────────────────────────────────────
+const activitySeries = computed(() => [{
+    name: 'Requisiciones',
+    data: activityDaily.value.map(p => p.value),
+}])
 
-    const xi = (_d: any, i: number) => i
-    const xLabel = (d: Point) => d.name
-    const intTick = (v: any) => String(Math.round(Number(v || 0)))
-    const moneyTick = (v: any) =>
-    new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(Number(v || 0))
+const activityChartOptions = computed(() =>
+    charts.areaOptions({
+        categories: activityDaily.value.map(p => p.name),
+        color: '#3b82f6',
+        isCurrency: false,
+        seriesName: 'Requisiciones',
+    }).value
+)
+
+// ── Chart: Montos (área) ──────────────────────────────────────────────────────
+const amountsSeries = computed(() => [{
+    name: 'Monto',
+    data: amountsDaily.value.map(p => p.value),
+}])
+
+const amountsChartOptions = computed(() =>
+    charts.areaOptions({
+        categories: amountsDaily.value.map(p => p.name),
+        color: '#10b981',
+        isCurrency: true,
+        seriesName: 'Monto',
+    }).value
+)
+
+// ── Chart: Estatus (donut) ────────────────────────────────────────────────────
+const statusColors  = ['#94a3b8', '#0ea5e9', '#f59e0b', '#10b981', '#8b5cf6', '#14b8a6', '#d946ef', '#6b7280']
+const statusLabels  = computed(() => statusMix.value.map(p => charts.statusLabel(p.name)))
+const statusSeries  = computed(() => statusMix.value.map(p => p.value))
+const statusTotal   = computed(() => statusSeries.value.reduce((a, b) => a + b, 0))
+
+const statusChartOptions = computed(() =>
+    charts.donutOptions({
+        labels: statusLabels.value,
+        colors: statusColors.slice(0, statusSeries.value.length),
+        total:  statusTotal.value,
+        totalLabel: 'Total',
+    }).value
+)
+
+// ── Chart: Comprobantes (donut) ───────────────────────────────────────────────
+const compColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']
+const compLabels  = computed(() => comprobantesMix.value.map(p => p.name))
+const compSeries  = computed(() => comprobantesMix.value.map(p => p.value))
+const compTotal   = computed(() => compSeries.value.reduce((a, b) => a + b, 0))
+
+const compChartOptions = computed(() =>
+    charts.donutOptions({
+        labels: compLabels.value,
+        colors: compColors.slice(0, compSeries.value.length),
+        total:  compTotal.value,
+        totalLabel: 'Total',
+    }).value
+)
+
+// ── Export ────────────────────────────────────────────────────────────────────
+const exporting    = ref<'pdf' | 'excel' | null>(null)
+const userRole     = computed(() => props.dashboard?.userRole ?? 'ADMIN')
+const exportPdfUrl = computed(() => route('dashboard.export.pdf',   { role: userRole.value }))
+const exportExcelUrl = computed(() => route('dashboard.export.excel', { role: userRole.value }))
+
+const exportPdf = async () => {
+    exporting.value = 'pdf'
+    try   { await downloadFile(exportPdfUrl.value) }
+    finally { exporting.value = null }
+}
+
+const exportExcel = async () => {
+    exporting.value = 'excel'
+    try   { await downloadFile(exportExcelUrl.value) }
+    finally { exporting.value = null }
+}
 </script>
 
 <template>
     <Head title="Dashboard" />
-
     <AuthenticatedLayout>
-        <div class="dash-shell px-4 py-4 sm:px-6 lg:px-8 overflow-y-auto">
-            <div class="dash-bg" aria-hidden="true"></div>
-            <!-- 6 cuadritos en una fila (PDF + Excel + 4 KPIs) -->
-            <div class="grid grid-cols-2 gap-3 lg:grid-cols-6">
+        <div class="erp-page space-y-6">
 
-                <!-- 4 KPIs -->
-                <Card
-                    v-for="k in kpis"
-                    :key="k.label"
-                    class="dash-card dash-mini card-fx"
-                >
-                    <CardHeader class="py-3">
-                        <CardDescription class="text-[11px] leading-none">
-                            {{ k.label }}
-                        </CardDescription>
-
-                        <CardTitle class="text-xl leading-tight tracking-tight">
-                            {{ k.value }}
-                        </CardTitle>
-                    </CardHeader>
-
-                    <CardContent class="pb-3 pt-0">
-                        <p v-if="k.hint" class="text-[11px] text-muted line-clamp-1">
-                            {{ k.hint }}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <!-- Export PDF -->
-                <Card class="dash-card dash-mini card-fx">
-                    <CardContent class="p-3">
+            <!-- HEADER EJECUTIVO ───────────────────────────────────────── -->
+            <div class="erp-panel p-6">
+                <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="erp-badge bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-300">ADMIN</span>
+                            <span class="text-xs text-slate-500 capitalize">{{ today }}</span>
+                        </div>
+                        <h1 class="text-2xl font-black text-slate-900 dark:text-zinc-100">{{ headline }}</h1>
+                        <p class="text-sm text-slate-500 dark:text-zinc-400 mt-1">{{ subheadline }}</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
                         <button
-                            type="button"
+                            class="erp-button erp-button-secondary h-11 px-4 text-sm"
                             :disabled="exporting !== null"
                             @click="exportPdf"
-                            @keydown.enter.prevent="exportPdf"
-                            @keydown.space.prevent="exportPdf"
-                            aria-label="Exportar dashboard a PDF"
                         >
-                            <span class="export-mini-glow" aria-hidden="true"></span>
-
-                            <span class="export-mini-top">
-                                <span class="export-pill">PDF</span>
-                            </span>
-
-                            <div class="export-mini-mid">
-                                <span class="export-mini-icon">
-                                    <img :src="ICON_PDF" alt="" class="h-5 w-5" />
-                                </span>
-
-                                <div class="min-w-0">
-                                    <div class="export-mini-title">Exportar</div>
-                                    <div class="export-mini-sub">Informe ejecutivo</div>
-                                </div>
-
-                                <span class="export-mini-right">
-                                    <span v-if="exporting === 'pdf'" class="spinner" aria-hidden="true"></span>
-                                    <span v-else class="export-arrow" aria-hidden="true">→</span>
-                                </span>
-                            </div>
-                            <div class="export-mini-foot">
-                                Incluye métricas y gráficas actuales
-                            </div>
+                            <img :src="ICON_PDF" class="h-5 w-5" alt="" />
+                            <span>{{ exporting === 'pdf' ? 'Exportando…' : 'PDF' }}</span>
                         </button>
-                    </CardContent>
-                </Card>
-
-                <!-- Export Excel -->
-                <Card class="dash-card dash-mini card-fx">
-                    <CardContent class="p-3">
                         <button
-                            type="button"
+                            class="erp-button erp-button-secondary h-11 px-4 text-sm"
                             :disabled="exporting !== null"
                             @click="exportExcel"
-                            @keydown.enter.prevent="exportExcel"
-                            @keydown.space.prevent="exportExcel"
-                            aria-label="Exportar dashboard a Excel">
-                            <span class="export-mini-glow" aria-hidden="true"></span>
-                            <span class="export-mini-top">
-                                <span class="export-pill">Excel</span>
-                            </span>
-                            <div class="export-mini-mid">
-                                <span class="export-mini-icon">
-                                    <img :src="ICON_EXCEL" alt="" class="h-5 w-5" />
-                                </span>
-                                <div class="min-w-0">
-                                    <div class="export-mini-title">Exportar</div>
-                                    <div class="export-mini-sub">Pivots y control</div>
-                                </div>
-                                <span class="export-mini-right">
-                                    <span v-if="exporting === 'excel'" class="spinner" aria-hidden="true"></span>
-                                    <span v-else class="export-arrow" aria-hidden="true">→</span>
-                                </span>
-                            </div>
-                            <div class="export-mini-foot">
-                                Descarga datos para análisis avanzado
-                            </div>
+                        >
+                            <img :src="ICON_EXCEL" class="h-5 w-5" alt="" />
+                            <span>{{ exporting === 'excel' ? 'Exportando…' : 'Excel' }}</span>
                         </button>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
 
-            <!-- Charts -->
-            <div class="mt-3 grid gap-3 lg:grid-cols-2">
-                <!-- 1) Actividad -->
-                <Card class="dash-card card-fx min-h-0">
-                    <CardHeader class="py-3">
-                    <CardTitle class="text-base">Actividad diaria</CardTitle>
-                    <CardDescription class="text-xs">
-                        Conteo de requisiciones por día (últimos días).
-                    </CardDescription>
-                    </CardHeader>
-
-                    <CardContent class="pt-0 min-h-0">
-                    <div class="chart-wrap chart-fx h-[260px] w-full">
-                        <div class="chart-canvas">
-                        <VisXYContainer :data="activityDaily" class="h-full w-full">
-                            <VisAxis
-                            type="x"
-                            :x="xi"
-                            :tick-format="(_v:any, i:number) => (activityDaily?.[i]?.name ?? '')"
+            <!-- KPIs ───────────────────────────────────────────────────── -->
+            <div class="erp-grid-kpis">
+                <div
+                    v-for="(k, idx) in kpis"
+                    :key="k.label"
+                    class="erp-kpi-card erp-card-hover"
+                    :style="{
+                        borderLeftWidth: '4px',
+                        borderLeftStyle: 'solid',
+                        borderLeftColor: kpiAccents[idx % kpiAccents.length],
+                    }"
+                >
+                    <div class="flex items-start gap-3">
+                        <div
+                            class="flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0"
+                            :style="{ backgroundColor: kpiAccents[idx % kpiAccents.length] + '1a' }"
+                        >
+                            <component
+                                :is="kpiIconList[idx % kpiIconList.length]"
+                                class="h-5 w-5"
+                                :style="{ color: kpiAccents[idx % kpiAccents.length] }"
                             />
-                            <VisAxis type="y" :tick-format="intTick" />
-                            <VisArea :x="xi" :y="(d:any) => d.value" :opacity="0.22" />
-                            <VisLine :x="xi" :y="(d:any) => d.value" :stroke-width="2" />
-                            <VisTooltip />
-                        </VisXYContainer>
                         </div>
-
-                        <div class="chart-xlabel">Días (últimos 14)</div>
-                        <div class="chart-ylabel">Requisiciones</div>
-
-                        <div v-if="!hasRealActivity" class="chart-overlay">
-                        <div class="chart-overlay-title">Sin datos todavía</div>
-                        <div class="chart-overlay-sub">Aquí verás el ritmo de captura día a día.</div>
+                        <div class="min-w-0 flex-1">
+                            <p class="erp-kpi-label">{{ k.label }}</p>
+                            <p class="erp-kpi-value">{{ k.value }}</p>
+                            <p v-if="k.hint" class="erp-kpi-hint">{{ k.hint }}</p>
                         </div>
                     </div>
-                    </CardContent>
-                </Card>
+                </div>
+            </div>
 
-                <!-- 2) Montos -->
-                <Card class="dash-card card-fx min-h-0">
-                    <CardHeader class="py-3">
-                    <CardTitle class="text-base">Montos</CardTitle>
-                    <CardDescription class="text-xs">
-                        Monto total diario (tendencia de gasto).
-                    </CardDescription>
-                    </CardHeader>
+            <!-- GRÁFICAS ────────────────────────────────────────────────── -->
+            <div class="erp-grid-charts">
 
-                    <CardContent class="pt-0 min-h-0">
-                    <div class="chart-wrap chart-fx h-[260px] w-full">
-                        <div class="chart-canvas">
-                        <VisXYContainer :data="amountsDaily" class="h-full w-full">
-                            <VisAxis
-                            type="x"
-                            :x="xi"
-                            :tick-format="(_v:any, i:number) => (amountsDaily?.[i]?.name ?? '')"
+                <!-- 1. Actividad diaria -->
+                <div class="erp-chart-card">
+                    <div class="erp-chart-header">
+                        <p class="erp-chart-title">Actividad diaria</p>
+                        <p class="erp-chart-desc">Conteo de requisiciones por día (últimos días).</p>
+                    </div>
+                    <div class="erp-chart-body">
+                        <div class="relative">
+                            <VueApexCharts
+                                :options="activityChartOptions"
+                                :series="activitySeries"
+                                type="area"
+                                height="260"
+                                width="100%"
                             />
-                            <VisAxis type="y" :tick-format="moneyTick" />
-                            <VisArea :x="xi" :y="(d:any) => d.value" :opacity="0.18" />
-                            <VisLine :x="xi" :y="(d:any) => d.value" :stroke-width="2" />
-                            <VisTooltip />
-                        </VisXYContainer>
-                        </div>
-
-                        <div class="chart-xlabel">Días (últimos 14)</div>
-                        <div class="chart-ylabel">Monto (MXN)</div>
-
-                        <div v-if="!hasRealAmounts" class="chart-overlay">
-                        <div class="chart-overlay-title">Sin datos todavía</div>
-                        <div class="chart-overlay-sub">Aquí se ve la tendencia de montos por día.</div>
+                            <div
+                                v-if="!hasRealActivity"
+                                class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-zinc-900/80 rounded-xl"
+                            >
+                                <div class="erp-empty-state">
+                                    <div class="erp-empty-state-icon">
+                                        <Inbox class="h-6 w-6" />
+                                    </div>
+                                    <p class="erp-empty-state-title">Sin datos todavía</p>
+                                    <p class="erp-empty-state-desc">Aquí verás el ritmo de captura día a día.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    </CardContent>
-                </Card>
+                </div>
 
-                <!-- 3) Estatus -->
-                <Card class="dash-card card-fx min-h-0">
-                    <CardHeader class="py-3">
-                    <CardTitle class="text-base">Estatus de requisiciones</CardTitle>
-                    <CardDescription class="text-xs">
-                        Distribución por estatus (pipeline operativo).
-                    </CardDescription>
-                    </CardHeader>
-
-                    <CardContent class="pt-0 min-h-0">
-                    <div class="chart-wrap chart-fx h-[260px] w-full">
-                        <div class="chart-canvas">
-                        <VisXYContainer :data="statusMix" class="h-full w-full">
-                            <VisAxis
-                            type="x"
-                            :x="xi"
-                            :tick-format="(_v:any, i:number) => (statusMix?.[i]?.name ?? '')"
+                <!-- 2. Montos diarios -->
+                <div class="erp-chart-card">
+                    <div class="erp-chart-header">
+                        <p class="erp-chart-title">Montos diarios</p>
+                        <p class="erp-chart-desc">Monto total diario (tendencia de gasto).</p>
+                    </div>
+                    <div class="erp-chart-body">
+                        <div class="relative">
+                            <VueApexCharts
+                                :options="amountsChartOptions"
+                                :series="amountsSeries"
+                                type="area"
+                                height="260"
+                                width="100%"
                             />
-                            <VisAxis type="y" :tick-format="intTick" />
-                            <VisArea :x="xi" :y="(d:any) => d.value" :opacity="0.18" />
-                            <VisLine :x="xi" :y="(d:any) => d.value" :stroke-width="2" />
-                            <VisTooltip />
-                        </VisXYContainer>
-                        </div>
-
-                        <div class="chart-xlabel">Estatus</div>
-                        <div class="chart-ylabel">Requisiciones</div>
-
-                        <div v-if="!hasRealStatus" class="chart-overlay">
-                        <div class="chart-overlay-title">Sin datos todavía</div>
-                        <div class="chart-overlay-sub">Pipeline: de borrador a aceptada.</div>
+                            <div
+                                v-if="!hasRealAmounts"
+                                class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-zinc-900/80 rounded-xl"
+                            >
+                                <div class="erp-empty-state">
+                                    <div class="erp-empty-state-icon">
+                                        <Inbox class="h-6 w-6" />
+                                    </div>
+                                    <p class="erp-empty-state-title">Sin datos todavía</p>
+                                    <p class="erp-empty-state-desc">Aquí se ve la tendencia de montos por día.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    </CardContent>
-                </Card>
+                </div>
 
-                <!-- 4) Comprobantes -->
-                <Card class="dash-card card-fx min-h-0">
-                    <CardHeader class="py-3">
-                    <CardTitle class="text-base">Comprobantes</CardTitle>
-                    <CardDescription class="text-xs">
-                        Conteo por tipo de documento (factura, ticket, nota, otro).
-                    </CardDescription>
-                    </CardHeader>
-
-                    <CardContent class="pt-0 min-h-0">
-                    <div class="chart-wrap chart-fx h-[260px] w-full">
-                        <div class="chart-canvas">
-                        <VisXYContainer :data="comprobantesMix" class="h-full w-full">
-                            <VisAxis
-                            type="x"
-                            :x="xi"
-                            :tick-format="(_v:any, i:number) => (comprobantesMix?.[i]?.name ?? '')"
+                <!-- 3. Estatus de requisiciones -->
+                <div class="erp-chart-card">
+                    <div class="erp-chart-header">
+                        <p class="erp-chart-title">Estatus de requisiciones</p>
+                        <p class="erp-chart-desc">Distribución por estatus (pipeline operativo).</p>
+                    </div>
+                    <div class="erp-chart-body">
+                        <div class="relative">
+                            <VueApexCharts
+                                :options="statusChartOptions"
+                                :series="statusSeries"
+                                type="donut"
+                                height="260"
+                                width="100%"
                             />
-                            <VisAxis type="y" :tick-format="intTick" />
-                            <VisArea :x="xi" :y="(d:any) => d.value" :opacity="0.18" />
-                            <VisLine :x="xi" :y="(d:any) => d.value" :stroke-width="2" />
-                            <VisTooltip />
-                        </VisXYContainer>
-                        </div>
-
-                        <div class="chart-xlabel">Tipo de documento</div>
-                        <div class="chart-ylabel">Comprobantes</div>
-
-                        <div v-if="!hasRealComprobantes" class="chart-overlay">
-                        <div class="chart-overlay-title">Sin datos todavía</div>
-                        <div class="chart-overlay-sub">Mix de evidencia y calidad documental.</div>
+                            <div
+                                v-if="!hasRealStatus"
+                                class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-zinc-900/80 rounded-xl"
+                            >
+                                <div class="erp-empty-state">
+                                    <div class="erp-empty-state-icon">
+                                        <Inbox class="h-6 w-6" />
+                                    </div>
+                                    <p class="erp-empty-state-title">Sin datos todavía</p>
+                                    <p class="erp-empty-state-desc">Pipeline: de borrador a aceptada.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    </CardContent>
-                </Card>
+                </div>
+
+                <!-- 4. Comprobantes -->
+                <div class="erp-chart-card">
+                    <div class="erp-chart-header">
+                        <p class="erp-chart-title">Comprobantes</p>
+                        <p class="erp-chart-desc">Conteo por tipo de documento (factura, ticket, nota, otro).</p>
+                    </div>
+                    <div class="erp-chart-body">
+                        <div class="relative">
+                            <VueApexCharts
+                                :options="compChartOptions"
+                                :series="compSeries"
+                                type="donut"
+                                height="260"
+                                width="100%"
+                            />
+                            <div
+                                v-if="!hasRealComprobantes"
+                                class="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-zinc-900/80 rounded-xl"
+                            >
+                                <div class="erp-empty-state">
+                                    <div class="erp-empty-state-icon">
+                                        <Inbox class="h-6 w-6" />
+                                    </div>
+                                    <p class="erp-empty-state-title">Sin datos todavía</p>
+                                    <p class="erp-empty-state-desc">Mix de evidencia y calidad documental.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </AuthenticatedLayout>

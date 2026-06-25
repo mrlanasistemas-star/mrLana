@@ -65,8 +65,12 @@ class RequisicionController extends Controller {
         $proveedorId     = $raw['proveedor_id'] ?? null;
         $tipo            = (string)($raw['tipo'] ?? '');
 
-        $fechaFrom = $this->safeYmd($raw['fecha_from'] ?? null);
-        $fechaTo   = $this->safeYmd($raw['fecha_to'] ?? null);
+        // Fecha de registro (created_at) — usa nuevo nombre o alias
+        $fechaRegistroFrom = $this->safeYmd($raw['fecha_registro_from'] ?? $raw['fecha_from'] ?? null);
+        $fechaRegistroTo   = $this->safeYmd($raw['fecha_registro_to'] ?? $raw['fecha_to'] ?? null);
+        // Fecha de pago general (requisicions.fecha_pago)
+        $fechaPagoFrom     = $this->safeYmd($raw['fecha_pago_from'] ?? null);
+        $fechaPagoTo       = $this->safeYmd($raw['fecha_pago_to'] ?? null);
 
         $query = Requisicion::query()
             ->with([
@@ -141,8 +145,10 @@ class RequisicionController extends Controller {
         if (!empty($proveedorId)) $query->where('proveedor_id', (int)$proveedorId);
         if ($tipo !== '')         $query->where('tipo', $tipo);
 
-        if ($fechaFrom) $query->whereDate('created_at', '>=', $fechaFrom);
-        if ($fechaTo)   $query->whereDate('created_at', '<=', $fechaTo);
+        if ($fechaRegistroFrom) $query->whereDate('created_at', '>=', $fechaRegistroFrom);
+        if ($fechaRegistroTo)   $query->whereDate('created_at', '<=', $fechaRegistroTo);
+        if ($fechaPagoFrom)     $query->whereDate('fecha_pago', '>=', $fechaPagoFrom);
+        if ($fechaPagoTo)       $query->whereDate('fecha_pago', '<=', $fechaPagoTo);
 
         $requisiciones = $query
             ->orderBy($sort, $dir)
@@ -163,8 +169,13 @@ class RequisicionController extends Controller {
                 'concepto_id' => $conceptoId ?? '',
                 'proveedor_id' => $proveedorId ?? '',
                 'tipo' => $tipo,
-                'fecha_from' => $fechaFrom ?? '',
-                'fecha_to' => $fechaTo ?? '',
+                'fecha_registro_from' => $fechaRegistroFrom ?? '',
+                'fecha_registro_to'   => $fechaRegistroTo ?? '',
+                'fecha_pago_from'     => $fechaPagoFrom ?? '',
+                'fecha_pago_to'       => $fechaPagoTo ?? '',
+                // Mantén los aliases originales para backward compat
+                'fecha_from' => $fechaRegistroFrom ?? '',
+                'fecha_to'   => $fechaRegistroTo ?? '',
                 'perPage' => $showAll ? 'all' : $perPage,
                 'sort' => $this->denormalizeSortForUi($sort),
                 'dir' => $dir,

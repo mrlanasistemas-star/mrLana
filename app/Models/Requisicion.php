@@ -34,6 +34,7 @@ class Requisicion extends Model {
         'monto_total'         => 'decimal:2',
         'fecha_solicitud'     => 'datetime',
         'fecha_autorizacion'  => 'datetime',
+        'fecha_pago'          => 'date',
     ];
 
     /* ============================

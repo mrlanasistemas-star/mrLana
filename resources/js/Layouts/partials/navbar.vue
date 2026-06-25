@@ -100,13 +100,13 @@
 </script>
 
 <template>
-    <nav class="relative z-[200] h-16 border-b backdrop-blur flex
+    <nav class="relative z-[150] h-16 border-b backdrop-blur-md flex
     items-center justify-between px-4 sm:px-6 lg:px-8
-  bg-slate-50/80 border-slate-200
-    dark:bg-zinc-950/30 dark:border-zinc-800/70">
-      <!-- Título -->
-      <div class="flex items-center gap-3">
-        <h1 class="text-sm sm:text-base font-semibold text-slate-900 dark:text-zinc-100">
+    bg-white/80 border-slate-200/80
+    dark:bg-zinc-950/75 dark:border-zinc-800/60">
+      <!-- Título de página -->
+      <div class="flex items-center gap-3 min-w-0">
+        <h1 class="text-sm sm:text-base font-bold text-slate-900 dark:text-zinc-100 truncate">
           <slot name="title">Dashboard</slot>
         </h1>
       </div>

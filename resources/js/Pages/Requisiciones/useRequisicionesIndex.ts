@@ -139,6 +139,11 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     fecha_from: props.filters?.fecha_from ?? '',
     fecha_to: props.filters?.fecha_to ?? '',
 
+    fecha_pago_from: props.filters?.fecha_pago_from ?? '',
+    fecha_pago_to:   props.filters?.fecha_pago_to ?? '',
+    fecha_registro_from: props.filters?.fecha_registro_from ?? props.filters?.fecha_from ?? '',
+    fecha_registro_to:   props.filters?.fecha_registro_to ?? props.filters?.fecha_to ?? '',
+
     perPage: Number(props.filters?.perPage ?? 20),
     sort: props.filters?.sort ?? 'created_at',
     dir: (props.filters?.dir ?? 'desc') as 'asc' | 'desc',
@@ -273,6 +278,10 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
         state.proveedor_id ||
         state.fecha_from ||
         state.fecha_to ||
+        state.fecha_pago_from ||
+        state.fecha_pago_to ||
+        state.fecha_registro_from ||
+        state.fecha_registro_to ||
         state.perPage !== 20 ||
         state.sort !== 'created_at' ||
         state.dir !== 'desc'
@@ -296,8 +305,13 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
       concepto_id: state.concepto_id || undefined,
       proveedor_id: state.proveedor_id || undefined,
 
-      fecha_from: state.fecha_from || undefined,
-      fecha_to: state.fecha_to || undefined,
+      fecha_from: state.fecha_registro_from || state.fecha_from || undefined,
+      fecha_to:   state.fecha_registro_to || state.fecha_to || undefined,
+
+      fecha_pago_from: state.fecha_pago_from || undefined,
+      fecha_pago_to:   state.fecha_pago_to || undefined,
+      fecha_registro_from: state.fecha_registro_from || undefined,
+      fecha_registro_to:   state.fecha_registro_to || undefined,
 
       perPage: state.perPage || undefined,
       sort: state.sort || undefined,
@@ -328,6 +342,10 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
       state.proveedor_id,
       state.fecha_from,
       state.fecha_to,
+      state.fecha_pago_from,
+      state.fecha_pago_to,
+      state.fecha_registro_from,
+      state.fecha_registro_to,
       state.perPage,
       state.sort,
       state.dir,
@@ -345,6 +363,10 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     state.proveedor_id = ''
     state.fecha_from = ''
     state.fecha_to = ''
+    state.fecha_pago_from = ''
+    state.fecha_pago_to = ''
+    state.fecha_registro_from = ''
+    state.fecha_registro_to = ''
     state.perPage = 20
     state.sort = 'created_at'
     state.dir = 'desc'
@@ -434,20 +456,47 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     return 'bg-slate-500/10 text-slate-700 border-slate-300/50 dark:text-slate-200 dark:border-white/10'
   }
 
-  // Rutas
+  // Rutas — navegación programática (para casos que lo requieran)
   function goShow(id: number) {
-    router.visit(route('requisiciones.show', id))
+    router.visit(showUrl(id))
   }
   function goCreate() {
     router.visit(route('requisiciones.registrar'))
   }
   function goPay(id: number) {
-    router.visit(route('requisiciones.pagar', id))
+    router.visit(payUrl(id))
   }
   function goComprobar(id: number) {
-    router.visit(route('requisiciones.comprobar', id))
+    router.visit(comprobarUrl(id))
   }
   function printReq(_id: number) {}
+
+  // URLs reales (para <a> tags que permiten Ctrl+click / abrir en pestaña)
+  function _currentHref() {
+    return typeof window !== 'undefined' ? window.location.href : ''
+  }
+
+  function showUrl(id: number | string) {
+    const base = route('requisiciones.show', id)
+    const cur = _currentHref()
+    return cur ? `${base}?return_url=${encodeURIComponent(cur)}` : base
+  }
+
+  function payUrl(id: number | string) {
+    const base = route('requisiciones.pagar', id)
+    const cur = _currentHref()
+    return cur ? `${base}?return_url=${encodeURIComponent(cur)}` : base
+  }
+
+  function comprobarUrl(id: number | string) {
+    const base = route('requisiciones.comprobar', id)
+    const cur = _currentHref()
+    return cur ? `${base}?return_url=${encodeURIComponent(cur)}` : base
+  }
+
+  function printUrl(id: number | string) {
+    return route('requisiciones.print', { requisicion: id })
+  }
 
   async function destroyRow(row: RequisicionRow, e?: Event) {
   e?.preventDefault()
@@ -574,5 +623,10 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     money,
     displayName,
     copyText,
+    // URL helpers para enlaces reales
+    showUrl,
+    payUrl,
+    comprobarUrl,
+    printUrl,
   }
 }

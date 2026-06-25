@@ -5,6 +5,7 @@
     import Swal from 'sweetalert2'
     import { X } from 'lucide-vue-next'
     import { Send } from 'lucide-vue-next'
+    import { formatDateOnlyEsMx } from '@/Utils/date'
 
     import {
         ArrowLeft,
@@ -125,7 +126,10 @@
     })
 
     const entregaLabel = computed(() => {
-        const maybe = (req.value as any)?.fecha_entrega ?? (req.value as any)?.fecha_pago ?? null
+        const maybe = (req.value as any)?.fecha_pago_ymd
+            ?? (req.value as any)?.fecha_entrega
+            ?? (req.value as any)?.fecha_pago
+            ?? null
         return maybe ? onlyDate(maybe) : 'AÚN SIN ENTREGAR'
     })
 
@@ -150,12 +154,7 @@
         })
     }
 
-    const onlyDate = (iso?: string | null) => {
-        if (!iso) return '—'
-        const d = new Date(iso)
-        if (Number.isNaN(d.getTime())) return '—'
-        return d.toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: '2-digit' })
-    }
+    const onlyDate = (iso?: string | null) => formatDateOnlyEsMx(iso)
 
     type PreviewKind = 'pdf' | 'image' | 'other'
     type Preview = { url: string; name: string; kind: PreviewKind }
@@ -247,7 +246,16 @@
         }
     }
 
-    const goBack = () => router.visit(route('requisiciones.index'))
+    const backUrl = computed<string>(() => {
+        if (typeof window === 'undefined') return route('requisiciones.index')
+        const params = new URLSearchParams(window.location.search)
+        const returnUrl = params.get('return_url')
+        return returnUrl || route('requisiciones.index')
+    })
+
+    const goBack = () => {
+        window.location.href = backUrl.value
+    }
 
     const subtotalCalc = computed(() => detalles.value.reduce((acc, d) => acc + Number(d?.subtotal ?? 0), 0))
     const ivaCalc = computed(() => detalles.value.reduce((acc, d) => acc + Number(d?.iva ?? 0), 0))
@@ -425,9 +433,8 @@
                             <!-- Actions -->
                             <div class="w-full xl:w-auto min-w-0">
                                 <div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-                                <button
-                                    type="button"
-                                    @click="goBack"
+                                <a
+                                    :href="backUrl"
                                     class="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs sm:text-sm font-black
                                         ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900
                                         text-slate-800 dark:text-neutral-100
@@ -436,7 +443,7 @@
                                 >
                                     <ArrowLeft class="h-4 w-4" />
                                     Volver
-                                </button>
+                                </a>
 
                                 <button
                                     type="button"

@@ -73,8 +73,10 @@ class RequisicionExportController {
         $conceptoId    = $request->query('concepto_id');
         $proveedorId   = $request->query('proveedor_id');
         $tipo          = (string) $request->query('tipo', '');
-        $from          = $this->safeYmd($request->query('fecha_from'));
-        $to            = $this->safeYmd($request->query('fecha_to'));
+        $registroFrom = $this->safeYmd($request->query('fecha_registro_from') ?? $request->query('fecha_from'));
+        $registroTo   = $this->safeYmd($request->query('fecha_registro_to') ?? $request->query('fecha_to'));
+        $pagoFrom     = $this->safeYmd($request->query('fecha_pago_from'));
+        $pagoTo       = $this->safeYmd($request->query('fecha_pago_to'));
         $dir           = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
         $sortRaw       = (string) $request->query('sort', 'created_at');
         $sort          = $this->normalizeSort($sortRaw);
@@ -151,8 +153,10 @@ class RequisicionExportController {
         if (!empty($conceptoId))    $query->where('concepto_id', (int) $conceptoId);
         if (!empty($proveedorId))   $query->where('proveedor_id', (int) $proveedorId);
         if ($tipo !== '')           $query->where('tipo', $tipo);
-        if ($from)                  $query->whereDate('created_at', '>=', $from);
-        if ($to)                    $query->whereDate('created_at', '<=', $to);
+        if ($registroFrom) $query->whereDate('created_at', '>=', $registroFrom);
+        if ($registroTo)   $query->whereDate('created_at', '<=', $registroTo);
+        if ($pagoFrom)     $query->whereDate('fecha_pago', '>=', $pagoFrom);
+        if ($pagoTo)       $query->whereDate('fecha_pago', '<=', $pagoTo);
 
         $allowed = ['folio', 'created_at', 'monto_total', 'status', 'tipo', 'id'];
         if (!in_array($sort, $allowed, true)) {
@@ -397,8 +401,10 @@ class RequisicionExportController {
             'Concepto'      => $con,
             'Proveedor'     => $prov,
             'Tipo'          => (string) $request->query('tipo', ''),
-            'Captura desde' => (string) ($request->query('fecha_from', '')),
-            'Captura hasta' => (string) ($request->query('fecha_to', '')),
+            'Registro desde' => (string)($request->query('fecha_registro_from') ?? $request->query('fecha_from', '')),
+            'Registro hasta' => (string)($request->query('fecha_registro_to') ?? $request->query('fecha_to', '')),
+            'Pago desde'     => (string)($request->query('fecha_pago_from', '')),
+            'Pago hasta'     => (string)($request->query('fecha_pago_to', '')),
             'Orden'         => $sortLabel,
             'Dirección'     => $dir,
         ], fn ($v) => $v !== null && $v !== '');

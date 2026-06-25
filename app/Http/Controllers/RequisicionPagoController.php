@@ -21,6 +21,10 @@ class RequisicionPagoController extends Controller {
         $pagado = (float) $pagos->sum('monto');
         $total = (float) $requisicion->monto_total;
         $pendiente = max(0, $total - $pagado);
+        $cantidadPagos = $pagos->count();
+        $puedeDefinirFechaGeneral = $cantidadPagos > 0
+            && ($pagado + 0.00001 >= $total)
+            && $pendiente <= 0.00001;
         $benef = $this->buildBeneficiario($requisicion);
         $pagosShape = $pagos->map(function ($p) use ($benef) {
             $url = null;
@@ -29,7 +33,7 @@ class RequisicionPagoController extends Controller {
             }
             return [
                 'id' => (int) $p->id,
-                'fecha_pago' => $p->fecha_pago,
+                'fecha_pago' => optional($p->fecha_pago)->format('Y-m-d'),
                 'tipo_pago' => (string) ($p->tipo_pago ?? ''),
                 'monto' => (float) ($p->monto ?? 0),
                 'referencia' => $p->referencia ?? null,
@@ -56,8 +60,10 @@ class RequisicionPagoController extends Controller {
                     'solicitante_nombre' => $this->safeNombre($requisicion->solicitante),
                     'beneficiario' => $benef,
                     'status' => (string) ($requisicion->status ?? ''),
-                    'fecha_autorizacion' => $requisicion->fecha_autorizacion,
-                    'fecha_pago_programada' => $requisicion->fecha_pago,
+                    'fecha_autorizacion' => optional($requisicion->fecha_autorizacion)->format('Y-m-d'),
+                    'fecha_pago_programada' => optional($requisicion->fecha_pago)->format('Y-m-d'),
+                    'cantidad_pagos'                    => $cantidadPagos,
+                    'puede_definir_fecha_pago_general'  => $puedeDefinirFechaGeneral,
                 ],
             ],
             'pagos' => [
@@ -139,8 +145,7 @@ class RequisicionPagoController extends Controller {
                 $pendienteDespues = max(0, $pendiente - $monto);
                 $nuevoStatus = ($pendienteDespues <= 0.00001) ? 'PAGADA' : 'PAGO_AUTORIZADO';
                 $requisicion->update([
-                    'fecha_pago' => $request->input('fecha_pago'), // ahora sí fecha real del último pago
-                    'status'     => $nuevoStatus,
+                    'status' => $nuevoStatus,
                 ]);
                 if ($nuevoStatus === 'PAGADA') {
                     $colaborador = $requisicion->solicitante?->user;
@@ -157,6 +162,30 @@ class RequisicionPagoController extends Controller {
                 throw $e;
             }
         });
+    }
+
+    public function updateFechaPagoGeneral(Request $request, Requisicion $requisicion) {
+        $rol = strtoupper((string) (auth()->user()->rol ?? 'COLABORADOR'));
+        abort_unless(in_array($rol, ['ADMIN', 'CONTADOR'], true), 403);
+
+        $data = $request->validate([
+            'fecha_pago' => ['required', 'date'],
+        ]);
+
+        $cantidadPagos = $requisicion->pagos()->count();
+        $totalPagado   = (float) $requisicion->pagos()->sum('monto');
+        $montoReq      = (float) $requisicion->monto_total;
+        $pendiente     = max(0, $montoReq - $totalPagado);
+
+        if ($cantidadPagos === 0 || $totalPagado + 0.00001 < $montoReq || $pendiente > 0.00001) {
+            return back()->withErrors([
+                'fecha_pago' => 'La fecha general de pago solo puede registrarse cuando exista al menos un pago y el monto total de la requisición esté completamente cubierto.',
+            ]);
+        }
+
+        $requisicion->update(['fecha_pago' => $data['fecha_pago']]);
+
+        return back()->with('success', 'Fecha de pago de la requisición guardada correctamente.');
     }
 
     private function safeNombre($model): string {

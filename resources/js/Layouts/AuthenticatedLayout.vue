@@ -6,12 +6,14 @@
 
     const showingNavigationDropdown = ref(false)
 
-    /** Animación ligera al montar */
     onMounted(() => {
-        const el = document.getElementById('auth-layout')
-        el?.animate(
-            [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0)' }],
-            { duration: 240, easing: 'ease-out' }
+        const el = document.getElementById('auth-main')
+        if (!el) return
+        const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+        if (prefersReduced) return
+        el.animate(
+            [{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 220, easing: 'ease-out', fill: 'both' }
         )
     })
 </script>
@@ -21,22 +23,29 @@
         <link rel="icon" href="/favicon.ico" />
     </Head>
 
-    <div id="auth-layout" class="min-h-screen flex bg-slate-100 dark:bg-neutral-950 transition-colors">
-        <Sidebar />
-        <div class="flex-1 flex flex-col min-h-screen">
-            <Navbar>
-                <!-- Se recibe lo que se envie en #header -->
-                <template #title>
-                <slot name="header">Dashboard</slot>
-                </template>
-            </Navbar>
+    <!-- Shell principal: sidebar fijo + contenido scrollable -->
+    <div class="flex min-h-dvh bg-slate-100 dark:bg-[#09090b] transition-colors duration-200">
 
-            <!-- Aqui se insertan las demas paginas en forma de "Paneles"  -->
-            <main class="flex-1 min-w-0">
-                <div class="w-full px-4 sm:px-6 lg:px-8 py-0">
+        <!-- Sidebar: sticky, no scrollea con el contenido -->
+        <Sidebar />
+
+        <!-- Columna derecha: navbar + contenido -->
+        <div class="flex flex-col flex-1 min-w-0 min-h-dvh">
+
+            <!-- Navbar sticky -->
+            <div class="sticky top-0 z-[200] shrink-0">
+                <Navbar>
+                    <template #title>
+                        <slot name="header">Dashboard</slot>
+                    </template>
+                </Navbar>
+            </div>
+
+            <!-- Contenido scrollable -->
+            <main id="auth-main" class="flex-1 min-w-0 overflow-x-hidden">
                 <slot />
-                </div>
             </main>
+
         </div>
     </div>
 </template>

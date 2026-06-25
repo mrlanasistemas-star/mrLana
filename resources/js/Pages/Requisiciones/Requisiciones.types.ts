@@ -79,6 +79,10 @@ export type RequisicionesFilters = {
   proveedor_id?: string | number
   fecha_from?: string
   fecha_to?: string
+  fecha_pago_from?: string
+  fecha_pago_to?: string
+  fecha_registro_from?: string
+  fecha_registro_to?: string
   perPage?: number
   sort?: string
   dir?: 'asc' | 'desc'

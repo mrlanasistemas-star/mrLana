@@ -1,37 +1,45 @@
 <script setup lang="ts">
-    import { computed } from 'vue'
-    import { Head, usePage } from '@inertiajs/vue3'
-    import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-    import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
-    import SecondaryButton from '@/Components/SecondaryButton.vue'
-    import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
-    import { usePlantillaCreate } from './usePlantillaCreate'
-    import type { Catalogos } from '../Requisiciones/Requisiciones.types'
+import { computed } from 'vue'
+import { Head, usePage } from '@inertiajs/vue3'
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
+import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
+import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
+import { usePlantillaCreate } from './usePlantillaCreate'
+import type { Catalogos } from '../Requisiciones/Requisiciones.types'
+import {
+    Plus,
+    Trash2,
+    FileText,
+    Building2,
+    Users,
+    Tags,
+    Truck,
+    FilePlus2,
+} from 'lucide-vue-next'
 
-    const page = usePage<any>()
-    const catalogos = (page.props as any)?.catalogos as Catalogos
-    const plantilla = (page.props as any)?.plantilla ?? null
+const page      = usePage<any>()
+const catalogos = (page.props as any)?.catalogos as Catalogos
+const plantilla = (page.props as any)?.plantilla ?? null
 
-    const {
-        state,
-        items,
-        corporativosActive,
-        sucursalesFiltered,
-        empleadosActive,
-        conceptosActive,
-        proveedoresList,
-        addItem,
-        removeItem,
-        save,
-        update,
-        money,
-        role,
-        saving,
-        showError,
-        fieldError,
-    } = usePlantillaCreate(catalogos, plantilla)
+const {
+    state,
+    items,
+    corporativosActive,
+    sucursalesFiltered,
+    empleadosActive,
+    conceptosActive,
+    proveedoresList,
+    addItem,
+    removeItem,
+    save,
+    update,
+    money,
+    role,
+    saving,
+    fieldError,
+} = usePlantillaCreate(catalogos, plantilla)
 
-    const isEdit = computed(() => !!plantilla)
+const isEdit = computed(() => !!plantilla)
 </script>
 
 <template>
@@ -39,311 +47,379 @@
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-xl font-semibold leading-tight text-slate-900 dark:text-zinc-100">
-                {{ isEdit ? 'Editar plantilla' : 'Nueva plantilla' }}
-            </h2>
+            <div class="min-w-0">
+                <h2 class="text-xl font-black text-slate-900 dark:text-zinc-100 truncate">
+                    {{ isEdit ? 'Editar plantilla' : 'Nueva plantilla' }}
+                </h2>
+                <p class="text-sm text-slate-500 dark:text-zinc-400 mt-0.5">
+                    {{ isEdit ? 'Modifica los datos de la plantilla' : 'Crea una nueva plantilla reutilizable' }}
+                </p>
+            </div>
         </template>
 
-        <div class="w-full max-w-full min-w-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <form class="space-y-6"
-            @submit.prevent="isEdit ? update(plantilla.id) : save()">
-                <!-- Datos generales -->
-                <div class="rounded-3xl border border-slate-200/70
-                dark:border-white/10 bg-white dark:bg-neutral-900
-                shadow-sm p-5 sm:p-6 space-y-4">
-                    <div class="flex items-center justify-between gap-3">
-                        <h3 class="text-base font-extrabold text-slate-900 dark:text-neutral-100">Datos generales</h3>
+        <div class="erp-page">
+            <form class="space-y-6" @submit.prevent="isEdit ? update(plantilla.id) : save()">
 
-                        <div v-if="saving"
-                        class="text-xs font-semibold text-slate-500
-                        dark:text-neutral-400">
-                            Guardando...
+                <!-- ── Sección 1: Información general ── -->
+                <div class="erp-form-section">
+                    <div class="erp-form-section-header">
+                        <div class="erp-form-section-icon">
+                            <FileText class="h-4 w-4" />
+                        </div>
+                        <div>
+                            <div class="erp-form-section-title">Información general</div>
+                            <div class="erp-form-section-desc">Nombre y estado de la plantilla</div>
                         </div>
                     </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 dark:text-neutral-300">
-                                Nombre de la plantilla
-                            </label>
-                            <input v-model="state.nombre" type="text"
-                            class="mt-1 w-full rounded-2xl px-3 py-2 text-sm
-                            border bg-white border-slate-200
-                            focus:outline-none focus:ring-2
-                            focus:ring-emerald-500/20
-                            dark:border-white/10 dark:bg-neutral-950/40
-                            dark:text-neutral-100 transition"
-                            placeholder="Ej. Insumos de papelería"/>
-                            <p v-if="fieldError('nombre')" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                                {{ fieldError('nombre') }}
-                            </p>
+                    <div class="erp-form-section-body">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="erp-label">Nombre *</label>
+                                <input
+                                    v-model="state.nombre"
+                                    type="text"
+                                    placeholder="Ej. Insumos de papelería"
+                                    class="erp-input"
+                                />
+                                <p v-if="fieldError('nombre')" class="erp-error">
+                                    {{ fieldError('nombre') }}
+                                </p>
+                            </div>
                         </div>
-
-                        <div>
-                            <!-- Corporativo -->
-                            <SearchableSelect
-                            v-model="state.corporativo_id"
-                            :options="corporativosActive"
-                            label="Corporativo"
-                            placeholder="Seleccione..."
-                            searchPlaceholder="Buscar corporativo..."
-                            :allowNull="true"
-                            nullLabel="—"
-                            rounded="2xl"
-                            labelKey="nombre"
-                            valueKey="id"
-                            :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"/>
-                            <p v-if="fieldError('comprador_corp_id')" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                                {{ fieldError('comprador_corp_id') }}
-                            </p>
-                        </div>
-
-                        <div>
-                            <!-- Sucursal -->
-                            <SearchableSelect
-                            v-model="state.sucursal_id"
-                            :options="sucursalesFiltered"
-                            label="Sucursal"
-                            placeholder="Seleccione..."
-                            searchPlaceholder="Buscar sucursal..."
-                            :allowNull="true"
-                            nullLabel="—"
-                            rounded="2xl"
-                            labelKey="nombre"
-                            valueKey="id"
-                            :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"/>
-                            <p v-if="fieldError('sucursal_id')" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                                {{ fieldError('sucursal_id') }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                            <!-- Solicitante -->
-                            <SearchableSelect
-                            v-model="state.solicitante_id"
-                            :options="empleadosActive"
-                            label="Solicitante"
-                            placeholder="Seleccione..."
-                            searchPlaceholder="Buscar solicitante..."
-                            :allowNull="true"
-                            nullLabel="—"
-                            rounded="2xl"
-                            labelKey="nombre"
-                            valueKey="id"
-                            :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"/>
-                            <p v-if="role === 'COLABORADOR'" class="mt-1 text-[11px] text-slate-500 dark:text-neutral-400">
-                            Para colaboradores, el solicitante se asigna automáticamente.
-                            </p>
-                        </div>
-
-                        <div>
-                            <SearchableSelect v-model="state.concepto_id"
-                            :options="conceptosActive" label="Concepto"
-                            placeholder="Seleccione..."
-                            searchPlaceholder="Buscar concepto..."
-                            :allowNull="true" nullLabel="—" rounded="2xl"
-                            labelKey="nombre" valueKey="id"/>
-                            <p v-if="fieldError('concepto_id')" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                                {{ fieldError('concepto_id') }}
-                            </p>
-                        </div>
-
-                        <div>
-                            <SearchableSelect
-                            v-model="state.proveedor_id"
-                            :options="proveedoresList"
-                            label="Proveedor"
-                            placeholder="Seleccione..."
-                            searchPlaceholder="Buscar proveedor..."
-                            :allowNull="true"
-                            nullLabel="—"
-                            rounded="2xl"
-                            labelKey="nombre"
-                            valueKey="id"/>
-                            <p v-if="fieldError('proveedor_id')" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                                {{ fieldError('proveedor_id') }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <DatePickerShadcn v-model="state.fecha_solicitud"
-                        label="Fecha esperada de entrega"
-                        placeholder="Selecciona fecha"/>
-                        <p v-if="fieldError('fecha_solicitud')" class="mt-1 text-xs text-rose-600 dark:text-rose-400 sm:col-span-3">
-                            {{ fieldError('fecha_solicitud') }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 dark:text-neutral-300">Observaciones</label>
-                        <input v-model="state.observaciones" type="text"
-                        class="mt-1 w-full rounded-2xl px-3 py-2 text-sm
-                        border bg-white border-slate-200
-                        focus:outline-none focus:ring-2 focus:ring-emerald-500/20
-                        dark:border-white/10 dark:bg-neutral-950/40
-                        dark:text-neutral-100 transition"
-                        placeholder="Opcional"/>
-                        <p v-if="fieldError('observaciones')" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                            {{ fieldError('observaciones') }}
-                        </p>
                     </div>
                 </div>
 
-                <!-- Items -->
-                <div class="rounded-3xl border border-slate-200/70
-                dark:border-white/10 bg-white dark:bg-neutral-900
-                shadow-sm p-5 sm:p-6 space-y-4">
-                    <div class="flex items-center justify-between gap-2">
-                        <h3 class="text-base font-extrabold text-slate-900 dark:text-neutral-100">Items de la plantilla</h3>
+                <!-- ── Sección 2: Corporativo y Sucursal ── -->
+                <div class="erp-form-section">
+                    <div class="erp-form-section-header">
+                        <div class="erp-form-section-icon">
+                            <Building2 class="h-4 w-4" />
+                        </div>
+                        <div>
+                            <div class="erp-form-section-title">Corporativo y Sucursal</div>
+                            <div class="erp-form-section-desc">Asignación de unidad de negocio</div>
+                        </div>
+                    </div>
+                    <div class="erp-form-section-body">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <SearchableSelect
+                                    v-model="state.corporativo_id"
+                                    :options="corporativosActive"
+                                    label="Corporativo"
+                                    placeholder="Seleccione..."
+                                    searchPlaceholder="Buscar corporativo..."
+                                    :allowNull="true"
+                                    nullLabel="—"
+                                    rounded="2xl"
+                                    labelKey="nombre"
+                                    valueKey="id"
+                                    :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
+                                />
+                                <p v-if="fieldError('comprador_corp_id')" class="erp-error">
+                                    {{ fieldError('comprador_corp_id') }}
+                                </p>
+                            </div>
 
-                        <button type="button" @click="addItem"
-                        class="rounded-2xl px-4 py-2 text-sm font-semibold
-                        bg-emerald-600 text-white hover:bg-emerald-700
-                        dark:bg-emerald-500 dark:hover:bg-emerald-600
-                        transition active:scale-[0.99]">
-                            Agregar item
+                            <div>
+                                <SearchableSelect
+                                    v-model="state.sucursal_id"
+                                    :options="sucursalesFiltered"
+                                    label="Sucursal"
+                                    placeholder="Seleccione..."
+                                    searchPlaceholder="Buscar sucursal..."
+                                    :allowNull="true"
+                                    nullLabel="—"
+                                    rounded="2xl"
+                                    labelKey="nombre"
+                                    valueKey="id"
+                                    :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
+                                />
+                                <p v-if="fieldError('sucursal_id')" class="erp-error">
+                                    {{ fieldError('sucursal_id') }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Sección 3: Solicitante, Concepto y Proveedor ── -->
+                <div class="erp-form-section">
+                    <div class="erp-form-section-header">
+                        <div class="erp-form-section-icon">
+                            <Users class="h-4 w-4" />
+                        </div>
+                        <div>
+                            <div class="erp-form-section-title">Solicitante, Concepto y Proveedor</div>
+                            <div class="erp-form-section-desc">Personas y categorías relacionadas a la plantilla</div>
+                        </div>
+                    </div>
+                    <div class="erp-form-section-body">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <SearchableSelect
+                                    v-model="state.solicitante_id"
+                                    :options="empleadosActive"
+                                    label="Solicitante"
+                                    placeholder="Seleccione..."
+                                    searchPlaceholder="Buscar solicitante..."
+                                    :allowNull="true"
+                                    nullLabel="—"
+                                    rounded="2xl"
+                                    labelKey="nombre"
+                                    valueKey="id"
+                                    :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
+                                />
+                                <p v-if="role === 'COLABORADOR'" class="erp-error" style="color: var(--erp-muted);">
+                                    Para colaboradores, el solicitante se asigna automáticamente.
+                                </p>
+                            </div>
+
+                            <div>
+                                <SearchableSelect
+                                    v-model="state.concepto_id"
+                                    :options="conceptosActive"
+                                    label="Concepto"
+                                    placeholder="Seleccione..."
+                                    searchPlaceholder="Buscar concepto..."
+                                    :allowNull="true"
+                                    nullLabel="—"
+                                    rounded="2xl"
+                                    labelKey="nombre"
+                                    valueKey="id"
+                                />
+                                <p v-if="fieldError('concepto_id')" class="erp-error">
+                                    {{ fieldError('concepto_id') }}
+                                </p>
+                            </div>
+
+                            <div>
+                                <SearchableSelect
+                                    v-model="state.proveedor_id"
+                                    :options="proveedoresList"
+                                    label="Proveedor"
+                                    placeholder="Seleccione..."
+                                    searchPlaceholder="Buscar proveedor..."
+                                    :allowNull="true"
+                                    nullLabel="—"
+                                    rounded="2xl"
+                                    labelKey="nombre"
+                                    valueKey="id"
+                                />
+                                <p v-if="fieldError('proveedor_id')" class="erp-error">
+                                    {{ fieldError('proveedor_id') }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Sección 4: Fecha y Observaciones ── -->
+                <div class="erp-form-section">
+                    <div class="erp-form-section-header">
+                        <div class="erp-form-section-icon">
+                            <FileText class="h-4 w-4" />
+                        </div>
+                        <div>
+                            <div class="erp-form-section-title">Fecha y Observaciones</div>
+                            <div class="erp-form-section-desc">Información adicional de la plantilla</div>
+                        </div>
+                    </div>
+                    <div class="erp-form-section-body">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <DatePickerShadcn
+                                    v-model="state.fecha_solicitud"
+                                    label="Fecha esperada de entrega"
+                                    placeholder="Selecciona fecha"
+                                />
+                                <p v-if="fieldError('fecha_solicitud')" class="erp-error">
+                                    {{ fieldError('fecha_solicitud') }}
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="erp-label">Observaciones</label>
+                                <input
+                                    v-model="state.observaciones"
+                                    type="text"
+                                    placeholder="Opcional"
+                                    class="erp-input"
+                                />
+                                <p v-if="fieldError('observaciones')" class="erp-error">
+                                    {{ fieldError('observaciones') }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Sección 5: Partidas ── -->
+                <div class="erp-form-section">
+                    <div class="erp-form-section-header">
+                        <div class="erp-form-section-icon">
+                            <FilePlus2 class="h-4 w-4" />
+                        </div>
+                        <div>
+                            <div class="erp-form-section-title">Partidas</div>
+                            <div class="erp-form-section-desc">Artículos o servicios que componen la plantilla</div>
+                        </div>
+                        <button
+                            type="button"
+                            @click="addItem"
+                            class="erp-button erp-button-primary ml-auto"
+                        >
+                            <Plus class="h-4 w-4" />
+                            Agregar partida
                         </button>
                     </div>
 
-                    <div v-if="items.length > 0" class="space-y-3">
-                        <div v-for="(item, index) in items" :key="index"
-                        class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50
-                        dark:bg-neutral-950/40 p-4 grid grid-cols-1
-                        sm:grid-cols-12 gap-3 transition">
-                            <div class="sm:col-span-2">
-                                <label class="block text-[11px] font-semibold
-                                text-slate-500 dark:text-neutral-400">
-                                    Cantidad
-                                </label>
-                                <input v-model.number="item.cantidad"
-                                type="number" min="0" step="0.01"
-                                class="w-full rounded-xl px-3 py-2 text-sm
-                                border border-slate-200 bg-white
-                                focus:outline-none focus:ring-2
-                                focus:ring-emerald-500/20
-                                dark:border-white/10 dark:bg-neutral-900
-                                dark:text-neutral-100 transition"/>
+                    <div class="erp-form-section-body space-y-3">
+                        <!-- Empty state de partidas -->
+                        <div v-if="items.length === 0" class="erp-empty-state py-8">
+                            <div class="erp-empty-state-icon">
+                                <FilePlus2 class="h-6 w-6" />
                             </div>
+                            <p class="erp-empty-state-title">Sin partidas</p>
+                            <p class="erp-empty-state-desc">
+                                Agrega partidas para comenzar a construir la plantilla.
+                            </p>
+                        </div>
 
-                            <div class="sm:col-span-4">
-                                <label class="block text-[11px] font-semibold text-slate-500 dark:text-neutral-400">
-                                    Descripción
-                                </label>
-                                <input v-model="item.descripcion" type="text"
-                                class="w-full rounded-xl px-3 py-2 text-sm
-                                border border-slate-200 bg-white
-                                focus:outline-none focus:ring-2
-                                focus:ring-emerald-500/20
-                                dark:border-white/10 dark:bg-neutral-900
-                                dark:text-neutral-100 transition"
-                                placeholder="Ej. Hojas tamaño carta"/>
-                            </div>
-
-                            <div class="sm:col-span-2">
-                                <label class="block text-[11px] font-semibold text-slate-500 dark:text-neutral-400">
-                                    Precio unitario
-                                </label>
-                                <input v-model.number="item.precio_unitario"
-                                type="number" min="0" step="0.01"
-                                class="w-full rounded-xl px-3 py-2 text-sm
-                                border border-slate-200 bg-white
-                                focus:outline-none focus:ring-2
-                                focus:ring-emerald-500/20
-                                dark:border-white/10 dark:bg-neutral-900
-                                dark:text-neutral-100 transition"/>
-                            </div>
-
-                            <div class="sm:col-span-2">
-                                <label class="block text-[11px] font-semibold text-slate-500 dark:text-neutral-400">
-                                    ¿Genera IVA?
-                                </label>
-                                <label class="mt-1 inline-flex items-center
-                                gap-2 rounded-xl border border-slate-200
-                                bg-white px-3 py-2 dark:border-white/10
-                                dark:bg-neutral-900 transition
-                                hover:bg-slate-50 dark:hover:bg-white/5">
-                                    <input v-model="item.genera_iva"
-                                    type="checkbox" class="h-4 w-4 rounded
-                                    border-slate-300 text-emerald-600
-                                    focus:ring-emerald-500"/>
-                                    <span class="text-sm font-semibold text-slate-700 dark:text-neutral-200">
-                                        {{ item.genera_iva ? 'Sí' : 'No' }}
-                                    </span>
-                                </label>
-                            </div>
-
-                            <div class="sm:col-span-2 flex items-center justify-between sm:justify-end gap-3">
-                                <div class="text-right">
-                                    <div class="text-[11px] font-semibold text-slate-500 dark:text-neutral-400">
-                                        Total
-                                    </div>
-                                    <div class="text-sm font-extrabold text-slate-900 dark:text-neutral-100">
-                                        {{ money(item.total) }}
-                                    </div>
-                                    <div class="text-[11px] text-slate-500 dark:text-neutral-400">
-                                        Sub: {{ money(item.subtotal) }} · IVA: {{ money(item.iva) }}
-                                    </div>
+                        <!-- Lista de partidas -->
+                        <div
+                            v-for="(item, index) in items"
+                            :key="index"
+                            class="erp-card p-4 space-y-3"
+                        >
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <!-- Descripción -->
+                                <div class="col-span-2 sm:col-span-2">
+                                    <label class="erp-label">Descripción</label>
+                                    <input
+                                        v-model="item.descripcion"
+                                        type="text"
+                                        placeholder="Ej. Hojas tamaño carta"
+                                        class="erp-input"
+                                    />
+                                    <p v-if="fieldError(`detalles.${index}.descripcion`)" class="erp-error">
+                                        {{ fieldError(`detalles.${index}.descripcion`) }}
+                                    </p>
                                 </div>
 
-                                <button type="button"
-                                @click="removeItem(index)"
-                                class="rounded-full p-2 text-rose-600
-                                hover:bg-rose-50 dark:hover:bg-rose-500/10
-                                transition" aria-label="Quitar item">
-                                    ✕
+                                <!-- Cantidad -->
+                                <div>
+                                    <label class="erp-label">Cantidad</label>
+                                    <input
+                                        v-model.number="item.cantidad"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="erp-input"
+                                    />
+                                    <p v-if="fieldError(`detalles.${index}.cantidad`)" class="erp-error">
+                                        {{ fieldError(`detalles.${index}.cantidad`) }}
+                                    </p>
+                                </div>
+
+                                <!-- Precio unitario -->
+                                <div>
+                                    <label class="erp-label">Precio unitario</label>
+                                    <input
+                                        v-model.number="item.precio_unitario"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="erp-input"
+                                    />
+                                </div>
+
+                                <!-- ¿Genera IVA? -->
+                                <div class="col-span-2 sm:col-span-2 flex items-end">
+                                    <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                                        <input
+                                            v-model="item.genera_iva"
+                                            type="checkbox"
+                                            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                        />
+                                        <span class="text-sm font-semibold text-slate-700 dark:text-zinc-200">
+                                            {{ item.genera_iva ? 'Genera IVA (16%)' : 'Sin IVA' }}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Total de la partida + botón quitar -->
+                            <div class="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+                                <div class="text-sm text-slate-500 dark:text-zinc-400 space-x-4">
+                                    <span>
+                                        Subtotal:
+                                        <strong class="text-slate-700 dark:text-zinc-200">{{ money(item.subtotal) }}</strong>
+                                    </span>
+                                    <span>
+                                        IVA:
+                                        <strong class="text-slate-700 dark:text-zinc-200">{{ money(item.iva) }}</strong>
+                                    </span>
+                                    <span>
+                                        Total:
+                                        <strong class="text-slate-900 dark:text-zinc-100">{{ money(item.total) }}</strong>
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="removeItem(index)"
+                                    class="erp-icon-button text-rose-500 border-rose-200 dark:border-rose-500/25 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                                    aria-label="Quitar partida"
+                                >
+                                    <Trash2 class="h-4 w-4" />
                                 </button>
                             </div>
-
-                            <div v-if="fieldError(`detalles.${index}.cantidad`) || fieldError(`detalles.${index}.descripcion`)"
-                            class="sm:col-span-12">
-                                <p v-if="fieldError(`detalles.${index}.cantidad`)" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                                    {{ fieldError(`detalles.${index}.cantidad`) }}
-                                </p>
-                                <p v-if="fieldError(`detalles.${index}.descripcion`)" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
-                                    {{ fieldError(`detalles.${index}.descripcion`) }}
-                                </p>
-                            </div>
                         </div>
+
+                        <!-- Error global de detalles -->
+                        <p v-if="fieldError('detalles')" class="erp-error">
+                            {{ fieldError('detalles') }}
+                        </p>
                     </div>
+                </div>
 
-                    <div v-else class="text-center text-sm text-slate-500 dark:text-neutral-400">
-                        Agrega items para comenzar
-                    </div>
-
-                    <p v-if="fieldError('detalles')" class="text-xs text-rose-600 dark:text-rose-400">
-                        {{ fieldError('detalles') }}
-                    </p>
-
-                    <div class="text-right mt-4">
-                        <div class="text-sm text-slate-600 dark:text-neutral-300">
-                            Subtotal: <span class="font-bold">{{ money(state.monto_subtotal) }}</span>
+                <!-- ── Panel de resumen sticky ── -->
+                <div class="erp-panel p-5 sticky bottom-4 z-10 border-t-2 border-slate-200 dark:border-white/10">
+                    <div class="flex justify-between items-center flex-wrap gap-4">
+                        <div class="flex flex-wrap gap-6 text-sm text-slate-600 dark:text-zinc-300">
+                            <span>
+                                Subtotal:
+                                <strong class="text-slate-900 dark:text-zinc-100">{{ money(state.monto_subtotal) }}</strong>
+                            </span>
+                            <span>
+                                IVA:
+                                <strong class="text-slate-900 dark:text-zinc-100">
+                                    {{ money(state.monto_total - state.monto_subtotal) }}
+                                </strong>
+                            </span>
+                            <span class="text-lg font-black text-slate-900 dark:text-zinc-100">
+                                Total: {{ money(state.monto_total) }}
+                            </span>
                         </div>
-                        <div class="text-sm text-slate-600 dark:text-neutral-300">
-                            Total: <span class="font-bold">{{ money(state.monto_total) }}</span>
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                class="erp-button erp-button-secondary h-10"
+                                @click="$inertia.visit(route('plantillas.index'))"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="saving"
+                                class="erp-button erp-button-primary h-11 px-5"
+                            >
+                                {{ saving ? 'Guardando...' : (isEdit ? 'Actualizar plantilla' : 'Guardar plantilla') }}
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Acciones -->
-                <div class="flex items-center justify-end gap-3">
-                    <SecondaryButton type="button"
-                    @click="$inertia.visit(route('plantillas.index'))"
-                    class="rounded-2xl">
-                        Cancelar
-                    </SecondaryButton>
-
-                    <button type="submit" :disabled="saving"
-                    class="rounded-2xl px-4 py-3 text-sm font-extrabold
-                    bg-emerald-600 text-white hover:bg-emerald-700
-                    dark:bg-emerald-500 dark:hover:bg-emerald-600
-                    transition active:scale-[0.99] disabled:opacity-60
-                    disabled:cursor-not-allowed">
-                        {{ saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Guardar') }}
-                    </button>
-                </div>
             </form>
         </div>
     </AuthenticatedLayout>

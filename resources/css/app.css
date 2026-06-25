@@ -1,3 +1,5 @@
+@import '../js/css/erp.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

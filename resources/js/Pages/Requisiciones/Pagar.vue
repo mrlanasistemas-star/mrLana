@@ -1,6 +1,6 @@
 <!-- resources/js/Pages/Requisiciones/Pagar.vue -->
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Head, Link, router, usePage } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
@@ -114,6 +114,59 @@ const inputBase =
 const canSelectFile = computed(() => {
   return !!req.value?.fecha_autorizacion
 })
+
+// ── URL de regreso (return_url del query param, nunca globals en template) ───
+const backUrl = computed<string>(() => {
+  if (typeof window === 'undefined') return route('requisiciones.index')
+  const params = new URLSearchParams(window.location.search)
+  const returnUrl = params.get('return_url')
+  return returnUrl || route('requisiciones.index')
+})
+
+// ── Fecha general de pago de la requisición ──────────────────────────────────
+const fechaPagoGeneral = ref<string>(req.value?.fecha_pago_programada ?? '')
+watch(() => req.value?.fecha_pago_programada, (v) => {
+  if (v && !fechaPagoGeneral.value) fechaPagoGeneral.value = v
+})
+
+// Usa la bandera que viene del backend (fuente de verdad)
+const puedeDefinirFechaGeneral = computed(() => {
+  const data = (props as any).requisicion?.data
+  // Si el backend lo envía, úsalo directamente
+  if (typeof data?.puede_definir_fecha_pago_general === 'boolean') {
+    return data.puede_definir_fecha_pago_general && canUploadPago.value
+  }
+  // Fallback: calcula localmente (para SSR o si backend no lo envía aún)
+  const cantPagos = data?.cantidad_pagos ?? (props as any).pagos?.data?.length ?? 0
+  return canUploadPago.value && cantPagos > 0 && Number(pendiente.value) <= 0.00001
+})
+
+const savingFechaGeneral = ref(false)
+
+function saveFechaGeneral() {
+  if (!req.value?.id) return
+  if (!fechaPagoGeneral.value) {
+    Swal.fire({ title: 'Fecha requerida', text: 'Selecciona la fecha de pago.', icon: 'error' })
+    return
+  }
+  savingFechaGeneral.value = true
+  router.post(
+    route('requisiciones.pagar.fechaGeneral', { requisicion: req.value.id }),
+    { fecha_pago: fechaPagoGeneral.value },
+    {
+      preserveScroll: true,
+      onSuccess: () => {
+        savingFechaGeneral.value = false
+        Swal.fire({ title: 'Fecha guardada', icon: 'success', timer: 1500, showConfirmButton: false })
+        router.reload({ only: ['requisicion', 'pagos', 'totales'] })
+      },
+      onError: (errors: any) => {
+        savingFechaGeneral.value = false
+        Swal.fire({ title: 'Error', text: errors?.fecha_pago ?? 'No se pudo guardar.', icon: 'error' })
+      },
+    }
+  )
+}
 </script>
 
 <template>
@@ -122,14 +175,14 @@ const canSelectFile = computed(() => {
   <AuthenticatedLayout>
     <template #header>
       <div class="flex items-center gap-3 min-w-0">
-        <Link
-          :href="route('requisiciones.index')"
+        <a
+          :href="backUrl"
           class="inline-flex items-center justify-center h-10 w-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50
                  dark:border-white/10 dark:bg-neutral-900 dark:hover:bg-white/10 transition active:scale-[0.98]"
           title="Volver"
         >
           <ArrowLeft class="h-5 w-5 text-slate-900 dark:text-neutral-100" />
-        </Link>
+        </a>
 
         <div class="min-w-0">
           <div class="text-xl font-black text-slate-900 dark:text-neutral-100 truncate">Pagar</div>
@@ -372,8 +425,26 @@ const canSelectFile = computed(() => {
             </div>
           </div>
 
+          <!-- Bloque: Requisición completamente pagada -->
+          <div v-if="canUploadPago && Number(pendiente) <= 0.00001"
+               class="p-5 border-t border-slate-200/70 dark:border-white/10">
+            <div class="rounded-2xl border border-emerald-200/70 dark:border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-500/10 px-5 py-4 flex items-center gap-4">
+              <div class="shrink-0 h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <div>
+                <div class="text-sm font-black text-emerald-800 dark:text-emerald-200">Requisición completamente pagada</div>
+                <div class="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                  El monto total ha sido cubierto. No hay pagos pendientes.
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Formulario para registrar pagos -->
-            <div v-if="canUploadPago" class="p-5 border-t border-slate-200/70 dark:border-white/10">
+            <div v-if="canUploadPago && Number(pendiente) > 0.00001" class="p-5 border-t border-slate-200/70 dark:border-white/10">
             <div class="space-y-4">
                 <!-- Selección de archivo -->
                 <div class="min-w-0">
@@ -563,9 +634,51 @@ const canSelectFile = computed(() => {
             </div>
 
             <!-- Mensaje si no tiene permiso para subir pagos -->
-            <div v-else class="p-5 border-t border-slate-200/70 dark:border-white/10 text-sm text-slate-500 dark:text-neutral-400">
+            <div v-if="!canUploadPago" class="p-5 border-t border-slate-200/70 dark:border-white/10 text-sm text-slate-500 dark:text-neutral-400">
             Sólo administradores o contadores pueden registrar pagos. Aquí sólo puedes ver los pagos existentes.
             </div>
+        </div>
+
+        <!-- Fecha general de pago de la requisición -->
+        <div v-if="canUploadPago"
+          class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-5"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-base font-black text-slate-900 dark:text-neutral-100">
+                Fecha de pago de la requisición
+              </div>
+              <div class="mt-0.5 text-sm text-slate-500 dark:text-neutral-400">
+                Esta fecha se mostrará en el listado general de requisiciones.
+              </div>
+            </div>
+            <div v-if="req?.fecha_pago_programada"
+              class="shrink-0 text-xs font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 rounded-full px-3 py-1"
+            >
+              Ya registrada
+            </div>
+          </div>
+
+          <div v-if="puedeDefinirFechaGeneral" class="mt-4 flex flex-col sm:flex-row gap-3 items-end">
+            <div class="flex-1 min-w-0">
+              <DatePickerShadcn v-model="fechaPagoGeneral" label="Fecha de pago" placeholder="Selecciona fecha" />
+            </div>
+            <button
+              type="button"
+              :disabled="!fechaPagoGeneral || savingFechaGeneral"
+              class="shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black
+                     bg-emerald-600 text-white hover:bg-emerald-700 transition
+                     disabled:opacity-60 disabled:cursor-not-allowed"
+              @click="saveFechaGeneral"
+            >
+              {{ savingFechaGeneral ? 'Guardando…' : 'Guardar fecha de pago' }}
+            </button>
+          </div>
+
+          <div v-else class="mt-4 rounded-2xl border border-slate-200/60 dark:border-white/10 bg-slate-50/70 dark:bg-neutral-950/40 px-4 py-3 text-sm text-slate-500 dark:text-neutral-400">
+            <span class="font-black text-slate-700 dark:text-neutral-200">Disponible cuando el monto pendiente sea $0.00.</span>
+            Pendiente actual: <span class="font-black">{{ money(pendiente) }}</span>
+          </div>
         </div>
 
       </div>

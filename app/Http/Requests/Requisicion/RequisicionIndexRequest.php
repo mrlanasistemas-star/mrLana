@@ -22,6 +22,10 @@ class RequisicionIndexRequest extends FormRequest {
             'proveedor_id'      => ['nullable', 'integer', 'min:1'],
             'fecha_from' => ['nullable', 'date_format:Y-m-d'],
             'fecha_to'   => ['nullable', 'date_format:Y-m-d', 'after_or_equal:fecha_from'],
+            'fecha_pago_from'     => ['nullable', 'date_format:Y-m-d'],
+            'fecha_pago_to'       => ['nullable', 'date_format:Y-m-d', 'after_or_equal:fecha_pago_from'],
+            'fecha_registro_from' => ['nullable', 'date_format:Y-m-d'],
+            'fecha_registro_to'   => ['nullable', 'date_format:Y-m-d', 'after_or_equal:fecha_registro_from'],
             'perPage' => [
                 'nullable',
                 function ($attribute, $value, $fail) {

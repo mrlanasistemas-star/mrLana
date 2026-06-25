@@ -43,43 +43,94 @@ abstract class BaseReportExport implements FromArray, WithEvents {
         return $out;
     }
 
+    protected function columnFormats(): array
+    {
+        return [];
+    }
+
     public function registerEvents(): array {
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
-                $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-                $sheet->getStyle('A2')->getFont()->setItalic(true)->setSize(11);
-                // Calcula dónde empieza la tabla (para estilos/freeze)
+
+                // Título y subtítulo
+                $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(15)->setColor(
+                    (new \PhpOffice\PhpSpreadsheet\Style\Color())->setARGB('FF0F172A')
+                );
+                $sheet->getStyle('A2')->getFont()->setItalic(true)->setSize(10)->setColor(
+                    (new \PhpOffice\PhpSpreadsheet\Style\Color())->setARGB('FF64748B')
+                );
+
+                // Calcula fila de inicio de la tabla
                 $rowStart = 1;
-                $rowStart += 4; // title/subtitle/generated/blank
+                $rowStart += 4; // title/subtitle/generated/blank/blank
                 if (!empty($this->filters)) {
                     $rowStart += 1; // "Filtros"
                     $rowStart += count(array_filter($this->filters, fn($v) => $v !== null && $v !== ''));
                     $rowStart += 1; // blank
                 }
                 $tableHeaderRow = $rowStart + 1;
-                $colCount = count($this->headings());
-                $lastCol = chr(ord('A') + $colCount - 1);
-                // Encabezado tabla
-                $sheet->getStyle("A{$tableHeaderRow}:{$lastCol}{$tableHeaderRow}")
-                    ->getFont()->setBold(true);
-                $sheet->getStyle("A{$tableHeaderRow}:{$lastCol}{$tableHeaderRow}")
-                    ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-                    ->getStartColor()->setARGB('FFF1F5F9');
-                $lastRow = $tableHeaderRow + max(1, count($this->rows));
-                // Bordes
-                $sheet->getStyle("A{$tableHeaderRow}:{$lastCol}{$lastRow}")
-                    ->getBorders()->getAllBorders()
-                    ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
-                // Freeze + autofilter
+                $colCount  = count($this->headings());
+                $lastCol   = chr(ord('A') + $colCount - 1);
+                $lastRow   = $tableHeaderRow + max(1, count($this->rows));
+
+                // Header de tabla: fondo oscuro, texto blanco
+                $headerRange = "A{$tableHeaderRow}:{$lastCol}{$tableHeaderRow}";
+                $sheet->getStyle($headerRange)->applyFromArray([
+                    'font' => [
+                        'bold'  => true,
+                        'color' => ['argb' => 'FFF1F5F9'],
+                        'size'  => 9,
+                    ],
+                    'fill' => [
+                        'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['argb' => 'FF1E293B'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT,
+                        'vertical'   => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER,
+                        'wrapText'   => false,
+                    ],
+                ]);
+                $sheet->getRowDimension($tableHeaderRow)->setRowHeight(18);
+
+                // Bordes para todo el rango de datos
+                $dataRange = "A{$tableHeaderRow}:{$lastCol}{$lastRow}";
+                $sheet->getStyle($dataRange)->applyFromArray([
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                            'color'       => ['argb' => 'FFE2E8F0'],
+                        ],
+                    ],
+                    'alignment' => ['wrapText' => true, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP],
+                ]);
+
+                // Filas pares con fondo suave
+                for ($row = $tableHeaderRow + 1; $row <= $lastRow; $row++) {
+                    if ($row % 2 === 0) {
+                        $sheet->getStyle("A{$row}:{$lastCol}{$row}")
+                            ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                            ->getStartColor()->setARGB('FFF8FAFC');
+                    }
+                }
+
+                // Freeze + autoFilter
                 $sheet->freezePane("A" . ($tableHeaderRow + 1));
                 $sheet->setAutoFilter("A{$tableHeaderRow}:{$lastCol}{$tableHeaderRow}");
-                // Anchos
+
+                // Anchos de columna
                 foreach ($this->columnWidths() as $col => $width) {
                     $sheet->getColumnDimension($col)->setWidth($width);
                 }
-                $sheet->getStyle("A{$tableHeaderRow}:{$lastCol}{$lastRow}")
-                    ->getAlignment()->setWrapText(true);
+
+                // Formatos de celda por columna (moneda, fecha, etc.)
+                foreach ($this->columnFormats() as $col => $format) {
+                    $dataRows = $lastRow - $tableHeaderRow;
+                    if ($dataRows <= 0) continue;
+                    $sheet->getStyle("{$col}" . ($tableHeaderRow + 1) . ":{$col}{$lastRow}")
+                        ->getNumberFormat()->setFormatCode($format);
+                }
             },
         ];
     }
