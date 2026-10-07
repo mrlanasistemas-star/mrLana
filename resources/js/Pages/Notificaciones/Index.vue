@@ -124,7 +124,7 @@ const emptyText = computed(() => {
 })
 
 const navItem = (on: boolean) => [
-    'group flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition',
+    'group flex min-h-[40px] w-auto items-center gap-2 rounded-xl px-3 text-left text-sm font-medium transition lg:min-h-[44px] lg:w-full lg:gap-3',
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50',
     on
         ? 'bg-brand-primary/[0.07] text-slate-900 ring-1 ring-inset ring-brand-primary/15 dark:bg-white/[0.07] dark:text-zinc-50 dark:ring-white/10'
@@ -179,22 +179,22 @@ const navItem = (on: boolean) => [
 
                     <div>
                         <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Categorías</p>
-                        <nav class="-mx-0.5 flex gap-1 overflow-x-auto pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:pb-0" aria-label="Categorías">
-                            <button type="button" :class="[navItem(!f.categoria), 'shrink-0 lg:shrink']" :aria-pressed="!f.categoria" @click="f.categoria = null">
+                        <nav class="flex flex-wrap gap-1.5 lg:flex-col lg:flex-nowrap lg:gap-1" aria-label="Categorías">
+                            <button type="button" :class="navItem(!f.categoria)" :aria-pressed="!f.categoria" @click="f.categoria = null">
                                 <Inbox class="h-4 w-4 shrink-0 text-slate-400 group-hover:text-current" aria-hidden="true" />
-                                <span class="flex-1 whitespace-nowrap">Todas</span>
+                                <span class="whitespace-nowrap lg:flex-1">Todas</span>
                                 <span v-if="unreadCount" class="hidden rounded-full bg-slate-200 px-2 text-[11px] font-bold tabular-nums text-slate-600 dark:bg-white/10 dark:text-zinc-300 lg:inline">{{ unreadCount }}</span>
                             </button>
                             <button
                                 v-for="c in categorias"
                                 :key="c.value"
                                 type="button"
-                                :class="[navItem(f.categoria === c.value), 'shrink-0 lg:shrink']"
+                                :class="navItem(f.categoria === c.value)"
                                 :aria-pressed="f.categoria === c.value"
                                 @click="f.categoria = c.value"
                             >
                                 <component :is="categoryIcon[c.value] ?? Bell" class="h-4 w-4 shrink-0 text-slate-400 group-hover:text-current" aria-hidden="true" />
-                                <span class="flex-1 whitespace-nowrap">{{ c.label }}</span>
+                                <span class="whitespace-nowrap lg:flex-1">{{ c.label }}</span>
                                 <span v-if="unreadByCategory[c.value]" class="hidden rounded-full bg-brand-danger/10 px-2 text-[11px] font-bold tabular-nums text-brand-danger lg:inline">
                                     {{ unreadByCategory[c.value] }}
                                 </span>
