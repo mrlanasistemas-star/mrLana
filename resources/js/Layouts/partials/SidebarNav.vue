@@ -67,7 +67,7 @@ const groups = computed(() =>
                     :key="item.routeName"
                     :href="item.href"
                     :preserve-scroll="true"
-                    class="group relative flex min-h-[42px] items-center rounded-xl px-3 text-[13.5px] font-medium transition-colors duration-150
+                    class="group relative flex min-h-[42px] items-center rounded-xl px-[15px] text-[13.5px] font-medium transition-colors duration-150
                            focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
                     :class="isActive(item.activePattern)
                         ? 'bg-brand-primary/[0.08] text-brand-primary dark:bg-brand-primary/[0.14]'
