@@ -1,4 +1,6 @@
-<?php // app/Models/SystemLog.php
+<?php
+
+// app/Models/SystemLog.php
 
 namespace App\Models;
 
@@ -24,16 +26,18 @@ use Illuminate\Database\Eloquent\Model;
  */
 class SystemLog extends Model
 {
-    
     use HasFactory;
 
     // Protección contra asignación masiva.
     protected $guarded = ['id'];
+
+    protected $casts = [
+        'cambios' => 'array',
+    ];
 
     // Usuario que ejecutó la acción.
     public function user()
     {
         return $this->belongsTo(User::class);
     }
-
 }

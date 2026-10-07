@@ -140,12 +140,12 @@ class CorporativoController extends Controller {
             // 2) Baja sucursales relacionadas (en lote)
             $corporativo->sucursales()
                 ->where('activo', true)
-                ->update(['activo' => false]);
+                ->updateEach(['activo' => false]);
 
             // 3) Baja en areas relacionadas (en lote)
             $corporativo->areas()
                 ->where('activo', true)
-                ->update(['activo' => false]);
+                ->updateEach(['activo' => false]);
 
             // $corporativo->requisicionesComprador()->where('activo', true)->update(['activo' => false]);
         });
@@ -187,14 +187,14 @@ class CorporativoController extends Controller {
             if ($sucursalIds->isNotEmpty()) {
                 $corporativo->sucursales()
                     ->whereIn('id', $sucursalIds->all())
-                    ->update(['activo' => true]);
+                    ->updateEach(['activo' => true]);
             }
 
             // Activar SOLO áreas seleccionadas (y que sean del corporativo)
             if ($areaIds->isNotEmpty()) {
                 $corporativo->areas()
                     ->whereIn('id', $areaIds->all())
-                    ->update(['activo' => true]);
+                    ->updateEach(['activo' => true]);
             }
         });
 

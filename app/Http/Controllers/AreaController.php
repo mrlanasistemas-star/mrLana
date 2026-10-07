@@ -7,8 +7,8 @@ use App\Models\Corporativo;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
-class AreaController extends Controller {
-
+class AreaController extends Controller
+{
     /**
      * =========================================================================
      * INDEX
@@ -33,22 +33,26 @@ class AreaController extends Controller {
 
         // filtros
         $corporativoId = $request->get('corporativo_id', '');
-        $activo        = $request->get('activo', '1'); // ✅ DEFAULT: Activas
+        $activo = $request->get('activo', '1'); // ✅ DEFAULT: Activas
 
         // per_page preferido (snake). Soporta perPage por compat.
         $perPage = (int) $request->get('per_page', $request->get('perPage', 15));
 
         // sort/dir
         $sort = (string) $request->get('sort', 'nombre'); // nombre | id
-        $dir  = (string) $request->get('dir', 'asc');     // asc | desc
+        $dir = (string) $request->get('dir', 'asc');     // asc | desc
 
         // sanitización
         $sort = in_array($sort, ['nombre', 'id'], true) ? $sort : 'nombre';
-        $dir  = in_array($dir, ['asc', 'desc'], true) ? $dir : 'asc';
+        $dir = in_array($dir, ['asc', 'desc'], true) ? $dir : 'asc';
 
         // perPage hardening (evita payloads enormes)
-        if ($perPage < 10) $perPage = 10;
-        if ($perPage > 100) $perPage = 100;
+        if ($perPage < 10) {
+            $perPage = 10;
+        }
+        if ($perPage > 100) {
+            $perPage = 100;
+        }
 
         // normaliza corporativo_id
         $corporativoId = ($corporativoId === '' || $corporativoId === null) ? null : (int) $corporativoId;
@@ -62,7 +66,7 @@ class AreaController extends Controller {
             ->when($q !== '', function ($query) use ($q) {
                 $query->where('nombre', 'like', "%{$q}%");
             })
-            ->when(!is_null($corporativoId), function ($query) use ($corporativoId) {
+            ->when(! is_null($corporativoId), function ($query) use ($corporativoId) {
                 $query->where('corporativo_id', $corporativoId);
             })
             ->when($activo !== 'all', function ($query) use ($activo) {
@@ -129,12 +133,12 @@ class AreaController extends Controller {
         ]);
 
         // Negocio: no crear bajo corporativo en baja
-        if (!empty($data['corporativo_id'])) {
+        if (! empty($data['corporativo_id'])) {
             $corp = Corporativo::query()
                 ->select(['id', 'activo'])
                 ->find((int) $data['corporativo_id']);
 
-            if ($corp && !$corp->activo) {
+            if ($corp && ! $corp->activo) {
                 return back()->withErrors([
                     'corporativo_id' => 'No puedes crear un área en un corporativo dado de baja.',
                 ]);
@@ -163,12 +167,12 @@ class AreaController extends Controller {
         ]);
 
         // Negocio: no permitir asignar/actualizar con corporativo en baja
-        if (!empty($data['corporativo_id'])) {
+        if (! empty($data['corporativo_id'])) {
             $corp = Corporativo::query()
                 ->select(['id', 'activo'])
                 ->find((int) $data['corporativo_id']);
 
-            if ($corp && !$corp->activo) {
+            if ($corp && ! $corp->activo) {
                 return back()->withErrors([
                     'corporativo_id' => 'No puedes asignar un área a un corporativo dado de baja.',
                 ]);
@@ -186,7 +190,7 @@ class AreaController extends Controller {
      */
     public function destroy(Area $area)
     {
-        if (!$area->activo) {
+        if (! $area->activo) {
             return back()->with('success', 'El área ya se encontraba dada de baja.');
         }
 
@@ -224,11 +228,12 @@ class AreaController extends Controller {
             'ids.*' => ['integer', 'distinct', Rule::exists('areas', 'id')],
         ]);
 
+        // Baja lógica (antes se borraban físicamente): conserva historial y relaciones.
         Area::query()
             ->whereIn('id', $data['ids'])
-            ->delete();
+            ->where('activo', true)
+            ->updateEach(['activo' => false]);
 
-        return back()->with('success', 'Áreas eliminadas.');
+        return back()->with('success', 'Áreas dadas de baja.');
     }
-
 }

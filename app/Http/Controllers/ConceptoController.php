@@ -132,7 +132,7 @@ class ConceptoController extends Controller {
             Concepto::query()
                 ->whereIn('id', $data['ids'])
                 ->where('activo', true)
-                ->update(['activo' => false]);
+                ->updateEach(['activo' => false]);
         });
 
         return back()->with('success', 'Conceptos dados de baja.');

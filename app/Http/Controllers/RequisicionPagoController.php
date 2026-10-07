@@ -125,6 +125,12 @@ class RequisicionPagoController extends Controller
             return back()->with('error', 'La requisición no se puede autorizar en su estado actual.');
         }
 
+        // La actualización atómica no dispara eventos del modelo: se registra explícitamente.
+        $requisicion->auditLog('CAMBIO_ESTATUS', "Pago autorizado: {$requisicion->folio}.", [
+            'status' => ['CAPTURADA', 'PAGO_AUTORIZADO'],
+            'fecha_pago' => [optional($requisicion->fecha_pago)->format('Y-m-d'), $data['fecha_pago']],
+        ]);
+
         $requisicion->refresh()->load(['solicitante.user', 'creadaPor']);
         $this->notifications->notify(
             topic: NotificationTopic::Pagos,

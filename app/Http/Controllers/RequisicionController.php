@@ -448,6 +448,9 @@ class RequisicionController extends Controller
             return redirect()->back()->with('error', 'La requisición ya no es borrador.');
         }
 
+        // La actualización atómica no dispara eventos del modelo: se registra explícitamente.
+        $requisicion->auditLog('CAMBIO_ESTATUS', "Requisición enviada a autorización: {$requisicion->folio}.", ['status' => ['BORRADOR', 'CAPTURADA']]);
+
         $requisicion->refresh();
         $mailed = $this->notifyEnviada($requisicion, $request->user());
 
@@ -553,9 +556,7 @@ class RequisicionController extends Controller
     {
         $this->authorize('delete', $requisicion);
 
-        Requisicion::query()
-            ->whereKey($requisicion->id)
-            ->update(['status' => 'ELIMINADA']);
+        $requisicion->forceFill(['status' => 'ELIMINADA'])->save();
 
         return redirect()->route('requisiciones.index')->with('success', 'Requisición eliminada.');
     }
@@ -568,7 +569,7 @@ class RequisicionController extends Controller
             ->visibleTo($request->user())
             ->whereIn('id', $ids)
             ->where('status', '!=', 'ELIMINADA')
-            ->update(['status' => 'ELIMINADA']);
+            ->updateEach(['status' => 'ELIMINADA']);
 
         return redirect()->route('requisiciones.index')->with('success', $updated === 1
             ? '1 requisición eliminada.'

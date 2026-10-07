@@ -165,7 +165,7 @@ class ColaboradorController extends Controller
             'ids.*.exists' => 'Uno o más colaboradores no existen.',
         ]);
 
-        DB::transaction(fn () => Empleado::query()->whereIn('id', $data['ids'])->update(['activo' => false]));
+        DB::transaction(fn () => Empleado::query()->whereIn('id', $data['ids'])->where('activo', true)->updateEach(['activo' => false]));
 
         return back()->with('success', 'Colaboradores dados de baja.');
     }

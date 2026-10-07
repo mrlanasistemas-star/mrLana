@@ -197,7 +197,7 @@ class ProveedorController extends Controller
             ->whereIn('id', $data['ids'])
             ->when(! $request->user()->can('proveedores.ver_todos'), fn ($q) => $q->where('user_duenio_id', $request->user()->id))
             ->where('status', 'ACTIVO')
-            ->update(['status' => 'INACTIVO']);
+            ->updateEach(['status' => 'INACTIVO']);
 
         return back()->with('success', 'Proveedores eliminados.');
     }

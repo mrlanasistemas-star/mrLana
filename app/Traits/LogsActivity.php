@@ -4,213 +4,223 @@ namespace App\Traits;
 
 use App\Models\SystemLog;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 
 /**
- * ==========================================================
- * LogsActivity
- * ----------------------------------------------------------
- * Registra eventos CRUD en system_logs con una descripción útil:
- * - CREATE: describe creación
- * - UPDATE: detecta campos cambiados y arma resumen
- * - Si cambia "activo":
- *    - activo => false  => accion = "ELIMINACION" (baja lógica)
- *    - activo => true   => accion = "ACTIVACION"
- * - DELETE (si llegara a pasar): accion = "ELIMINACION"
- * ==========================================================
+ * Bitácora automática de cambios (system_logs).
+ *
+ * Acciones:
+ * - CREACION / ACTUALIZACION / ELIMINACION (física)
+ * - BAJA (eliminación lógica): activo → false, o status → ELIMINADA / INACTIVO
+ * - REACTIVACION: activo → true, o status que sale de ELIMINADA / INACTIVO
+ * - CAMBIO_ESTATUS: cualquier otro cambio de status (p. ej. CAPTURADA → PAGADA)
+ *
+ * Cada entrada guarda quién, cuándo, desde qué IP, el nombre legible del
+ * registro y los cambios campo por campo (antes/después) en JSON.
+ *
+ * Las actualizaciones masivas deben usar ->updateEach([...]) (macro del
+ * query builder) para que cada registro quede en la bitácora.
  */
-trait LogsActivity {
-
-    /**
-     * Campos que NO queremos loguear como “cambios”.
-     */
+trait LogsActivity
+{
+    /** Campos que no se registran (ruido o datos sensibles). */
     protected array $logIgnoreFields = [
-        'updated_at',
-        'created_at',
-        'deleted_at',
-        'remember_token',
-        'password',
-        'current_jti',
+        'updated_at', 'created_at', 'deleted_at', 'remember_token', 'password', 'current_jti',
     ];
 
-    /**
-     * Máximo de caracteres del detalle para evitar logs gigantes.
-     */
+    /** Valores de status que representan una baja lógica. */
+    public const LOG_DELETED_STATUSES = ['ELIMINADA', 'INACTIVO', 'ELIMINADO', 'CANCELADA'];
+
     protected int $logMaxLen = 2000;
 
     public static function bootLogsActivity(): void
     {
         static::created(function (Model $model) {
-            $model->writeSystemLog('CREACION', $model->buildCreateDescription());
+            $model->writeSystemLog('CREACION', 'Registro creado: '.$model->logEntityName().'.');
         });
 
         static::updated(function (Model $model) {
-            [$accion, $desc] = $model->buildUpdateActionAndDescription();
-            $model->writeSystemLog($accion, $desc);
+            $result = $model->buildUpdateLog();
+            if ($result !== null) {
+                $model->writeSystemLog(...$result);
+            }
         });
 
         static::deleted(function (Model $model) {
-            // Si algún módulo llega a usar delete real, lo registramos.
-            $model->writeSystemLog('ELIMINACION', 'Eliminación física del registro.');
+            $model->writeSystemLog('ELIMINACION', 'Eliminación definitiva: '.$model->logEntityName().'.', $model->snapshotForLog());
         });
     }
 
     /**
-     * Construye descripción para creación.
+     * Registra una acción explícita (p. ej. tras una actualización atómica
+     * que no dispara eventos del modelo).
+     *
+     * @param  array<string, array{0: mixed, 1: mixed}>  $changes  campo => [antes, después]
      */
-    protected function buildCreateDescription(): string {
-        $name = $this->logEntityName();
-        return "Registro creado: {$name}.";
+    public function auditLog(string $accion, string $descripcion, array $changes = []): void
+    {
+        $this->writeSystemLog($accion, $descripcion, $this->formatChanges($changes));
     }
 
-    /**
-     * Construye acción + descripción para actualización.
-     * - Detecta cambios reales con getDirty()
-     * - Si solo cambia "activo": se clasifica como eliminación/activación
-     * - Si cambia activo + otros: prioriza ELIMINACION/ACTIVACION y agrega detalle de los otros campos
-     *
-     * @return array{0:string,1:string}
-     */
-    protected function buildUpdateActionAndDescription(): array {
-        $dirty = $this->getDirty();
-
-        // Filtra campos ignorados
-        foreach ($this->logIgnoreFields as $f) {
-            unset($dirty[$f]);
+    /** @return array{0: string, 1: string, 2: array}|null */
+    protected function buildUpdateLog(): ?array
+    {
+        $changes = [];
+        foreach ($this->getChanges() as $field => $new) {
+            if (in_array($field, $this->logIgnoreFields, true)) {
+                continue;
+            }
+            $old = $this->getOriginal($field);
+            if ($this->normalizeForLog($old) === $this->normalizeForLog($new)) {
+                continue;
+            }
+            $changes[$field] = [$old, $new];
         }
 
-        // Si no hay cambios relevantes, no logueamos ruido.
-        if (empty($dirty)) {
-            return ['ACTUALIZACION', 'Actualización sin cambios relevantes.'];
+        if ($changes === []) {
+            return null;
         }
 
         $entity = $this->logEntityName();
+        $accion = 'ACTUALIZACION';
+        $titulo = "Actualización: {$entity}.";
 
-        // Caso especial: activo
-        $hasActivo = array_key_exists('activo', $dirty);
-
-        if ($hasActivo) {
-            $newActivo = (bool) $dirty['activo'];
-            $oldActivo = (bool) $this->getOriginal('activo');
-
-            // Si realmente cambió...
-            if ($newActivo !== $oldActivo) {
-                $accion = $newActivo ? 'ACTIVACION' : 'ELIMINACION';
-                $base = $newActivo
-                    ? "Reactivación (activo): {$entity}."
-                    : "Baja lógica (activo): {$entity}.";
-
-                // Si además cambiaron otros campos, los incluimos en el texto.
-                unset($dirty['activo']);
-                if (!empty($dirty)) {
-                    $base .= "\nCambios adicionales:\n" . $this->formatDirtyChanges($dirty);
-                }
-
-                return [$accion, $base];
-            }
-
-            // Si "activo" viene sucio pero no cambió, lo sacamos
-            unset($dirty['activo']);
+        if (array_key_exists('activo', $changes)) {
+            $accion = (bool) $changes['activo'][1] ? 'REACTIVACION' : 'BAJA';
+            $titulo = $accion === 'BAJA' ? "Baja (eliminación lógica): {$entity}." : "Reactivación: {$entity}.";
+        } elseif (array_key_exists('status', $changes)) {
+            [$old, $new] = $changes['status'];
+            $wasDeleted = in_array(strtoupper((string) $old), self::LOG_DELETED_STATUSES, true);
+            $isDeleted = in_array(strtoupper((string) $new), self::LOG_DELETED_STATUSES, true);
+            [$accion, $titulo] = match (true) {
+                $isDeleted && ! $wasDeleted => ['BAJA', "Baja (eliminación lógica): {$entity}."],
+                $wasDeleted && ! $isDeleted => ['REACTIVACION', "Reactivación: {$entity}."],
+                default => ['CAMBIO_ESTATUS', "Cambio de estatus: {$entity} ({$old} → {$new})."],
+            };
         }
 
-        // Update normal
-        $desc = "Actualización: {$entity}.\nCambios:\n" . $this->formatDirtyChanges($dirty);
-        return ['ACTUALIZACION', $desc];
+        $lines = [];
+        foreach ($changes as $field => [$old, $new]) {
+            $lines[] = '- '.$field.': '.$this->valueToShortString($old).' → '.$this->valueToShortString($new);
+        }
+
+        return [$accion, $titulo."\nCambios:\n".implode("\n", $lines), $this->formatChanges($changes)];
     }
 
-    /**
-     * Convierte cambios dirty en texto "campo: antes -> después".
-     */
-    protected function formatDirtyChanges(array $dirty): string {
-        $lines = [];
-
-        foreach ($dirty as $field => $newValue) {
-            $oldValue = $this->getOriginal($field);
-
-            $old = $this->valueToShortString($oldValue);
-            $new = $this->valueToShortString($newValue);
-
-            $lines[] = "- {$field}: {$old} -> {$new}";
-        }
-
-        $out = implode("\n", $lines);
-
-        // corta por seguridad
-        if (mb_strlen($out) > $this->logMaxLen) {
-            $out = mb_substr($out, 0, $this->logMaxLen) . '...';
+    /** @return array<string, array{antes: mixed, despues: mixed}> */
+    protected function formatChanges(array $changes): array
+    {
+        $out = [];
+        foreach ($changes as $field => [$old, $new]) {
+            $out[$field] = ['antes' => $this->valueForJson($old), 'despues' => $this->valueForJson($new)];
         }
 
         return $out;
     }
 
-    /**
-     * Humaniza el “nombre” de entidad para logs.
-     * - Si existe "nombre" úsalo, si no usa {Tabla}#{id}
-     */
-    protected function logEntityName(): string {
-        $table = $this->getTable();
-        $id = $this->getKey();
-
-        $name = null;
-
-        // Intentos comunes
-        foreach (['nombre', 'name', 'titulo', 'title', 'codigo'] as $candidate) {
-            if (isset($this->{$candidate}) && is_scalar($this->{$candidate}) && trim((string)$this->{$candidate}) !== '') {
-                $name = trim((string)$this->{$candidate});
-                break;
+    /** Copia de los campos del registro al eliminarlo físicamente (para poder rastrearlo). */
+    protected function snapshotForLog(): array
+    {
+        $out = [];
+        foreach ($this->getAttributes() as $field => $value) {
+            if (! in_array($field, $this->logIgnoreFields, true)) {
+                $out[$field] = ['antes' => $this->valueForJson($value), 'despues' => null];
             }
         }
 
-        return $name ? "{$name} ({$table}#{$id})" : "{$table}#{$id}";
+        return $out;
     }
 
-    /**
-     * Serializa valores a string corta, sin ensuciar logs.
-     */
-    protected function valueToShortString($value): string{
-        if (is_null($value)) return 'null';
-        if (is_bool($value)) return $value ? 'true' : 'false';
+    /** Nombre legible del registro: folio, nombre, razón social… */
+    public function logLabel(): ?string
+    {
+        foreach (['folio', 'nombre', 'name', 'razon_social', 'titulo', 'title', 'codigo'] as $candidate) {
+            $value = $this->getAttribute($candidate);
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                $label = trim((string) $value);
+                if ($candidate === 'nombre' && ($ap = $this->getAttribute('apellido_paterno'))) {
+                    $label .= ' '.trim((string) $ap);
+                }
 
+                return mb_substr($label, 0, 255);
+            }
+        }
+
+        return null;
+    }
+
+    protected function logEntityName(): string
+    {
+        $label = $this->logLabel();
+        $ref = $this->getTable().'#'.$this->getKey();
+
+        return $label ? "{$label} ({$ref})" : $ref;
+    }
+
+    protected function normalizeForLog(mixed $value): mixed
+    {
+        if (is_bool($value)) {
+            return (int) $value;
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+        if (is_numeric($value)) {
+            return (string) (float) $value;
+        }
+
+        return is_array($value) ? json_encode($value) : $value;
+    }
+
+    protected function valueForJson(mixed $value): mixed
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+        if (is_string($value) && mb_strlen($value) > 500) {
+            return mb_substr($value, 0, 500).'…';
+        }
+
+        return is_object($value) ? (method_exists($value, '__toString') ? (string) $value : get_class($value)) : $value;
+    }
+
+    protected function valueToShortString(mixed $value): string
+    {
+        if (is_null($value)) {
+            return 'vacío';
+        }
+        if (is_bool($value)) {
+            return $value ? 'sí' : 'no';
+        }
         if (is_array($value)) {
-            $s = json_encode($value, JSON_UNESCAPED_UNICODE);
-            return $this->truncate($s ?: '[array]');
+            $value = json_encode($value, JSON_UNESCAPED_UNICODE) ?: '[lista]';
         }
-
-        if (is_object($value)) {
-            // evita dumps gigantes
-            $s = method_exists($value, '__toString') ? (string) $value : get_class($value);
-            return $this->truncate($s);
+        if ($value instanceof \DateTimeInterface) {
+            $value = $value->format('Y-m-d H:i');
         }
+        $value = trim(is_object($value) ? (method_exists($value, '__toString') ? (string) $value : get_class($value)) : (string) $value);
 
-        return $this->truncate((string) $value);
+        return mb_strlen($value) > 120 ? mb_substr($value, 0, 120).'…' : $value;
     }
 
-    // Trunca strings largos.
-    protected function truncate(string $value, int $max = 120): string{
-        $value = trim($value);
-        if (mb_strlen($value) <= $max) return $value;
-        return mb_substr($value, 0, $max) . '...';
-    }
-
-    /**
-     * Inserta el log.
-     */
-    protected function writeSystemLog(string $accion, string $descripcion): void{
+    protected function writeSystemLog(string $accion, string $descripcion, array $cambios = []): void
+    {
         try {
             SystemLog::create([
-                'user_id'    => Auth::id(),
-                'accion'     => $accion,
-                'tabla'      => $this->getTable(),
-                'registro_id'=> (string) $this->getKey(),
+                'user_id' => Auth::id(),
+                'accion' => $accion,
+                'tabla' => $this->getTable(),
+                'registro_id' => $this->getKey(),
+                'etiqueta' => $this->logLabel(),
                 'ip_address' => Request::ip(),
-                'user_agent' => substr((string) Request::header('User-Agent'), 0, 500),
-                'descripcion'=> mb_substr($descripcion, 0, $this->logMaxLen),
+                'user_agent' => mb_substr((string) Request::header('User-Agent'), 0, 255),
+                'descripcion' => mb_substr($descripcion, 0, $this->logMaxLen),
+                'cambios' => $cambios ?: null,
             ]);
         } catch (\Throwable $e) {
-            // no reventamos el flujo del sistema por el log
+            // La bitácora nunca debe interrumpir la operación; el error queda en el log.
+            report($e);
         }
     }
-
 }

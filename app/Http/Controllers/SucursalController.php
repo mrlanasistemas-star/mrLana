@@ -161,7 +161,7 @@ class SucursalController extends Controller {
 
         Sucursal::whereIn('id', $data['ids'])
             ->where('activo', true)
-            ->update(['activo' => false]);
+            ->updateEach(['activo' => false]);
 
         return back()->with('success', 'Sucursales dadas de baja correctamente.');
     }
