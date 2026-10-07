@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePermissions } from '@/Composables/usePermissions'
     import { Head } from '@inertiajs/vue3'
     import { computed } from 'vue'
     import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
@@ -61,6 +62,8 @@
         // catálogos
         ownerOptions,
     } = useProveedoresIndex(props)
+const { can } = usePermissions()
+
 </script>
 
 <template>
@@ -87,7 +90,7 @@
                     </div>
                 </div>
 
-                <button type="button" @click="openCreate"
+                <button v-if="can('proveedores.registrar')" type="button" @click="openCreate"
                 class="inline-flex items-center justify-center gap-2
                 rounded-2xl px-5 py-2.5 text-sm font-semibold
                 bg-emerald-600 text-white hover:bg-emerald-700
@@ -170,13 +173,13 @@
                         </SecondaryButton>
 
                         <!-- PDF -->
-                        <button type="button" @click="downloadFile(exportPdfUrl)" class="group flex flex-col items-center gap-1 py-2 ...">
+                        <button v-if="can('proveedores.exportar')" type="button" @click="downloadFile(exportPdfUrl)" class="group flex flex-col items-center gap-1 py-2 ...">
                             <img :src="ICON_PDF" alt="PDF" class="h-6 w-6 transition-transform group-hover:scale-125"/>
                             <span class="relative text-[11px] leading-none ...">Descargar</span>
                         </button>
 
                         <!-- EXCEL -->
-                        <button type="button" @click="downloadFile(exportExcelUrl)" class="group flex flex-col items-center gap-1 py-2 ...">
+                        <button v-if="can('proveedores.exportar')" type="button" @click="downloadFile(exportExcelUrl)" class="group flex flex-col items-center gap-1 py-2 ...">
                             <img :src="ICON_EXCEL" alt="EXCEL" class="h-6 w-6 transition-transform group-hover:scale-125"/>
                             <span class="relative text-[11px] leading-none ...">Descargar</span>
                         </button>
@@ -193,7 +196,7 @@
                             </button>
 
                             <!-- Solo aparece cuando hay seleccionados ACTIVO y ninguno INACTIVO -->
-                            <button v-if="selectedActiveCount > 0 && !selectedHasInactive"
+                            <button v-if="can('proveedores.desactivar') && selectedActiveCount > 0 && !selectedHasInactive"
                             type="button" @click="destroySelected"
                             class="inline-flex items-center justify-center rounded-2xl
                             px-4 py-2 text-xs font-bold border border-rose-200 bg-rose-50
@@ -275,7 +278,7 @@
 
                             <td class="px-4 py-3 whitespace-nowrap text-right">
                                 <div class="inline-flex gap-2">
-                                    <button type="button" @click="openEdit(row)"
+                                    <button v-if="can('proveedores.editar')" type="button" @click="openEdit(row)"
                                     class="btn border border-slate-200 bg-slate-50
                                     text-slate-900 hover:bg-slate-100
                                     dark:border-white/10 dark:bg-white/10
@@ -284,7 +287,7 @@
                                     </button>
 
                                     <!-- Reactivar si está INACTIVO -->
-                                    <button v-if="row.status === 'INACTIVO'" type="button"
+                                    <button v-if="row.status === 'INACTIVO' && can('proveedores.reactivar')" type="button"
                                     @click="activateOne(row.id)"
                                     class="btn border border-emerald-200 bg-emerald-50
                                     text-emerald-700 hover:bg-emerald-100
@@ -294,7 +297,7 @@
                                     </button>
 
                                     <!-- Eliminar solo si está ACTIVO -->
-                                    <button v-else type="button"
+                                    <button v-else-if="row.status !== 'INACTIVO' && can('proveedores.desactivar')" type="button"
                                     @click="confirmDeleteOne(row.id)"
                                     class="btn border border-rose-200 bg-rose-50
                                     text-rose-700 hover:bg-rose-100
@@ -375,14 +378,14 @@
                         </div>
 
                         <div class="mt-4 grid grid-cols-2 gap-2">
-                            <button type="button" @click="openEdit(row)"
+                            <button v-if="can('proveedores.editar')" type="button" @click="openEdit(row)"
                             class="btn border border-slate-200 bg-slate-50 text-slate-900
                             hover:bg-slate-100 dark:border-white/10 dark:bg-white/10
                             dark:text-neutral-100 dark:hover:bg-white/15">
                                 Editar
                             </button>
 
-                            <button v-if="row.status === 'INACTIVO'" type="button"
+                            <button v-if="row.status === 'INACTIVO' && can('proveedores.reactivar')" type="button"
                             @click="activateOne(row.id)" class="btn border
                             border-emerald-200 bg-emerald-50 text-emerald-700
                             hover:bg-emerald-100 dark:border-emerald-500/20
@@ -391,7 +394,7 @@
                                 Reactivar
                             </button>
 
-                            <button v-else type="button" @click="confirmDeleteOne(row.id)"
+                            <button v-else-if="row.status !== 'INACTIVO' && can('proveedores.desactivar')" type="button" @click="confirmDeleteOne(row.id)"
                             class="btn border border-rose-200 bg-rose-50 text-rose-700
                             hover:bg-rose-100 dark:border-rose-500/20 dark:bg-rose-500/10
                             dark:text-rose-200 dark:hover:bg-rose-500/15">

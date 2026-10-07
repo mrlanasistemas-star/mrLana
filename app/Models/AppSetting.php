@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class AppSetting extends Model
 {
-    private const CACHE_KEY = 'erp.app_settings';
+    // Versionada: cambiar la estructura de resolved() exige una llave nueva.
+    private const CACHE_KEY = 'erp.app_settings.v2';
 
     public const DEFAULTS = [
         'primary_color' => '#18181B',
@@ -70,8 +71,10 @@ class AppSetting extends Model
             $row = Schema::hasTable('app_settings') ? self::query()->find(1) : null;
 
             $colors = [];
+            $customized = [];
             foreach (self::COLOR_FIELDS as $field) {
                 $colors[$field] = strtoupper($row?->{$field} ?: self::DEFAULTS[$field]);
+                $customized[$field] = (bool) $row?->{$field};
             }
 
             $palette = $row?->chart_palette;
@@ -83,6 +86,8 @@ class AppSetting extends Model
 
             return [
                 'colors' => $colors,
+                // Solo los colores personalizados sobrescriben el tema base (claro/oscuro).
+                'customized' => $customized,
                 'chart_palette' => array_values(array_map('strtoupper', $palette)),
                 'mobile_app_url' => $mobileUrl ?: null,
                 'logo_url' => $row?->logo_path ? Storage::disk('public')->url($row->logo_path) : null,

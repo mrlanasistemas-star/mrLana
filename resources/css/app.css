@@ -80,7 +80,58 @@
 
 
 
+/*
+ * Marca configurable (módulo Configuración). Cada color tiene variante clara y
+ * oscura con contraste verificado; el servidor y useBranding.ts sobrescriben
+ * los valores *-light / *-dark. Formato "r g b" para soportar opacidad.
+ */
 @layer base {
+  :root {
+    --brand-primary-light: 24 24 27;       --brand-primary-light-fg: 255 255 255;
+    --brand-primary-dark: 244 244 245;     --brand-primary-dark-fg: 9 9 11;
+    --brand-accent-light: 15 118 110;      --brand-accent-light-fg: 255 255 255;
+    --brand-accent-dark: 45 212 191;       --brand-accent-dark-fg: 9 9 11;
+    --brand-button-light: 24 24 27;        --brand-button-light-fg: 255 255 255;
+    --brand-button-dark: 244 244 245;      --brand-button-dark-fg: 9 9 11;
+    --brand-success-light: 22 163 74;      --brand-success-light-fg: 255 255 255;
+    --brand-success-dark: 74 222 128;      --brand-success-dark-fg: 9 9 11;
+    --brand-warning-light: 217 119 6;      --brand-warning-light-fg: 255 255 255;
+    --brand-warning-dark: 251 191 36;      --brand-warning-dark-fg: 9 9 11;
+    --brand-danger-light: 220 38 38;       --brand-danger-light-fg: 255 255 255;
+    --brand-danger-dark: 248 113 113;      --brand-danger-dark-fg: 9 9 11;
+
+    --brand-primary: var(--brand-primary-light);  --brand-primary-fg: var(--brand-primary-light-fg);
+    --brand-accent: var(--brand-accent-light);    --brand-accent-fg: var(--brand-accent-light-fg);
+    --brand-button: var(--brand-button-light);    --brand-button-fg: var(--brand-button-light-fg);
+    --brand-success: var(--brand-success-light);  --brand-success-fg: var(--brand-success-light-fg);
+    --brand-warning: var(--brand-warning-light);  --brand-warning-fg: var(--brand-warning-light-fg);
+    --brand-danger: var(--brand-danger-light);    --brand-danger-fg: var(--brand-danger-light-fg);
+  }
+
+  .dark {
+    --brand-primary: var(--brand-primary-dark);  --brand-primary-fg: var(--brand-primary-dark-fg);
+    --brand-accent: var(--brand-accent-dark);    --brand-accent-fg: var(--brand-accent-dark-fg);
+    --brand-button: var(--brand-button-dark);    --brand-button-fg: var(--brand-button-dark-fg);
+    --brand-success: var(--brand-success-dark);  --brand-success-fg: var(--brand-success-dark-fg);
+    --brand-warning: var(--brand-warning-dark);  --brand-warning-fg: var(--brand-warning-dark-fg);
+    --brand-danger: var(--brand-danger-dark);    --brand-danger-fg: var(--brand-danger-dark-fg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer base {
+  html, body {
+    overflow-x: hidden;
+  }
+
   * {
     @apply border-border;
   }

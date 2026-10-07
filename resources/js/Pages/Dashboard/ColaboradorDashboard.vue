@@ -15,7 +15,9 @@ type Point = { name: string; value: number }
 
 type DashboardPayload = {
     userName?: string
-    userRole?: 'ADMIN' | 'CONTADOR' | 'COLABORADOR'
+    userRole?: string
+    exportSegment?: string
+    canExport?: boolean
     headline?: string
     subheadline?: string
     kpis?: KPI[]
@@ -105,8 +107,8 @@ const amountsChartOptions = computed(() =>
 
 // ── Export ────────────────────────────────────────────────────────────────────
 const exporting      = ref<'pdf' | 'excel' | null>(null)
-const exportPdfUrl   = computed(() => route('dashboard.export.pdf',   { role: 'COLABORADOR' }))
-const exportExcelUrl = computed(() => route('dashboard.export.excel', { role: 'COLABORADOR' }))
+const exportPdfUrl   = computed(() => route('dashboard.export.pdf', { role: props.dashboard?.exportSegment ?? 'colaborador' }))
+const exportExcelUrl = computed(() => route('dashboard.export.excel', { role: props.dashboard?.exportSegment ?? 'colaborador' }))
 
 const exportPdf = async () => {
     exporting.value = 'pdf'
@@ -131,13 +133,13 @@ const exportExcel = async () => {
                 <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div>
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="erp-badge bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-300">COLABORADOR</span>
+                            <span class="erp-badge bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-300">{{ props.dashboard?.userRole || 'Sin rol' }}</span>
                             <span class="text-xs text-slate-500 capitalize">{{ today }}</span>
                         </div>
                         <h1 class="text-2xl font-black text-slate-900 dark:text-zinc-100">{{ headline }}</h1>
                         <p class="text-sm text-slate-500 dark:text-zinc-400 mt-1">{{ subheadline }}</p>
                     </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
+                    <div v-if="props.dashboard?.canExport" class="flex items-center gap-2 flex-shrink-0">
                         <button
                             class="erp-button erp-button-secondary h-11 px-4 text-sm"
                             :disabled="exporting !== null"

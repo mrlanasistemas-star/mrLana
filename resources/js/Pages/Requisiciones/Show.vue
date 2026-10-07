@@ -4,8 +4,10 @@
     import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
     import Swal from 'sweetalert2'
     import { X } from 'lucide-vue-next'
-    import { Send } from 'lucide-vue-next'
+    import { Send, Scale, Ban, CalendarClock, CalendarCheck2, Hourglass } from 'lucide-vue-next'
     import { formatDateOnlyEsMx } from '@/Utils/date'
+    import { ConfirmDialog } from '@/Components/ui/dialog'
+    import type { RequisicionAbilities } from './Requisiciones.types'
 
     import {
         ArrowLeft,
@@ -31,7 +33,6 @@
         MessageSquareText,
     } from 'lucide-vue-next'
 
-    declare const route: any
 
     type Money = number | string | null | undefined
 
@@ -46,8 +47,86 @@
             total_final?: number
         }
         pdf?: { print_url?: string | null; files?: { label: string; url: string }[] }
+        eliminaciones?: Array<{
+            id: number
+            estatus: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'CANCELADA'
+            motivo: string
+            comentario_revision: string | null
+            solicitado_por: string | null
+            revisado_por: string | null
+            fecha_solicitud: string | null
+            fecha_resolucion: string | null
+            can: { revisar: boolean; cancelar: boolean }
+        }>
     }>()
 
+    const abilities = computed<Partial<RequisicionAbilities>>(() => req.value?.can ?? {})
+
+    /** ========== Solicitudes de eliminación ========== */
+    const eliminaciones = computed(() => props.eliminaciones ?? [])
+    const reviewTarget = ref<{ id: number; accion: 'APROBAR' | 'RECHAZAR' } | null>(null)
+    const reviewOpen = ref(false)
+    const reviewing = ref(false)
+    const reviewError = ref<string | null>(null)
+
+    const openReview = (id: number, accion: 'APROBAR' | 'RECHAZAR') => {
+        reviewTarget.value = { id, accion }
+        reviewError.value = null
+        reviewOpen.value = true
+    }
+
+    const submitReview = (comentario: string) => {
+        if (!reviewTarget.value) return
+        reviewing.value = true
+        router.patch(
+            route('requisiciones.eliminacion.review', reviewTarget.value.id),
+            { accion: reviewTarget.value.accion, comentario_revision: comentario || null },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    reviewOpen.value = false
+                    toast(reviewTarget.value?.accion === 'APROBAR' ? 'Requisición eliminada' : 'Solicitud rechazada')
+                },
+                onError: (e: Record<string, string>) => (reviewError.value = Object.values(e)[0] ?? 'No se pudo procesar.'),
+                onFinish: () => (reviewing.value = false),
+            },
+        )
+    }
+
+    const cancelEliminacion = (id: number) => {
+        router.post(route('requisiciones.eliminacion.cancel', id), {}, { preserveScroll: true })
+    }
+
+    const requestEliminacion = async () => {
+        const res = await Swal.fire({
+            title: 'Solicitar eliminación',
+            text: 'Contabilidad revisará tu solicitud. Solo procede mientras la requisición siga capturada.',
+            input: 'textarea',
+            inputLabel: 'Motivo',
+            inputAttributes: { maxlength: '2000', 'aria-label': 'Motivo de la solicitud' },
+            showCancelButton: true,
+            confirmButtonText: 'Enviar solicitud',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true,
+            inputValidator: (v) => (String(v ?? '').trim().length < 5 ? 'Escribe un motivo de al menos 5 caracteres.' : undefined),
+        })
+        if (!res.isConfirmed || !req.value?.id) return
+        router.post(route('requisiciones.eliminacion.store', req.value.id), { motivo: String(res.value).trim() }, {
+            preserveScroll: true,
+            onSuccess: () => toast('Solicitud enviada a Contabilidad'),
+        })
+    }
+
+    const eliminacionTone = (e: string) => ({
+        PENDIENTE: 'bg-amber-500/10 text-amber-800 ring-amber-500/20 dark:text-amber-200',
+        APROBADA: 'bg-rose-500/10 text-rose-700 ring-rose-500/20 dark:text-rose-200',
+        RECHAZADA: 'bg-slate-500/10 text-slate-700 ring-slate-500/20 dark:text-slate-200',
+        CANCELADA: 'bg-slate-500/10 text-slate-500 ring-slate-500/20 dark:text-slate-400',
+    }[e] ?? 'bg-slate-500/10 text-slate-700 ring-slate-500/20')
+
+    const eliminacionLabel = (e: string) => ({
+        PENDIENTE: 'Pendiente', APROBADA: 'Autorizada', RECHAZADA: 'Rechazada', CANCELADA: 'Cancelada',
+    }[e] ?? e)
     const capture = () => {
         if (!req.value?.id) return
         Swal.fire({
@@ -375,13 +454,13 @@
 
                                     <!-- Nav pills -->
                                     <div class="mt-3 flex flex-wrap gap-2">
-                                        <button v-if="String(req?.status).toUpperCase() === 'BORRADOR'"
+                                        <button v-if="abilities.capturar"
                                         type="button" @click="capture" class="inline-flex
                                         items-center gap-2 rounded-2xl px-3 py-2 text-xs
                                         sm:text-sm font-black text-white bg-indigo-600
                                         hover:bg-indigo-700 active:scale-[0.99]">
                                             <Send class="h-4 w-4" />
-                                            <span class="hidden sm:inline">Capturar</span>
+                                            <span>Enviar</span>
                                         </button>
                                         <button
                                         type="button"
@@ -444,6 +523,29 @@
                                     <ArrowLeft class="h-4 w-4" />
                                     Volver
                                 </a>
+
+                                <a
+                                    v-if="abilities.ver_ajustes"
+                                    :href="route('requisiciones.ajustes', req.id)"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs sm:text-sm font-black
+                                        bg-brand-button text-brand-button-fg hover:bg-brand-button/90
+                                        transition hover:-translate-y-[1px] active:scale-[0.99] motion-reduce:transform-none"
+                                >
+                                    <Scale class="h-4 w-4" aria-hidden="true" />
+                                    {{ abilities.solicitar_ajuste ? 'Solicitar ajuste' : 'Ver ajustes' }}
+                                </a>
+
+                                <button
+                                    v-if="abilities.solicitar_eliminacion"
+                                    type="button"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs sm:text-sm font-black
+                                        ring-1 ring-amber-500/30 bg-amber-50 text-amber-800 hover:bg-amber-100
+                                        dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20 transition"
+                                    @click="requestEliminacion"
+                                >
+                                    <Ban class="h-4 w-4" aria-hidden="true" />
+                                    Solicitar eliminación
+                                </button>
 
                                 <button
                                     type="button"
@@ -532,6 +634,43 @@
                             </div>
                         </div>
                         </div>
+
+                        <!-- FECHAS: solicitud, esperada, autorización real y pago -->
+                        <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                            <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
+                                <dt class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                    <Calendar class="h-4 w-4" aria-hidden="true" /> Fecha de solicitud
+                                </dt>
+                                <dd class="mt-1 text-sm font-black text-slate-900 dark:text-neutral-100 tabular-nums">
+                                    {{ formatDateOnlyEsMx(req?.fecha_solicitud_ymd ?? req?.fecha_solicitud) }}
+                                </dd>
+                            </div>
+                            <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
+                                <dt class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                    <Hourglass class="h-4 w-4" aria-hidden="true" /> Fecha esperada de pago
+                                </dt>
+                                <dd class="mt-1 text-sm font-black tabular-nums" :class="req?.fecha_pago_esperada ? 'text-slate-900 dark:text-neutral-100' : 'text-slate-400 dark:text-neutral-500'">
+                                    {{ req?.fecha_pago_esperada ? formatDateOnlyEsMx(req.fecha_pago_esperada) : 'Sin definir' }}
+                                </dd>
+                            </div>
+                            <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
+                                <dt class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                    <CalendarCheck2 class="h-4 w-4" aria-hidden="true" /> Autorización real
+                                </dt>
+                                <dd class="mt-1 text-sm font-black tabular-nums" :class="req?.fecha_autorizacion ? 'text-slate-900 dark:text-neutral-100' : 'text-slate-400 dark:text-neutral-500'">
+                                    {{ req?.fecha_autorizacion ? fmtDate(req.fecha_autorizacion) : 'Pendiente' }}
+                                </dd>
+                            </div>
+                            <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
+                                <dt class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                    <CalendarClock class="h-4 w-4" aria-hidden="true" />
+                                    {{ ['PAGADA', 'POR_COMPROBAR', 'COMPROBACION_ACEPTADA', 'COMPROBACION_RECHAZADA'].includes(String(req?.status)) ? 'Fecha de pago' : 'Pago programado' }}
+                                </dt>
+                                <dd class="mt-1 text-sm font-black tabular-nums" :class="req?.fecha_pago_ymd ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-400 dark:text-neutral-500'">
+                                    {{ req?.fecha_pago_ymd ? formatDateOnlyEsMx(req.fecha_pago_ymd) : 'Sin programar' }}
+                                </dd>
+                            </div>
+                        </dl>
 
                         <!-- FICHA OPERATIVA (reacomodada, con color y sin duplicar fechas) -->
                         <div class="mt-3 grid grid-cols-1 lg:grid-cols-12 gap-3">
@@ -700,6 +839,81 @@
                 </section>
 
                 <!-- Contenido (tabs) -->
+                <section
+                    v-if="eliminaciones.length"
+                    class="mt-5 rounded-3xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 shadow-sm p-4 sm:p-6"
+                    aria-labelledby="titulo-eliminaciones"
+                >
+                    <h3 id="titulo-eliminaciones" class="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-neutral-100">
+                        <Ban class="h-4 w-4" aria-hidden="true" /> Solicitudes de eliminación
+                    </h3>
+                    <ul class="mt-3 grid gap-3">
+                        <li
+                            v-for="e in eliminaciones"
+                            :key="e.id"
+                            class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-slate-50/60 dark:bg-neutral-950 p-4"
+                        >
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-black ring-1" :class="eliminacionTone(e.estatus)">
+                                        {{ eliminacionLabel(e.estatus) }}
+                                    </span>
+                                    <p class="mt-2 whitespace-pre-wrap break-words text-sm text-slate-800 [overflow-wrap:anywhere] dark:text-neutral-200">{{ e.motivo }}</p>
+                                    <p class="mt-1 text-xs text-slate-500 dark:text-neutral-400">
+                                        Solicitó {{ e.solicitado_por ?? '—' }} · {{ fmtDate(e.fecha_solicitud) }}
+                                        <template v-if="e.revisado_por"> · Resolvió {{ e.revisado_por }} · {{ fmtDate(e.fecha_resolucion) }}</template>
+                                    </p>
+                                    <p v-if="e.comentario_revision" class="mt-1 whitespace-pre-wrap break-words text-xs text-slate-600 [overflow-wrap:anywhere] dark:text-neutral-300">
+                                        <span class="font-black">Comentario:</span> {{ e.comentario_revision }}
+                                    </p>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <button
+                                        v-if="e.can.revisar"
+                                        type="button"
+                                        class="inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-brand-danger px-3 text-xs font-black text-brand-danger-fg hover:bg-brand-danger/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                                        @click="openReview(e.id, 'APROBAR')"
+                                    >
+                                        Autorizar eliminación
+                                    </button>
+                                    <button
+                                        v-if="e.can.revisar"
+                                        type="button"
+                                        class="inline-flex min-h-[40px] items-center gap-2 rounded-xl ring-1 ring-black/10 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50 dark:bg-neutral-900 dark:text-neutral-200 dark:ring-white/10"
+                                        @click="openReview(e.id, 'RECHAZAR')"
+                                    >
+                                        Rechazar
+                                    </button>
+                                    <button
+                                        v-if="e.can.cancelar && !e.can.revisar"
+                                        type="button"
+                                        class="inline-flex min-h-[40px] items-center gap-2 rounded-xl ring-1 ring-black/10 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50 dark:bg-neutral-900 dark:text-neutral-200 dark:ring-white/10"
+                                        @click="cancelEliminacion(e.id)"
+                                    >
+                                        Cancelar solicitud
+                                    </button>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </section>
+
+                <ConfirmDialog
+                    v-model:open="reviewOpen"
+                    :title="reviewTarget?.accion === 'APROBAR' ? 'Autorizar eliminación' : 'Rechazar eliminación'"
+                    :description="reviewTarget?.accion === 'APROBAR'
+                        ? 'La requisición quedará eliminada. Esta acción no se puede deshacer desde esta pantalla.'
+                        : 'Explica al solicitante por qué no procede la eliminación.'"
+                    :confirm-label="reviewTarget?.accion === 'APROBAR' ? 'Sí, eliminar' : 'Rechazar solicitud'"
+                    :tone="reviewTarget?.accion === 'APROBAR' ? 'danger' : 'default'"
+                    with-comment
+                    :comment-label="reviewTarget?.accion === 'APROBAR' ? 'Comentario (opcional)' : 'Motivo del rechazo'"
+                    :comment-required="reviewTarget?.accion === 'RECHAZAR'"
+                    :loading="reviewing"
+                    :error="reviewError"
+                    @confirm="submitReview"
+                />
+
                 <section id="bloque-contenido" class="mt-5 rounded-3xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 shadow-sm overflow-hidden">
                 <header class="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0">
                     <div class="inline-flex rounded-full p-1 ring-1 ring-black/5 dark:ring-white/10 bg-slate-50 dark:bg-neutral-950">
@@ -901,10 +1115,13 @@
                                                 </span>
                                             </div>
 
-                                            <div class="mt-2 text-xs text-slate-500 dark:text-neutral-400">
-                                                Registro: {{ a.fecha_registro || '—' }}
-                                                <span class="mx-2 opacity-50">•</span>
-                                                Resolución: {{ a.fecha_resolucion ? fmtDate(a.fecha_resolucion) : '—' }}
+                                            <div class="mt-2 space-y-0.5 text-xs text-slate-500 dark:text-neutral-400">
+                                                <div>Solicitó: <span class="font-semibold text-slate-700 dark:text-neutral-200">{{ a.solicitado_por || '—' }}</span> · {{ a.fecha_registro || '—' }}</div>
+                                                <div v-if="a.resuelto_por">
+                                                    {{ a.estatus === 'RECHAZADO' ? 'Rechazó' : a.estatus === 'CANCELADO' ? 'Canceló' : 'Autorizó' }}:
+                                                    <span class="font-semibold text-slate-700 dark:text-neutral-200">{{ a.resuelto_por }}</span> · {{ fmtDate(a.fecha_resolucion) }}
+                                                </div>
+                                                <div v-if="a.aplicado_por">Aplicó: <span class="font-semibold text-slate-700 dark:text-neutral-200">{{ a.aplicado_por }}</span> · {{ fmtDate(a.fecha_aplicacion) }}</div>
                                             </div>
                                         </div>
 
@@ -943,11 +1160,11 @@
 
                                     <div class="mt-3 rounded-2xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-3 text-xs text-slate-700 dark:text-neutral-200 break-words">
                                         <span class="font-black text-slate-700 dark:text-neutral-100">Motivo:</span>
-                                        {{ a.motivo || '—' }}
-                                        <template v-if="a.notas">
+                                        <span class="whitespace-pre-wrap [overflow-wrap:anywhere]">{{ a.motivo || '—' }}</span>
+                                        <template v-if="a.comentario_revision">
                                             <br />
-                                            <span class="font-black text-slate-700 dark:text-neutral-100">Notas:</span>
-                                            {{ a.notas }}
+                                            <span class="font-black text-slate-700 dark:text-neutral-100">Revisión:</span>
+                                            <span class="whitespace-pre-wrap [overflow-wrap:anywhere]">{{ a.comentario_revision }}</span>
                                         </template>
                                     </div>
                                 </div>

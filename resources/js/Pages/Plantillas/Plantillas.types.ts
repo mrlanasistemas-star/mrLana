@@ -50,4 +50,5 @@ export type PlantillasFilters = {
 export type PlantillasPageProps = {
   plantillas: Paginated<PlantillaRow>
   filters: PlantillasFilters
+  can?: { registrar: boolean; editar: boolean; eliminar: boolean; usar: boolean }
 }

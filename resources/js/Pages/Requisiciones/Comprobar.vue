@@ -19,6 +19,7 @@ import {
   Search,
   MessageCircle,
   Mail,
+  BellRing,
 } from 'lucide-vue-next'
 
 import type { RequisicionComprobarPageProps } from './Comprobar.types'
@@ -41,7 +42,7 @@ const {
   isFinalizada,
 
   // roles/perms
-  role,
+  serverCan,
   canDelete,
   canReview,
   canUseFoliosPanel,
@@ -102,6 +103,7 @@ const {
   canNotify,
   notifyWhatsApp,
   notifyEmail,
+  notifySystem,
 } = useRequisicionComprobar(props)
 
 const montoPendiente = computed({
@@ -187,6 +189,25 @@ const montoPendiente = computed({
                         v-if="canNotify"
                         type="button"
                         :disabled="!canSendNotification"
+                        class="group inline-flex min-h-[44px] items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
+                            transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400
+                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0 motion-reduce:transform-none"
+                        :class="canSendNotification
+                        ? 'bg-brand-button text-brand-button-fg shadow-sm hover:bg-brand-button/90 hover:shadow-md hover:-translate-y-[1px]'
+                        : 'border border-slate-200/70 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-neutral-500'"
+                        @click="notifySystem"
+                        :title="canSendNotification
+                        ? 'Contabilidad recibirá el aviso en la campana de notificaciones del sistema'
+                        : 'Primero debes subir comprobantes por el total de la requisición'"
+                    >
+                        <BellRing class="h-4 w-4" aria-hidden="true" />
+                        Avisar a Contabilidad en el sistema
+                    </button>
+
+                    <button
+                        v-if="canNotify"
+                        type="button"
+                        :disabled="!canSendNotification"
                         class="group inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
                             border transition active:scale-[0.98]
                             disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
@@ -238,7 +259,7 @@ const montoPendiente = computed({
 
                     <div v-if="canNotify" class="w-full sm:max-w-md text-right text-justify">
                     <div class="text-sm leading-5 text-slate-600 dark:text-neutral-300">
-                        Cuando completes la carga de comprobantes, notifica a contabilidad para iniciar la revisión por correo o whatsapp.
+                        Cuando completes la carga de comprobantes, avisa a Contabilidad para iniciar la revisión: en el sistema (les llega a su campana), por correo o por WhatsApp.
                     </div>
 
                     <div v-if="!canSendNotification"
@@ -855,8 +876,9 @@ const montoPendiente = computed({
                         class="mt-1 text-xs font-bold text-rose-600 flex flex-wrap items-center gap-x-2 gap-y-1"
                       >
                         <span>{{ form.errors.monto }}</span>
-                        <span class="opacity-70">—</span>
+                        <span v-if="serverCan.solicitar_ajuste" class="opacity-70">—</span>
                         <Link
+                          v-if="serverCan.solicitar_ajuste"
                           :href="route('requisiciones.ajustes', req?.id)"
                           class="underline font-black hover:text-rose-700 dark:hover:text-rose-300"
                         >
@@ -976,8 +998,8 @@ const montoPendiente = computed({
           <!-- RIGHT -->
           <div ref="previewWrapRef" class="xl:col-span-4 2xl:col-span-5 min-w-0 space-y-4">
             <!-- CTA Ajustes (bien puesto, no “colgando”) -->
-            <div v-if="!isFinalizada" class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-4">
-              <div class="flex items-start justify-between gap-4">
+            <div v-if="!isFinalizada && serverCan.solicitar_ajuste" class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-4">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div class="min-w-0">
                   <p class="font-black text-slate-900 dark:text-white">
                     ¿Hubo algún cambio en el monto de tu requisición?

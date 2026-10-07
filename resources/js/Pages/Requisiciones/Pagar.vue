@@ -1,7 +1,7 @@
 <!-- resources/js/Pages/Requisiciones/Pagar.vue -->
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Head, Link, router, usePage } from '@inertiajs/vue3'
+import { Head, Link, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
 
@@ -9,8 +9,8 @@ import { ArrowLeft, Upload, FileText, X } from 'lucide-vue-next'
 import type { RequisicionPagoPageProps } from './Pagar.types'
 import { useRequisicionPago } from './useRequisicionPago'
 import Swal from 'sweetalert2'
+import { formatDateOnlyEsMx } from '@/Utils/date'
 
-declare const route: any
 
 const props = defineProps<RequisicionPagoPageProps>()
 
@@ -53,17 +53,9 @@ canAttachFile,
 
 const tot = computed(() => (props as any).totales ?? { pagado: 0, pendiente: 0 })
 
-// Obtiene datos del usuario autenticado para determinar permisos
-const page = usePage<any>()
-const role = computed(() => String(page.props?.auth?.user?.rol ?? 'COLABORADOR').toUpperCase())
-// Solo ADMIN o CONTADOR pueden autorizar cuando la requisición está capturada
-const canAuthorize = computed(() =>
-  ['ADMIN','CONTADOR'].includes(role.value) && req.value?.status === 'CAPTURADA'
-)
-// Solo ADMIN o CONTADOR pueden subir pagos
-const canUploadPago = computed(() =>
-  ['ADMIN','CONTADOR'].includes(role.value)
-)
+// Permisos calculados por el servidor (policy) para esta requisición
+const canAuthorize = computed(() => props.can?.autorizar === true && req.value?.status === 'CAPTURADA')
+const canUploadPago = computed(() => props.can?.registrar === true)
 
 // Fecha de pago para autorizar y función para llamar la ruta
 const fechaAutorizacion = ref<string>('')
@@ -226,6 +218,25 @@ function saveFechaGeneral() {
                   <div class="text-sm font-black text-slate-900 dark:text-neutral-100">{{ money(tot.pendiente) }}</div>
                 </div>
               </div>
+
+              <dl class="pt-2 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <dt class="font-black text-slate-500 dark:text-neutral-400">Fecha de solicitud</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100">{{ formatDateOnlyEsMx(req?.fecha_solicitud) }}</dd>
+                </div>
+                <div>
+                  <dt class="font-black text-slate-500 dark:text-neutral-400">Pago esperado</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100">{{ formatDateOnlyEsMx(req?.fecha_pago_esperada, 'Sin definir') }}</dd>
+                </div>
+                <div>
+                  <dt class="font-black text-slate-500 dark:text-neutral-400">Autorización real</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100">{{ formatDateOnlyEsMx(req?.fecha_autorizacion, 'Pendiente') }}</dd>
+                </div>
+                <div>
+                  <dt class="font-black text-slate-500 dark:text-neutral-400">Pago programado</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100">{{ formatDateOnlyEsMx(req?.fecha_pago_programada, 'Sin programar') }}</dd>
+                </div>
+              </dl>
             </div>
 
             <!-- Sección para autorizar pago -->

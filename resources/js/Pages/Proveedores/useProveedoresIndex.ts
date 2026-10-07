@@ -1,8 +1,8 @@
 // resources/js/Pages/Proveedores/useProveedoresIndex.ts
 import { computed, reactive, ref, watch } from 'vue'
 import { router, useForm } from '@inertiajs/vue3'
+import { usePermissions } from '@/Composables/usePermissions'
 import Swal from 'sweetalert2'
-import { usePage } from '@inertiajs/vue3'
 
 export type ProveedorRow = {
   id: number
@@ -46,7 +46,6 @@ export type ProveedoresIndexProps = {
   rows: Pagination<ProveedorRow>
 
   // viene del backend o lo inyectas desde page props
-  viewerRole?: 'ADMIN' | 'CONTADOR' | 'COLABORADOR' | string
 
   // catálogo de usuarios (solo se usa si isPrivileged)
   owners?: OwnerOption[]
@@ -134,20 +133,9 @@ export function useProveedoresIndex(props: ProveedoresIndexProps) {
     'dark:hover:bg-neutral-950/60 dark:hover:border-white/20 ' +
     'dark:focus:border-white/30 dark:focus:ring-white/10'
 
-  // Rol (front-only)
-  const page = usePage<any>()
-const roleFromAuth = computed(() => {
-  const u = page.props?.auth?.user ?? {}
-  // soporte ambos por si algún día cambias
-  return String(u.rol ?? u.role ?? '').toUpperCase()
-})
-
-const viewerRoleUpper = computed(() => {
-  // prioridad: auth.user.role, luego props.viewerRole (por si lo mandas)
-  return roleFromAuth.value || String(props.viewerRole ?? '').toUpperCase()
-})
-
-const isPrivileged = computed(() => viewerRoleUpper.value === 'ADMIN' || viewerRoleUpper.value === 'CONTADOR')
+  // Ver proveedores de todos los usuarios (permiso); el servidor filtra de nuevo.
+  const { can } = usePermissions()
+  const isPrivileged = computed(() => can('proveedores.ver_todos'))
 
   // =========================
   // Filtros (default: ACTIVO)

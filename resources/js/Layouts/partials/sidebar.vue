@@ -1,357 +1,198 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { router, Link, usePage } from '@inertiajs/vue3'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { Link, router } from '@inertiajs/vue3'
+import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
+import { LogOut, PanelLeftClose, PanelLeftOpen, X } from 'lucide-vue-next'
 import ApplicationLogo from '@/Components/ApplicationLogo.vue'
-import Swal from 'sweetalert2'
-import {
-    LayoutDashboard,
-    Building2,
-    MapPin,
-    Layers3,
-    Users,
-    Tags,
-    Truck,
-    FileText,
-    ClipboardList,
-    ScrollText,
-    LogOut,
-} from 'lucide-vue-next'
+import DownloadAppButton from '@/Components/layout/DownloadAppButton.vue'
+import SidebarNav from '@/Layouts/partials/SidebarNav.vue'
+import { useLogout } from '@/Composables/useLogout'
+import { usePermissions } from '@/Composables/usePermissions'
+import { useSidebar } from '@/Composables/useSidebar'
 
-defineProps<{ current?: string }>()
+/**
+ * Sidebar del ERP.
+ * - lg+ : panel flotante. Se expande al pasar el puntero (dispositivos con hover)
+ *         o con "Fijar menú" (tabletas táctiles en horizontal).
+ * - <lg : drawer con overlay (lo abren la hamburguesa y "Más" de la barra inferior);
+ *         se cierra al navegar, con Escape o tocando fuera.
+ */
+const { mobileOpen, pinned, hovering, closeMobile, togglePinned } = useSidebar()
+const { confirmLogout } = useLogout()
+const { roles, user } = usePermissions()
 
-const open = ref(false)
-const reducedMotion = ref(false)
-
-const page = usePage()
-const userRole = computed(() => ((page.props as any)?.auth?.user?.rol ?? 'COLABORADOR') as 'ADMIN' | 'CONTADOR' | 'COLABORADOR')
+const canHover = ref(false)
+let mq: MediaQueryList | null = null
+const syncHover = () => (canHover.value = mq?.matches ?? false)
+let removeNavListener: (() => void) | undefined
 
 onMounted(() => {
-    reducedMotion.value = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+    mq = window.matchMedia('(hover: hover) and (pointer: fine)')
+    syncHover()
+    mq.addEventListener('change', syncHover)
+    removeNavListener = router.on('navigate', () => closeMobile())
 })
 
-const isDarkTheme = () => document.documentElement.classList.contains('dark')
+onBeforeUnmount(() => {
+    mq?.removeEventListener('change', syncHover)
+    removeNavListener?.()
+})
 
-const confirmLogout = async () => {
-    const dark = isDarkTheme()
-    const result = await Swal.fire({
-        title: '¿Cerrar sesión?',
-        text: 'Perderás acceso hasta volver a iniciar sesión.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, cerrar',
-        cancelButtonText: 'Cancelar',
-        reverseButtons: true,
-        background: dark ? '#18181b' : '#ffffff',
-        color: dark ? '#e4e4e7' : '#111827',
-        confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#52525b',
-    })
-    if (!result.isConfirmed) return
-    router.post(route('logout'), {}, {
-        preserveScroll: true,
-        onSuccess: () => {
-            Swal.fire({
-                icon: 'success',
-                title: 'Sesión cerrada',
-                text: 'Has salido del sistema correctamente.',
-                timer: 1600,
-                showConfirmButton: false,
-                background: dark ? '#18181b' : '#ffffff',
-                color: dark ? '#e4e4e7' : '#111827',
-                iconColor: '#22c55e',
-            })
-        },
-    })
-}
+const expanded = computed(() => pinned.value || (canHover.value && hovering.value))
+const roleLabel = computed(() => roles.value.join(', ') || 'Sin rol')
+const initials = computed(() => {
+    const parts = String(user.value?.name ?? 'ML').trim().split(/\s+/).filter(Boolean)
+    return (parts.slice(0, 2).map((p) => p[0] ?? '').join('') || 'ML').toUpperCase()
+})
 
-const can = (roles: Array<'ADMIN' | 'CONTADOR' | 'COLABORADOR'>) => roles.includes(userRole.value)
-
-const safeRoute = (name: string): string | null => {
-    try {
-        // @ts-ignore
-        return route(name) as string
-    } catch {
-        return null
-    }
-}
-
-const isActive = (name: string) => {
-    try {
-        return route().current(name)
-    } catch {
-        return false
-    }
-}
-
-const onEnter = () => {
-    open.value = true
-    if (reducedMotion.value) return
-    const el = document.getElementById('erp-sidebar')
-    el?.animate(
-        [{ transform: 'translateX(-2px)', opacity: 0.97 }, { transform: 'translateX(0)', opacity: 1 }],
-        { duration: 160, easing: 'ease-out' }
-    )
-}
-const onLeave = () => (open.value = false)
-
-const showTip = computed(() => !open.value)
-
-type Role = 'ADMIN' | 'CONTADOR' | 'COLABORADOR'
-type IconComponent = typeof LayoutDashboard
-
-type NavItem = {
-    label: string
-    routeName: string
-    icon: IconComponent
-    roles: Role[]
-}
-
-type NavGroup = {
-    title: string
-    roles: Role[]
-    items: NavItem[]
-}
-
-const rawGroups = computed<NavGroup[]>(() => [
-    {
-        title: 'General',
-        roles: ['ADMIN', 'CONTADOR', 'COLABORADOR'],
-        items: [
-            { label: 'Dashboard', routeName: 'dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'CONTADOR', 'COLABORADOR'] },
-        ],
-    },
-    {
-        title: 'Organización',
-        roles: ['ADMIN', 'CONTADOR'],
-        items: [
-            { label: 'Corporativos', routeName: 'corporativos.index', icon: Building2, roles: ['ADMIN', 'CONTADOR'] },
-            { label: 'Sucursales', routeName: 'sucursales.index', icon: MapPin, roles: ['ADMIN', 'CONTADOR'] },
-            { label: 'Áreas', routeName: 'areas.index', icon: Layers3, roles: ['ADMIN', 'CONTADOR'] },
-        ],
-    },
-    {
-        title: 'Personas',
-        roles: ['ADMIN'],
-        items: [
-            { label: 'Empleados', routeName: 'empleados.index', icon: Users, roles: ['ADMIN'] },
-        ],
-    },
-    {
-        title: 'Catálogos',
-        roles: ['ADMIN', 'CONTADOR', 'COLABORADOR'],
-        items: [
-            { label: 'Conceptos', routeName: 'conceptos.index', icon: Tags, roles: ['ADMIN', 'CONTADOR'] },
-            { label: 'Proveedores', routeName: 'proveedores.index', icon: Truck, roles: ['ADMIN', 'CONTADOR', 'COLABORADOR'] },
-        ],
-    },
-    {
-        title: 'Operación',
-        roles: ['ADMIN', 'CONTADOR', 'COLABORADOR'],
-        items: [
-            { label: 'Requisiciones', routeName: 'requisiciones.index', icon: FileText, roles: ['ADMIN', 'CONTADOR', 'COLABORADOR'] },
-            { label: 'Plantillas', routeName: 'plantillas.index', icon: ClipboardList, roles: ['ADMIN', 'CONTADOR', 'COLABORADOR'] },
-        ],
-    },
-    {
-        title: 'Auditoría',
-        roles: ['ADMIN'],
-        items: [
-            { label: 'System Log', routeName: 'systemlogs.index', icon: ScrollText, roles: ['ADMIN'] },
-        ],
-    },
-])
-
-const groups = computed(() =>
-    rawGroups.value
-        .filter(g => can(g.roles))
-        .map(g => ({
-            title: g.title,
-            items: g.items
-                .filter(i => can(i.roles))
-                .map(i => ({ ...i, href: safeRoute(i.routeName) }))
-                .filter(i => !!i.href),
-        }))
-        .filter(g => g.items.length > 0)
-)
+const footerBtn =
+    'flex min-h-[42px] w-full items-center rounded-xl px-3 text-[13.5px] font-medium transition-colors ' +
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40'
 </script>
 
 <template>
+    <!-- Escritorio (lg+): panel flotante -->
     <aside
         id="erp-sidebar"
-        class="group/sidebar relative flex min-h-dvh flex-col justify-between
-               sticky top-0 z-30 shrink-0
-               border-r transition-[width] duration-300 ease-out
-               bg-white text-slate-800 border-slate-200/80
-               dark:bg-zinc-950 dark:text-zinc-100 dark:border-zinc-800/60"
-        :class="open ? 'w-60' : 'w-[66px]'"
-        @mouseenter="onEnter"
-        @mouseleave="onLeave"
+        class="sticky top-0 z-30 hidden h-dvh shrink-0 p-3 pr-0 transition-[width] duration-300 ease-out motion-reduce:transition-none lg:block"
+        :class="expanded ? 'w-[17rem]' : 'w-[5.25rem]'"
+        @mouseenter="hovering = true"
+        @mouseleave="hovering = false"
     >
-        <!-- Logo -->
-        <div>
-            <div class="flex h-16 items-center border-b border-slate-200/80 dark:border-zinc-800/60 px-3">
-                <div
-                    class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl
-                           bg-slate-900 text-white shadow-md
-                           dark:bg-zinc-100 dark:text-zinc-900
-                           transition-transform duration-200 group-hover/sidebar:scale-[1.04]"
+        <div
+            class="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white/95 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(0,0,0,0.12)]
+                   text-slate-800 dark:border-white/[0.07] dark:bg-zinc-900/60 dark:text-zinc-100"
+        >
+            <!-- Marca -->
+            <Link
+                :href="route('dashboard')"
+                class="flex h-16 shrink-0 items-center gap-3 px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-primary/40"
+                aria-label="Ir al inicio"
+            >
+                <span
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 text-white
+                           shadow-md ring-1 ring-black/5 dark:from-zinc-100 dark:to-zinc-300 dark:text-zinc-900"
                 >
                     <ApplicationLogo class="h-5 w-5" />
-                </div>
+                </span>
+                <span class="min-w-0 overflow-hidden transition-all duration-300" :class="expanded ? 'w-40 opacity-100' : 'w-0 opacity-0'">
+                    <span class="block whitespace-nowrap text-[15px] font-extrabold tracking-tight">MR-Lana</span>
+                    <span class="block whitespace-nowrap text-[11px] font-medium text-slate-400 dark:text-zinc-500">ERP de gastos</span>
+                </span>
+            </Link>
 
-                <div
-                    class="ml-3 overflow-hidden transition-all duration-300"
-                    :class="open ? 'w-36 opacity-100' : 'w-0 opacity-0'"
-                >
-                    <span class="block text-sm font-black tracking-tight text-slate-900 dark:text-zinc-100 whitespace-nowrap select-none">
-                        MR-Lana ERP
-                    </span>
-                    <span class="block text-[10px] font-medium text-slate-400 dark:text-zinc-500 whitespace-nowrap">
-                        Sistema integrado
-                    </span>
-                </div>
+            <div class="mx-3 h-px bg-slate-100 dark:bg-white/[0.06]" />
+
+            <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-4 [scrollbar-width:thin]">
+                <SidebarNav :expanded="expanded" />
             </div>
 
-            <!-- Navegación -->
-            <nav class="mt-3 px-2 space-y-4 overflow-hidden">
-                <div v-for="g in groups" :key="g.title" class="space-y-0.5">
+            <div class="space-y-0.5 border-t border-slate-100 p-2.5 dark:border-white/[0.06]">
+                <DownloadAppButton variant="menu">
+                    <span class="overflow-hidden whitespace-nowrap transition-all" :class="expanded ? 'w-40 opacity-100' : 'w-0 opacity-0'">Descargar aplicación</span>
+                </DownloadAppButton>
 
-                    <!-- Título de grupo (solo visible con sidebar abierta) -->
-                    <div
-                        class="overflow-hidden transition-all duration-200"
-                        :class="open ? 'max-h-8 opacity-100 mb-1' : 'max-h-0 opacity-0'"
-                    >
-                        <span class="block px-3 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 select-none">
-                            {{ g.title }}
-                        </span>
+                <button
+                    type="button"
+                    :class="[footerBtn, 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100']"
+                    :aria-pressed="pinned"
+                    :aria-label="pinned ? 'Contraer menú' : 'Fijar menú abierto'"
+                    @click="togglePinned"
+                >
+                    <component :is="pinned ? PanelLeftClose : PanelLeftOpen" class="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
+                    <span class="ml-3 overflow-hidden whitespace-nowrap transition-all" :class="expanded ? 'w-40 opacity-100' : 'w-0 opacity-0'">
+                        {{ pinned ? 'Contraer menú' : 'Fijar menú' }}
+                    </span>
+                </button>
+
+                <!-- Tarjeta de usuario -->
+                <div class="mt-1.5 flex items-center gap-2.5 rounded-xl bg-slate-50 p-2 dark:bg-white/[0.04]">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-primary text-xs font-bold text-brand-primary-fg">
+                        {{ initials }}
+                    </span>
+                    <div class="min-w-0 flex-1 overflow-hidden transition-all" :class="expanded ? 'opacity-100' : 'w-0 opacity-0'">
+                        <p class="truncate text-[13px] font-semibold">{{ user?.name }}</p>
+                        <p class="truncate text-[11px] text-slate-500 dark:text-zinc-400">{{ roleLabel }}</p>
                     </div>
-
-                    <!-- Items -->
-                    <Link
-                        v-for="item in g.items"
-                        :key="item.routeName"
-                        :href="item.href"
-                        :preserve-state="false"
-                        :preserve-scroll="true"
-                        class="sidebar-nav-item group relative flex items-center rounded-xl px-2.5 py-2.5
-                               text-sm font-medium cursor-pointer
-                               transition-all duration-200
-                               focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300/60
-                               dark:focus-visible:ring-zinc-600/60"
-                        :class="isActive(item.routeName)
-                            ? 'bg-slate-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-100'"
+                    <button
+                        v-if="expanded"
+                        type="button"
+                        class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition
+                               hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40
+                               dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
+                        aria-label="Cerrar sesión"
+                        title="Cerrar sesión"
+                        @click="confirmLogout"
                     >
-                        <!-- Indicador lateral activo -->
-                        <span
-                            v-if="isActive(item.routeName)"
-                            class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full
-                                   bg-white dark:bg-zinc-900"
-                        ></span>
-
-                        <!-- Icono -->
-                        <component
-                            :is="item.icon"
-                            class="h-[18px] w-[18px] flex-shrink-0 transition-all duration-200"
-                            :class="[
-                                isActive(item.routeName)
-                                    ? 'text-white dark:text-zinc-900'
-                                    : 'text-slate-500 dark:text-zinc-500 group-hover:text-slate-800 dark:group-hover:text-zinc-200 group-hover:scale-110 group-hover:translate-x-0.5',
-                            ]"
-                        />
-
-                        <!-- Label con fade -->
-                        <div
-                            class="overflow-hidden transition-all duration-200 ml-2.5"
-                            :class="open ? 'w-36 opacity-100' : 'w-0 opacity-0'"
-                        >
-                            <span class="block whitespace-nowrap text-sm font-semibold">{{ item.label }}</span>
-                        </div>
-
-                        <!-- Tooltip cuando está colapsada -->
-                        <span
-                            v-if="showTip"
-                            class="pointer-events-none absolute left-[58px] top-1/2 -translate-y-1/2 z-50
-                                   whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold
-                                   bg-slate-900 text-white shadow-xl opacity-0 -translate-x-1
-                                   group-hover:opacity-100 group-hover:translate-x-0
-                                   transition-all duration-150
-                                   dark:bg-zinc-100 dark:text-zinc-900"
-                        >
-                            {{ item.label }}
-                        </span>
-                    </Link>
+                        <LogOut class="h-4 w-4" aria-hidden="true" />
+                    </button>
                 </div>
-            </nav>
-        </div>
-
-        <!-- Footer: rol + logout -->
-        <div class="border-t border-slate-200/80 dark:border-zinc-800/60 p-2">
-            <!-- Rol (solo visible abierto) -->
-            <div
-                class="overflow-hidden transition-all duration-200 px-3"
-                :class="open ? 'max-h-8 opacity-100 mb-2' : 'max-h-0 opacity-0'"
-            >
-                <span class="text-[10px] font-semibold text-slate-400 dark:text-zinc-500 select-none">
-                    Rol: <span class="font-black text-slate-600 dark:text-zinc-300">{{ userRole }}</span>
-                </span>
             </div>
-
-            <!-- Botón Logout -->
-            <button
-                type="button"
-                @click="confirmLogout"
-                class="group relative flex items-center w-full rounded-xl px-2.5 py-2.5
-                       text-sm font-medium transition-all duration-200
-                       text-slate-500 hover:bg-red-50 hover:text-red-700
-                       dark:text-zinc-500 dark:hover:bg-red-950/40 dark:hover:text-red-300
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/30"
-            >
-                <LogOut
-                    class="h-[18px] w-[18px] flex-shrink-0 transition-all duration-200
-                           group-hover:scale-110 group-hover:translate-x-0.5"
-                />
-
-                <div
-                    class="overflow-hidden transition-all duration-200 ml-2.5"
-                    :class="open ? 'w-36 opacity-100' : 'w-0 opacity-0'"
-                >
-                    <span class="block whitespace-nowrap font-semibold">Cerrar sesión</span>
-                </div>
-
-                <!-- Tooltip -->
-                <span
-                    v-if="showTip"
-                    class="pointer-events-none absolute left-[58px] top-1/2 -translate-y-1/2 z-50
-                           whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold
-                           bg-red-600 text-white shadow-xl opacity-0 -translate-x-1
-                           group-hover:opacity-100 group-hover:translate-x-0
-                           transition-all duration-150"
-                >
-                    Cerrar sesión
-                </span>
-            </button>
         </div>
     </aside>
+
+    <!-- Móvil y tableta vertical (<lg): drawer -->
+    <DialogRoot :open="mobileOpen" @update:open="(v) => (mobileOpen = v)">
+        <DialogPortal>
+            <DialogOverlay
+                class="fixed inset-0 z-[350] bg-slate-950/40 backdrop-blur-sm lg:hidden
+                       data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0
+                       motion-reduce:animate-none"
+            />
+            <DialogContent
+                class="fixed inset-y-2 left-2 z-[351] flex w-[min(20rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-3xl
+                       border border-slate-200/70 bg-white text-slate-800 shadow-2xl focus:outline-none
+                       pb-[env(safe-area-inset-bottom)] dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-100 lg:hidden
+                       data-[state=open]:animate-in data-[state=closed]:animate-out
+                       data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left duration-200 motion-reduce:animate-none"
+            >
+                <div class="flex h-[4.5rem] shrink-0 items-center justify-between gap-3 px-4">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 text-white shadow-md dark:from-zinc-100 dark:to-zinc-300 dark:text-zinc-900">
+                            <ApplicationLogo class="h-5 w-5" />
+                        </span>
+                        <div class="min-w-0">
+                            <DialogTitle class="truncate text-[15px] font-extrabold tracking-tight">MR-Lana</DialogTitle>
+                            <DialogDescription class="truncate text-[11px] text-slate-500 dark:text-zinc-400">ERP de gastos</DialogDescription>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 dark:hover:bg-white/10"
+                        aria-label="Cerrar menú"
+                        @click="closeMobile"
+                    >
+                        <X class="h-5 w-5" aria-hidden="true" />
+                    </button>
+                </div>
+
+                <div class="mx-4 flex items-center gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-bold text-brand-primary-fg">
+                        {{ initials }}
+                    </span>
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-semibold">{{ user?.name }}</p>
+                        <p class="truncate text-xs text-slate-500 dark:text-zinc-400">{{ roleLabel }}</p>
+                    </div>
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+                    <SidebarNav :expanded="true" @navigate="closeMobile" />
+                </div>
+
+                <div class="space-y-1 border-t border-slate-100 p-3 dark:border-white/[0.06]">
+                    <DownloadAppButton variant="menu" />
+                    <button
+                        type="button"
+                        :class="[footerBtn, 'gap-3 text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10']"
+                        @click="confirmLogout"
+                    >
+                        <LogOut class="h-[18px] w-[18px]" aria-hidden="true" />
+                        Cerrar sesión
+                    </button>
+                </div>
+            </DialogContent>
+        </DialogPortal>
+    </DialogRoot>
 </template>
-
-<style scoped>
-/* Transición suave del ancho sin flash */
-aside {
-    will-change: width;
-}
-
-/* El indicador activo sin animación parpadeante */
-.sidebar-nav-item {
-    overflow: visible;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    aside,
-    .sidebar-nav-item,
-    .sidebar-nav-item * {
-        transition-duration: 0ms !important;
-        animation: none !important;
-    }
-}
-</style>

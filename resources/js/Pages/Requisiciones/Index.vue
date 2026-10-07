@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Head, Link, router } from "@inertiajs/vue3";
+import { Head } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import SearchableSelect from "@/Components/ui/SearchableSelect.vue";
 import DatePickerShadcn from "@/Components/ui/DatePickerShadcn.vue";
@@ -8,7 +8,8 @@ import ICON_PDF from "@/img/pdf.png";
 import ICON_EXCEL from "@/img/excel.png";
 import { toQS, downloadFile } from "@/Utils/exports";
 import Swal from "sweetalert2";
-declare const route: any;
+import RequisicionActions from "./partials/RequisicionActions.vue";
+import { usePermissions } from "@/Composables/usePermissions";
 
 import type {
     RequisicionesPageProps,
@@ -22,11 +23,6 @@ import {
     X,
     Copy,
     ArrowUpDown,
-    Banknote,
-    FileText,
-    Printer,
-    Trash2,
-    Send,
     ClipboardList,
     BadgeDollarSign,
     Building2,
@@ -36,14 +32,11 @@ import {
 
 const props = defineProps<RequisicionesPageProps>();
 
+const { can } = usePermissions();
+
 const {
-    role,
     isColaborador,
     canDelete,
-    canPay,
-    canComprobar,
-    canPayRow,
-    canComprobarRow,
     state,
     rows,
     meta,
@@ -67,23 +60,22 @@ const {
     destroySelected,
     goTo,
     goShow,
+    goPay,
+    goComprobar,
     goCreate,
     destroyRow,
     captureRow,
-    fmtDateLong,
+    requestDeletion,
+    goAjustes,
     money,
     displayName,
     copyText,
-    showUrl,
-    payUrl,
-    comprobarUrl,
-    printUrl,
 } = useRequisicionesIndex(props);
 
 const exportParams = computed(() => ({
     ...(state as any),
     page: meta.value?.current_page ?? 1,
-    perPage: state.perPage ?? meta.value?.per_page ?? 10,
+    perPage: state.perPage,
 }));
 
 const exportPdfUrl = computed(
@@ -142,10 +134,6 @@ const onPrint = (id: number | string) => {
     window.open(url, "_blank", "noopener,noreferrer");
 };
 
-const onPay = (id: number | string) =>
-    router.visit(route("requisiciones.pagar", { requisicion: id }));
-const onComprobar = (id: number | string) =>
-    router.visit(route("requisiciones.comprobar", { requisicion: id }));
 
 function rowDisabled(r: RequisicionRow) {
     return String((r as any).status || "").toUpperCase() === "ELIMINADA";
@@ -285,8 +273,6 @@ function shortText(v: any, max = 90) {
     return txt.length > max ? txt.slice(0, max).trim() + "…" : txt;
 }
 
-const scrollHide =
-    "overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 function statusAccentColor(s: any): string {
     const st = String(s ?? '').toUpperCase()
@@ -300,22 +286,6 @@ function statusAccentColor(s: any): string {
     if (st === 'COMPROBACION_RECHAZADA') return '#d946ef'
     return '#cbd5e1'
 }
-
-// Base icon button — transparent, amber hover en dark y light
-const iconLink =
-    "inline-flex items-center justify-center h-8 w-8 rounded-lg border transition-all duration-150 active:scale-[0.93] " +
-    "border-slate-200 bg-transparent text-slate-500 " +
-    "hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 " +
-    "dark:border-zinc-700 dark:bg-transparent dark:text-zinc-400 " +
-    "dark:hover:bg-amber-400/20 dark:hover:border-amber-400/40 dark:hover:text-amber-300"
-
-const iconBtn =
-    "inline-flex items-center justify-center h-8 w-8 rounded-lg border transition-all duration-150 active:scale-[0.93] " +
-    "border-slate-200 bg-transparent text-slate-500 " +
-    "hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 " +
-    "dark:border-zinc-700 dark:bg-transparent dark:text-zinc-400 " +
-    "dark:hover:bg-amber-400/20 dark:hover:border-amber-400/40 dark:hover:text-amber-300 " +
-    "disabled:opacity-40 disabled:pointer-events-none"
 </script>
 
 <template>
@@ -338,7 +308,9 @@ const iconBtn =
                 </div>
 
                 <button
+                    v-if="can('requisiciones.registrar')"
                     type="button"
+                    aria-label="Nueva requisición"
                     @click="goCreate"
                     class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md hover:-translate-y-[1px] active:scale-[0.99] transition dark:bg-emerald-500 dark:hover:bg-emerald-600"
                 >
@@ -671,7 +643,7 @@ const iconBtn =
                                     <div
                                         class="text-[12px] font-semibold text-slate-500 dark:text-zinc-400"
                                     >
-                                        Rol: {{ role }}
+                                        Solo se muestran las tuyas
                                     </div>
                                 </div>
                             </template>
@@ -846,6 +818,12 @@ const iconBtn =
                                     {{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}
                                 </span>
                             </div>
+                            <div v-if="(r as any).fecha_pago_esperada" class="flex items-baseline gap-2">
+                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Esperada</span>
+                                <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
+                                    {{ safeDateShort((r as any).fecha_pago_esperada) }}
+                                </span>
+                            </div>
                             <div class="flex items-baseline gap-2">
                                 <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Pago</span>
                                 <span
@@ -869,60 +847,24 @@ const iconBtn =
                                 </div>
                             </div>
 
-                            <div class="flex items-center gap-1">
-                                <!-- CAPTURAR (POST → botón) -->
-                                <button
-                                    v-if="String((r as any).status).toUpperCase() === 'BORRADOR'"
-                                    type="button"
-                                    :class="iconBtn"
-                                    title="Capturar"
-                                    @click.stop="captureRow(r.id)"
-                                >
-                                    <Send class="h-4 w-4" />
-                                </button>
-
-                                <!-- VER (enlace real) -->
-                                <a :href="showUrl(r.id)" :class="iconLink"
-                                   title="Ver">
-                                    <Search class="h-4 w-4" />
-                                </a>
-
-                                <!-- PAGAR (enlace real) -->
-                                <a v-if="canPayRow(r)" :href="payUrl(r.id)" :class="iconLink"
-                                   title="Pagar">
-                                    <Banknote class="h-4 w-4" />
-                                </a>
-
-                                <!-- COMPROBAR (enlace real) -->
-                                <a v-if="canComprobarRow(r)" :href="comprobarUrl(r.id)" :class="iconLink"
-                                   title="Comprobar">
-                                    <FileText class="h-4 w-4" />
-                                </a>
-
-                                <!-- IMPRIMIR (abre ventana → botón) -->
-                                <button type="button" :class="iconBtn"
-                                        title="Imprimir" @click.stop="onPrint(r.id)">
-                                    <Printer class="h-4 w-4" />
-                                </button>
-
-                                <!-- ELIMINAR (DELETE → botón) -->
-                                <button
-                                    v-if="canDelete"
-                                    type="button"
-                                    class="inline-flex items-center justify-center h-8 w-8 rounded-lg border transition-all duration-150
-                                           border-slate-200 bg-transparent text-slate-500
-                                           hover:bg-rose-50 hover:border-rose-300 hover:text-rose-600
-                                           active:scale-[0.93] disabled:opacity-40 disabled:pointer-events-none
-                                           dark:border-zinc-700 dark:bg-transparent dark:text-zinc-400
-                                           dark:hover:bg-rose-500/20 dark:hover:border-rose-500/40 dark:hover:text-rose-300"
-                                    title="Eliminar"
-                                    :disabled="rowDisabled(r)"
-                                    @click.stop="destroyRow(r)"
-                                >
-                                    <Trash2 class="h-4 w-4" />
-                                </button>
-                            </div>
+                            <RequisicionActions
+                                :row="r"
+                                @show="goShow(r.id)"
+                                @pay="goPay(r.id)"
+                                @comprobar="goComprobar(r.id)"
+                                @ajustes="goAjustes(r.id)"
+                                @print="onPrint(r.id)"
+                                @capture="captureRow(r.id)"
+                                @request-delete="requestDeletion(r)"
+                                @delete="destroyRow(r)"
+                            />
                         </div>
+                    </div>
+
+                    <div v-if="(r as any).eliminacion_pendiente" class="px-5 pb-2 -mt-1">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                            Eliminación solicitada · pendiente de Contabilidad
+                        </span>
                     </div>
 
                     <!-- Observaciones — solo si existen -->
@@ -1029,7 +971,7 @@ const iconBtn =
                     <!-- Info grid mobile -->
                     <div class="mt-3 space-y-2">
                         <!-- Fechas en 3 filas -->
-                        <div class="grid grid-cols-3 gap-2">
+                        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
                                 <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Registro</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
@@ -1040,6 +982,12 @@ const iconBtn =
                                 <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Solicitud</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
                                     {{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}
+                                </div>
+                            </div>
+                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
+                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Pago esperado</div>
+                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
+                                    {{ (r as any).fecha_pago_esperada ? safeDateShort((r as any).fecha_pago_esperada) : 'Sin definir' }}
                                 </div>
                             </div>
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
@@ -1092,77 +1040,25 @@ const iconBtn =
                         </div>
                     </div>
 
-                    <div class="mt-4 flex items-center justify-end gap-2">
-                        <!-- CAPTURAR (POST → botón) -->
-                        <button
-                            v-if="String((r as any).status).toUpperCase() === 'BORRADOR'"
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
-                                   text-slate-600 hover:text-blue-700 hover:bg-blue-50 hover:border-blue-200
-                                   active:scale-[0.97] transition-all duration-100 disabled:opacity-40 disabled:pointer-events-none
-                                   dark:border-white/10 dark:bg-white/8"
-                            title="Capturar"
-                            :disabled="rowDisabled(r)"
-                            @click="captureRow(r.id)"
-                        >
-                            <Send class="h-4 w-4" />
-                        </button>
+                    <div v-if="(r as any).eliminacion_pendiente" class="mt-3">
+                        <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                            Eliminación solicitada · pendiente
+                        </span>
+                    </div>
 
-                        <!-- VER (enlace real) -->
-                        <a :href="showUrl(r.id)"
-                           class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
-                                  text-slate-600 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200
-                                  active:scale-[0.97] transition-all duration-100
-                                  dark:border-white/10 dark:bg-white/8"
-                           title="Ver">
-                            <Search class="h-4 w-4" />
-                        </a>
-
-                        <!-- PAGAR (enlace real) -->
-                        <a v-if="canPayRow(r)" :href="payUrl(r.id)"
-                           class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
-                                  text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200
-                                  active:scale-[0.97] transition-all duration-100
-                                  dark:border-white/10 dark:bg-white/8"
-                           title="Pagar">
-                            <Banknote class="h-4 w-4" />
-                        </a>
-
-                        <!-- COMPROBAR (enlace real) -->
-                        <a v-if="canComprobarRow(r)" :href="comprobarUrl(r.id)"
-                           class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
-                                  text-slate-600 hover:text-violet-700 hover:bg-violet-50 hover:border-violet-200
-                                  active:scale-[0.97] transition-all duration-100
-                                  dark:border-white/10 dark:bg-white/8"
-                           title="Comprobar">
-                            <FileText class="h-4 w-4" />
-                        </a>
-
-                        <!-- IMPRIMIR (abre ventana → botón) -->
-                        <button
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
-                                   text-slate-600 hover:bg-slate-100 hover:border-slate-300
-                                   active:scale-[0.97] transition-all duration-100 disabled:opacity-40 disabled:pointer-events-none
-                                   dark:border-white/10 dark:bg-white/8"
-                            title="Imprimir"
-                            :disabled="rowDisabled(r)"
-                            @click="onPrint(r.id)"
-                        >
-                            <Printer class="h-4 w-4" />
-                        </button>
-
-                        <!-- ELIMINAR (DELETE → botón) -->
-                        <button
-                            v-if="canDelete"
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200/90 bg-white
-                                   text-slate-600 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200
-                                   active:scale-[0.97] transition-all duration-100 disabled:opacity-40 disabled:pointer-events-none
-                                   dark:border-white/10 dark:bg-white/8 dark:hover:bg-rose-500/20 dark:hover:border-rose-500/30"
-                            title="Eliminar"
-                            :disabled="rowDisabled(r)"
-                            @click="destroyRow(r)"
-                        >
-                            <Trash2 class="h-4 w-4" />
-                        </button>
+                    <div class="mt-4 border-t border-slate-100 pt-3 dark:border-white/5">
+                        <RequisicionActions
+                            :row="r"
+                            size="md"
+                            @show="goShow(r.id)"
+                            @pay="goPay(r.id)"
+                            @comprobar="goComprobar(r.id)"
+                            @ajustes="goAjustes(r.id)"
+                            @print="onPrint(r.id)"
+                            @capture="captureRow(r.id)"
+                            @request-delete="requestDeletion(r)"
+                            @delete="destroyRow(r)"
+                        />
                     </div>
                 </div>
 

@@ -37,7 +37,7 @@ export function usePlantillasIndex(props: PlantillasPageProps) {
   })
 
   const rows = computed<PlantillaRow[]>(() => props.plantillas?.data ?? [])
-  const pagerLinks = computed<PagerLink[]>(() => normalizeLinks(props.plantillas?.meta?.links))
+  const pagerLinks = computed<PagerLink[]>(() => normalizeLinks(props.plantillas?.links))
 
   const runSearch = debounce(() => {
     router.get(
@@ -80,7 +80,6 @@ export function usePlantillasIndex(props: PlantillasPageProps) {
       }
       window.location.assign(url)
     } catch (e: any) {
-      console.error('Edit route error:', e)
       swalErr('No se pudo abrir Edit', String(e?.message ?? e))
     }
   }
@@ -123,7 +122,7 @@ export function usePlantillasIndex(props: PlantillasPageProps) {
 
     router.delete(route('plantillas.destroy', { plantilla: row.id }), {
       preserveScroll: true,
-      onError: (errors) => {
+      onError: (errors: Record<string, string>) => {
         swalClose()
         const first = Object.values(errors ?? {})[0]
         swalErr(String(first || 'No se pudo eliminar la plantilla.'))
@@ -158,7 +157,7 @@ export function usePlantillasIndex(props: PlantillasPageProps) {
 
     router.put(route('plantillas.reactivate', { plantilla: row.id }), {}, {
       preserveScroll: true,
-      onError: (errors) => {
+      onError: (errors: Record<string, string>) => {
         swalClose()
         const first = Object.values(errors ?? {})[0]
         swalErr(String(first || 'No se pudo reactivar la plantilla.'))

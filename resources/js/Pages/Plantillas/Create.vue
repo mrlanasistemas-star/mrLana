@@ -34,7 +34,7 @@ const {
     save,
     update,
     money,
-    role,
+    solicitanteFijo,
     saving,
     fieldError,
 } = usePlantillaCreate(catalogos, plantilla)
@@ -114,7 +114,7 @@ const isEdit = computed(() => !!plantilla)
                                     rounded="2xl"
                                     labelKey="nombre"
                                     valueKey="id"
-                                    :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
+                                    :button-class="solicitanteFijo ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
                                 />
                                 <p v-if="fieldError('comprador_corp_id')" class="erp-error">
                                     {{ fieldError('comprador_corp_id') }}
@@ -133,7 +133,7 @@ const isEdit = computed(() => !!plantilla)
                                     rounded="2xl"
                                     labelKey="nombre"
                                     valueKey="id"
-                                    :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
+                                    :button-class="solicitanteFijo ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
                                 />
                                 <p v-if="fieldError('sucursal_id')" class="erp-error">
                                     {{ fieldError('sucursal_id') }}
@@ -168,9 +168,9 @@ const isEdit = computed(() => !!plantilla)
                                     rounded="2xl"
                                     labelKey="nombre"
                                     valueKey="id"
-                                    :button-class="role === 'COLABORADOR' ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
+                                    :button-class="solicitanteFijo ? 'pointer-events-none cursor-not-allowed opacity-50' : ''"
                                 />
-                                <p v-if="role === 'COLABORADOR'" class="erp-error" style="color: var(--erp-muted);">
+                                <p v-if="solicitanteFijo" class="erp-error" style="color: var(--erp-muted);">
                                     Para colaboradores, el solicitante se asigna automáticamente.
                                 </p>
                             </div>
@@ -235,6 +235,19 @@ const isEdit = computed(() => !!plantilla)
                                 />
                                 <p v-if="fieldError('fecha_solicitud')" class="erp-error">
                                     {{ fieldError('fecha_solicitud') }}
+                                </p>
+                            </div>
+
+                            <div>
+                                <DatePickerShadcn
+                                    v-model="state.fecha_pago_esperada"
+                                    label="Fecha esperada de pago (opcional)"
+                                    placeholder="Sin definir"
+                                    :min-value="state.fecha_solicitud || null"
+                                    clearable
+                                />
+                                <p v-if="fieldError('fecha_pago_esperada')" class="erp-error">
+                                    {{ fieldError('fecha_pago_esperada') }}
                                 </p>
                             </div>
 

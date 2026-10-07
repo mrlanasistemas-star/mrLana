@@ -8,6 +8,8 @@
  * - Respeta prefers-reduced-motion
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { usePage } from '@inertiajs/vue3'
+import type { SharedProps } from '@/types/shared'
 
 // ── Detección de modo oscuro ────────────────────────────────────────────────
 function isDarkDoc() {
@@ -39,7 +41,7 @@ export function useDashboardCharts() {
   const textColor = computed(() => (dark.value ? '#a1a1aa' : '#64748b'))
   const titleColor = computed(() => (dark.value ? '#f4f4f5' : '#0f172a'))
   const gridColor = computed(() => (dark.value ? 'rgba(255,255,255,0.06)' : 'rgba(148,163,184,0.15)'))
-  const tooltipTheme = computed(() => (dark.value ? 'dark' : 'light'))
+  const tooltipTheme = computed<'dark' | 'light'>(() => (dark.value ? 'dark' : 'light'))
   const cardBg = computed(() => (dark.value ? '#18181b' : '#ffffff'))
 
   // ── Formato MXN ───────────────────────────────────────────────────────────
@@ -83,13 +85,19 @@ export function useDashboardCharts() {
     return map[String(s).toUpperCase()] ?? s
   }
 
-  // ── Paleta general (16 colores) ───────────────────────────────────────────
-  const palette = [
+  // ── Paleta general: la configurada en Configuración (con respaldo) ───────
+  // Los colores de estatus (statusColors) se conservan por su significado.
+  const page = usePage<SharedProps>()
+  const FALLBACK_PALETTE = [
     '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
     '#ef4444', '#06b6d4', '#ec4899', '#f97316',
-    '#14b8a6', '#a855f7', '#22c55e', '#0ea5e9',
-    '#d946ef', '#84cc16', '#fb923c', '#64748b',
   ]
+  const palette = computed(() => {
+    const configured = page.props.appSettings?.chart_palette ?? []
+    return configured.length ? [...configured, ...FALLBACK_PALETTE] : FALLBACK_PALETTE
+  })
+  /** Color de la serie N de la paleta configurada. */
+  const seriesColor = (n: number) => palette.value[n % palette.value.length]
 
   // ── Animación según reducedMotion ─────────────────────────────────────────
   const animSpeed = computed(() => (reducedMotion.value ? 0 : 450))
@@ -111,7 +119,7 @@ export function useDashboardCharts() {
         toolbar: { show: false },
         animations: { enabled: !reducedMotion.value, speed: animSpeed.value },
       },
-      colors: colors ?? palette,
+      colors: colors ?? palette.value,
       labels,
       dataLabels: { enabled: false },
       plotOptions: {
@@ -144,7 +152,7 @@ export function useDashboardCharts() {
         fontSize: '12px',
         fontWeight: 600,
         labels: { colors: textColor.value },
-        markers: { width: 10, height: 10, radius: 3 },
+        markers: { size: 5, shape: 'circle' as const },
         itemMargin: { horizontal: 8, vertical: 4 },
       },
       tooltip: {
@@ -152,7 +160,7 @@ export function useDashboardCharts() {
         style: { fontSize: '13px' },
         y: { formatter: (v: number) => fmtInt(v) },
       },
-      theme: { mode: dark.value ? 'dark' : 'light' },
+      theme: { mode: tooltipTheme.value },
     }))
   }
 
@@ -164,7 +172,7 @@ export function useDashboardCharts() {
     height?: number
     seriesName?: string
   }) {
-    const { categories, color = '#3b82f6', isCurrency = false, height = 260, seriesName = 'Valor' } = params
+    const { categories, color = seriesColor(0), isCurrency = false, height = 260, seriesName = 'Valor' } = params
     return computed(() => ({
       chart: {
         type: 'area' as const,
@@ -224,7 +232,7 @@ export function useDashboardCharts() {
           formatter: isCurrency ? fmtMXN : fmtInt,
         },
       },
-      theme: { mode: dark.value ? 'dark' : 'light' },
+      theme: { mode: tooltipTheme.value },
     }))
   }
 
@@ -236,7 +244,7 @@ export function useDashboardCharts() {
     height?: number
     seriesName?: string
   }) {
-    const { categories, color = '#3b82f6', isCurrency = false, height = 260, seriesName = 'Valor' } = params
+    const { categories, color = seriesColor(0), isCurrency = false, height = 260, seriesName = 'Valor' } = params
     return computed(() => ({
       chart: {
         type: 'bar' as const,
@@ -280,7 +288,7 @@ export function useDashboardCharts() {
           formatter: isCurrency ? fmtMXN : fmtInt,
         },
       },
-      theme: { mode: dark.value ? 'dark' : 'light' },
+      theme: { mode: tooltipTheme.value },
     }))
   }
 
@@ -292,7 +300,7 @@ export function useDashboardCharts() {
     height?: number
     seriesName?: string
   }) {
-    const { categories, color = '#8b5cf6', isCurrency = false, height = 260, seriesName = 'Valor' } = params
+    const { categories, color = seriesColor(1), isCurrency = false, height = 260, seriesName = 'Valor' } = params
     return computed(() => ({
       chart: {
         type: 'bar' as const,
@@ -339,7 +347,7 @@ export function useDashboardCharts() {
           formatter: isCurrency ? fmtMXN : fmtInt,
         },
       },
-      theme: { mode: dark.value ? 'dark' : 'light' },
+      theme: { mode: tooltipTheme.value },
     }))
   }
 
@@ -354,6 +362,7 @@ export function useDashboardCharts() {
     statusColors,
     statusLabel,
     palette,
+    seriesColor,
     animSpeed,
     fmtMXN,
     fmtInt,

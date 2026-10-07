@@ -2,6 +2,7 @@
 import { reactive, computed, watch, ref } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { swalOk, swalErr, swalLoading, swalClose } from '@/lib/swal'
+import { usePermissions } from '@/Composables/usePermissions'
 
 type Catalogos = {
   corporativos: { id: number; nombre: string; activo?: boolean }[]
@@ -36,7 +37,9 @@ function pickId(plantilla: any, key: string, relKey: string): number | '' {
 
 export function usePlantillaEdit(catalogos: Catalogos, plantilla: any, routes?: Routes) {
   const page = usePage<any>()
-  const role = computed(() => String(page.props?.auth?.user?.rol ?? 'COLABORADOR').toUpperCase())
+  const { can } = usePermissions()
+  /** Sin "ver todas las requisiciones", el solicitante es el colaborador de la cuenta. */
+  const solicitanteFijo = computed(() => !can('requisiciones.ver_todos'))
   const empleadoId = page.props?.auth?.user?.empleado_id ?? null
 
   const saving = ref(false)
@@ -54,6 +57,7 @@ export function usePlantillaEdit(catalogos: Catalogos, plantilla: any, routes?: 
     monto_subtotal: 0,
     monto_total: 0,
     fecha_solicitud: '' as string,
+    fecha_pago_esperada: null as string | null,
     observaciones: '',
     detalles: [] as Array<{
       sucursal_id: number | string | null
@@ -85,6 +89,7 @@ export function usePlantillaEdit(catalogos: Catalogos, plantilla: any, routes?: 
     state.monto_subtotal = Number(plantilla.monto_subtotal ?? 0)
     state.monto_total = Number(plantilla.monto_total ?? 0)
     state.fecha_solicitud = plantilla.fecha_solicitud ?? ''
+    state.fecha_pago_esperada = plantilla.fecha_pago_esperada || null
     state.observaciones = plantilla.observaciones ?? ''
 
     state.detalles = (plantilla.detalles ?? []).map((d: any) => ({
@@ -100,7 +105,7 @@ export function usePlantillaEdit(catalogos: Catalogos, plantilla: any, routes?: 
   }
 
   // Auto-solicitante para colaboradores
-  if (role.value === 'COLABORADOR' && empleadoId) {
+  if (solicitanteFijo.value && empleadoId) {
     state.solicitante_id = empleadoId
   }
 
@@ -197,6 +202,7 @@ export function usePlantillaEdit(catalogos: Catalogos, plantilla: any, routes?: 
       monto_subtotal: state.monto_subtotal,
       monto_total: state.monto_total,
       fecha_solicitud: state.fecha_solicitud || null,
+      fecha_pago_esperada: state.fecha_pago_esperada || null,
       observaciones: state.observaciones || null,
       detalles: state.detalles.map(d => ({
         sucursal_id: d.sucursal_id || null,
@@ -262,7 +268,7 @@ export function usePlantillaEdit(catalogos: Catalogos, plantilla: any, routes?: 
     removeItem,
     update,
     money,
-    role,
+    solicitanteFijo,
     saving,
     showError,
     fieldError,

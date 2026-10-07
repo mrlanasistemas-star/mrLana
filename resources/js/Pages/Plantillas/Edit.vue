@@ -26,7 +26,7 @@ const {
   removeItem,
   update,
   money,
-  role,
+  solicitanteFijo,
   saving,
   showError,
   fieldError,
@@ -122,12 +122,12 @@ const {
                 rounded="2xl"
                 labelKey="nombre"
                 valueKey="id"
-                :disabled="role === 'COLABORADOR'"
+                :disabled="solicitanteFijo"
               />
               <p v-if="fieldError('solicitante_id')" class="mt-1 text-xs text-rose-600 dark:text-rose-400">
                 {{ fieldError('solicitante_id') }}
               </p>
-              <p v-if="role === 'COLABORADOR'" class="mt-1 text-[11px] text-slate-500 dark:text-neutral-400">
+              <p v-if="solicitanteFijo" class="mt-1 text-[11px] text-slate-500 dark:text-neutral-400">
                 Para colaboradores, el solicitante se asigna automáticamente.
               </p>
             </div>
@@ -171,8 +171,18 @@ const {
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <DatePickerShadcn v-model="state.fecha_solicitud" label="Fecha esperada de entrega" placeholder="Selecciona fecha" />
+            <DatePickerShadcn
+              v-model="state.fecha_pago_esperada"
+              label="Fecha esperada de pago (opcional)"
+              placeholder="Sin definir"
+              :min-value="state.fecha_solicitud || null"
+              clearable
+            />
             <p v-if="fieldError('fecha_solicitud')" class="mt-1 text-xs text-rose-600 dark:text-rose-400 sm:col-span-3">
               {{ fieldError('fecha_solicitud') }}
+            </p>
+            <p v-if="fieldError('fecha_pago_esperada')" class="mt-1 text-xs text-rose-600 dark:text-rose-400 sm:col-span-3">
+              {{ fieldError('fecha_pago_esperada') }}
             </p>
           </div>
 

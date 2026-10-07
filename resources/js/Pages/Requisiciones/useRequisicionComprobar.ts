@@ -2,8 +2,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { router, useForm, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
 import type { RequisicionComprobarPageProps, ComprobanteRow } from './Comprobar.types'
-
-declare const route: any
+import { usePermissions } from '@/Composables/usePermissions'
 
 type SubmitOpts = { onAfterSuccess?: () => void }
 type ReviewStatus = 'APROBADO' | 'RECHAZADO'
@@ -19,30 +18,17 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   /** =========================================================
    * Role / perms
    * ========================================================= */
-  const role = computed(() =>
-    String(page.props?.auth?.user?.rol ?? page.props?.auth?.user?.role ?? '').toUpperCase(),
-  )
+  const { can } = usePermissions()
+  /** Acciones permitidas por el servidor para esta requisición. */
+  const serverCan = computed(() => props.can ?? {
+    revisar: false, subir: false, eliminar: false, administrar_folios: false, ver_ajustes: false, solicitar_ajuste: false,
+  })
 
-  const canDelete = computed(() =>
-    ['ADMIN', 'CONTADOR', 'COLABORADOR'].includes(role.value),
-    )
-
-    const canDeleteComprobante = (c: ComprobanteRow) => {
-    const est = String(c?.estatus ?? '').toUpperCase()
-
-    if (['ADMIN', 'CONTADOR'].includes(role.value)) {
-        return true
-    }
-
-    if (role.value === 'COLABORADOR') {
-        return est === 'PENDIENTE'
-    }
-
-    return false
-    }
-  const canUseFoliosPanel = computed(() => ['ADMIN', 'CONTADOR'].includes(role.value))
-  const canEditFolio = computed(() => role.value === 'ADMIN')
-  const canNotify = computed(() => ['COLABORADOR', 'ADMIN', 'CONTADOR'].includes(role.value))
+  const canDelete = computed(() => serverCan.value.eliminar)
+  const canDeleteComprobante = (_c: ComprobanteRow) => serverCan.value.eliminar
+  const canUseFoliosPanel = computed(() => can('comprobaciones.revisar') || can('comprobaciones.administrar_folios'))
+  const canEditFolio = computed(() => serverCan.value.administrar_folios)
+  const canNotify = computed(() => serverCan.value.subir)
     const canSendNotification = computed(() => canNotify.value && pendientePorCargarCents.value <= 0)
 
   /** =========================================================
@@ -102,18 +88,9 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   }
 
   /** =========================================================
-   * Review permissions (mantengo tu lógica base)
+   * Review permissions (los decide el servidor)
    * ========================================================= */
-  const userRole = computed(() => {
-    const u = page?.props?.auth?.user
-    return String(u?.role ?? u?.rol ?? '').toUpperCase()
-  })
-
-  const canReview = computed(() => {
-    const fromBackend = (props as any)?.canReview
-    if (typeof fromBackend === 'boolean') return fromBackend
-    return ['ADMIN', 'CONTADOR'].includes(role.value)
-  })
+  const canReview = computed(() => serverCan.value.revisar || props.canReview === true)
 
   /** =========================================================
    * Form upload (NO cambio nombres)
@@ -218,7 +195,7 @@ const pendientePorCargarCents = computed(() =>
 const isFullyLoaded = computed(() => pendientePorCargarCents.value <= 0)
 
 const canUploadMore = computed(() => {
-  return ['COLABORADOR', 'ADMIN', 'CONTADOR'].includes(role.value)
+  return serverCan.value.subir
     && !isFullyLoaded.value
     && !isFinalizada.value
 })
@@ -289,8 +266,7 @@ const canUploadMore = computed(() => {
         fileKey.value++
         dragActive.value = false
       },
-      onError: (errors) => {
-        console.error('Error al subir comprobante:', errors)
+      onError: (errors: Record<string, string>) => {
         Swal.fire({
           icon: 'error',
           title: 'No se pudo subir',
@@ -425,7 +401,6 @@ const canUploadMore = computed(() => {
       } catch (_) {}
     }
     const msg = `No encuentro una ruta de revisión. Probé: ${candidates.join(', ')}`
-    console.error(msg)
     throw new Error(msg)
   }
 
@@ -455,8 +430,7 @@ const canUploadMore = computed(() => {
             })
             resolve()
           },
-          onError: (errors) => {
-            console.error('Error review:', { id, estatus, errors })
+          onError: (errors: Record<string, string>) => {
             Swal.fire({ icon: 'error', title: 'No se pudo aplicar', text: 'Revisa permisos/validación.' })
             reject(errors)
           },
@@ -544,7 +518,7 @@ const canUploadMore = computed(() => {
 
       router.delete(route('comprobantes.destroy', id), {
         preserveScroll: true,
-        onError: (errors) => console.error('DELETE comprobante error:', errors),
+        onError: (errors: Record<string, string>) => Swal.fire({ icon: 'error', title: 'No se pudo eliminar', text: Object.values(errors)[0] ?? 'Intenta de nuevo.' }),
       })
     })
   }
@@ -649,9 +623,8 @@ const canUploadMore = computed(() => {
         // refresca SOLO folios (si tu backend manda folios en props)
         router.reload({ only: ['folios'], preserveScroll: true })
     },
-    onError: (e) => {
-        console.error('Folio store error:', e)
-        Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: 'Revisa validación o consola.' })
+    onError: (e: Record<string, string>) => {
+        Swal.fire({ icon: 'error', title: 'No se pudo guardar', text: Object.values(e)[0] ?? 'Revisa los datos del folio.' })
     },
     onFinish: () => { if (Swal.isLoading()) Swal.close() },
     })
@@ -671,7 +644,7 @@ const canUploadMore = computed(() => {
         <div class="space-y-3">
           <div>
             <label class="block text-sm font-semibold text-left">Folio</label>
-            <input id="swal-folio" class="swal2-input" value="${String(current.folio ?? '').replaceAll('"', '&quot;')}" />
+            <input id="swal-folio" class="swal2-input" value="${String(current.folio ?? '').replace(/"/g, '&quot;')}" />
           </div>
           <div>
             <label class="block text-sm font-semibold text-left">Monto total (opcional)</label>
@@ -719,9 +692,8 @@ const canUploadMore = computed(() => {
         // mantén seleccionado el mismo id
         folioSelectedId.value = current.id
         },
-        onError: (e) => {
-          console.error('Folio update error:', e)
-          Swal.fire({ icon: 'error', title: 'No se pudo actualizar', text: 'Revisa validación o consola.' })
+        onError: (e: Record<string, string>) => {
+          Swal.fire({ icon: 'error', title: 'No se pudo actualizar', text: Object.values(e)[0] ?? 'Revisa los datos del folio.' })
         },
         onFinish: () => {
           if (Swal.isLoading()) Swal.close()
@@ -777,7 +749,7 @@ const canUploadMore = computed(() => {
 
     router.post(
         url,
-        { message: buildNotifyText() },
+        { message: buildNotifyText(), canal: 'whatsapp' },
         {
         preserveScroll: true,
         onSuccess: () => {
@@ -794,8 +766,7 @@ const canUploadMore = computed(() => {
 
             window.open(waUrl, '_blank', 'noopener,noreferrer')
         },
-        onError: (e) => {
-            console.error('notifyWhatsApp error:', e)
+        onError: () => {
             Swal.fire({
             icon: 'error',
             title: 'No se pudo preparar la notificación',
@@ -848,15 +819,14 @@ const canUploadMore = computed(() => {
 
     router.post(
         url,
-        { message: buildNotifyText() },
+        { message: buildNotifyText(), canal: 'correo' },
         {
         preserveScroll: true,
         onSuccess: () => {
             Swal.fire({ icon: 'success', title: 'Correo enviado', timer: 1200, showConfirmButton: false })
         },
-        onError: (e) => {
-            console.error('notifyEmail error:', e)
-            Swal.fire({ icon: 'error', title: 'No se pudo enviar', text: 'Revisa configuración de correo o consola.' })
+        onError: (e: Record<string, string>) => {
+            Swal.fire({ icon: 'error', title: 'No se pudo enviar el correo', text: Object.values(e)[0] ?? 'Intenta de nuevo o usa el aviso en el sistema.' })
         },
         onFinish: () => {
             if (Swal.isLoading()) Swal.close()
@@ -864,6 +834,43 @@ const canUploadMore = computed(() => {
         },
     )
     }
+
+  /**
+   * Aviso interno: llega a la campana de Contabilidad (y en tiempo real si hay WebSocket).
+   */
+  const notifySystem = () => {
+    if (!canNotify.value || !req.value?.id) return
+
+    if (!canSendNotification.value) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Aún no puedes avisar',
+        text: 'Primero debes subir comprobantes por el total de la requisición.',
+      })
+      return
+    }
+
+    Swal.fire({ title: 'Avisando a Contabilidad…', allowOutsideClick: false, didOpen: () => Swal.showLoading() })
+
+    router.post(
+      resolveNotifyEmailUrl(),
+      { message: buildNotifyText(), canal: 'sistema' },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          const flash = (page.props as any)?.flash ?? {}
+          if (flash.warning) return
+          Swal.fire({ icon: 'success', title: 'Contabilidad recibió el aviso', text: 'Lo verán en su campana de notificaciones.', timer: 1800, showConfirmButton: false })
+        },
+        onError: (e: Record<string, string>) => {
+          Swal.fire({ icon: 'error', title: 'No se pudo avisar', text: Object.values(e)[0] ?? 'Intenta de nuevo.' })
+        },
+        onFinish: () => {
+          if (Swal.isLoading()) Swal.close()
+        },
+      },
+    )
+  }
 
   /** =========================================================
    * Input base
@@ -885,7 +892,7 @@ const canUploadMore = computed(() => {
     canDeleteComprobante,
 
     // perms
-    role,
+    serverCan,
     canDelete,
     canReview,
     canUseFoliosPanel,
@@ -948,5 +955,6 @@ const canUploadMore = computed(() => {
     canNotify,
     notifyWhatsApp,
     notifyEmail,
+    notifySystem,
   }
 }

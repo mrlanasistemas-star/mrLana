@@ -275,7 +275,7 @@ class RequisicionComprobanteController extends Controller {
         // canal "sistema": solo campana de Contabilidad; "correo": solo correo (comportamiento original).
         $data = $request->validate([
             'message' => ['required', 'string', 'max:2000'],
-            'canal' => ['nullable', 'in:sistema,correo'],
+            'canal' => ['nullable', 'in:sistema,correo,whatsapp'],
         ], [
             'message.required' => 'Escribe un mensaje para Contabilidad.',
             'message.max' => 'El mensaje no debe exceder 2,000 caracteres.',
@@ -298,6 +298,11 @@ class RequisicionComprobanteController extends Controller {
         }
 
         $user = $request->user();
+
+        // WhatsApp lo abre el navegador; aquí solo queda registrado el cambio de estatus.
+        if ($canal === 'whatsapp') {
+            return redirect()->back(303)->with('success', 'Requisición lista para revisión. Abre WhatsApp para avisar a Contabilidad.');
+        }
 
         if ($canal === 'sistema') {
             $recipients = $this->notifications->notify(

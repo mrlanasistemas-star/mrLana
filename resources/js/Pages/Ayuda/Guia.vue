@@ -1,6 +1,7 @@
 <script setup lang="ts">
     import { computed, onMounted, ref } from 'vue'
-    import { Head, Link, usePage } from '@inertiajs/vue3'
+    import { Head, Link } from '@inertiajs/vue3'
+    import { usePermissions } from '@/Composables/usePermissions'
     import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
     import {
         BookOpen,
@@ -17,20 +18,14 @@
         ArrowUpRight,
     } from 'lucide-vue-next'
 
-    declare const route: any
 
     const SUPPORT_URL = 'https://soporte.mr-lana.com/'
     const PDF_URL = '/ayuda/mr-lana-ayuda.pdf'
-    const page = usePage<any>()
-    const role = computed(() => {
-        const u = page.props?.auth?.user ?? {}
-        const raw = String(u.rol ?? u.role ?? '').trim()
-        return (raw || 'COLABORADOR').toUpperCase()
-    })
-
-    const isAdmin = computed(() => role.value === 'ADMIN')
-    const isContador = computed(() => role.value === 'CONTADOR')
-    const isColaborador = computed(() => role.value === 'COLABORADOR')
+    // La guía se adapta a los permisos del usuario (funciona con roles personalizados).
+    const { can, roles } = usePermissions()
+    const isAdmin = computed(() => can('roles.editar'))
+    const isContador = computed(() => !isAdmin.value && can('requisiciones.ver_todos'))
+    const isColaborador = computed(() => !isAdmin.value && !isContador.value)
 
     const reducedMotion = ref(false)
     onMounted(() => {
@@ -72,12 +67,7 @@
         steps: Step[]
     }
 
-    const roleLabel = computed(() => {
-        if (isAdmin.value) return 'ADMIN'
-        if (isContador.value) return 'CONTADOR'
-        if (isColaborador.value) return 'COLABORADOR'
-        return role.value || 'COLABORADOR'
-    })
+    const roleLabel = computed(() => roles.value.join(', ') || 'Sin rol')
 
     const roleBadge = computed(() => {
         // solo estilos; neutro premium

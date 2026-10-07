@@ -1,21 +1,22 @@
 <script setup lang="ts">
-    import { ref, onMounted } from 'vue'
-    import Navbar from '@/Layouts/partials/navbar.vue'
-    import Sidebar from '@/Layouts/partials/sidebar.vue'
-    import { Head } from '@inertiajs/vue3'
+import { onMounted } from 'vue'
+import { Head } from '@inertiajs/vue3'
+import Navbar from '@/Layouts/partials/navbar.vue'
+import Sidebar from '@/Layouts/partials/sidebar.vue'
+import FlashToaster from '@/Components/layout/FlashToaster.vue'
+import MobileBottomNav from '@/Components/layout/MobileBottomNav.vue'
+import { useBranding } from '@/Composables/useBranding'
 
-    const showingNavigationDropdown = ref(false)
+useBranding()
 
-    onMounted(() => {
-        const el = document.getElementById('auth-main')
-        if (!el) return
-        const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
-        if (prefersReduced) return
-        el.animate(
-            [{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }],
-            { duration: 220, easing: 'ease-out', fill: 'both' }
-        )
-    })
+onMounted(() => {
+    const el = document.getElementById('auth-main')
+    if (!el || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return
+    el.animate(
+        [{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'translateY(0)' }],
+        { duration: 220, easing: 'ease-out', fill: 'both' }
+    )
+})
 </script>
 
 <template>
@@ -23,16 +24,18 @@
         <link rel="icon" href="/favicon.ico" />
     </Head>
 
-    <!-- Shell principal: sidebar fijo + contenido scrollable -->
-    <div class="flex min-h-dvh bg-slate-100 dark:bg-[#09090b] transition-colors duration-200">
+    <a
+        href="#auth-main"
+        class="sr-only z-[500] rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+    >
+        Saltar al contenido
+    </a>
 
-        <!-- Sidebar: sticky, no scrollea con el contenido -->
+    <!-- Sin reservar ancho de sidebar en móvil: el rail solo existe desde lg -->
+    <div class="flex min-h-dvh bg-slate-100 transition-colors duration-200 dark:bg-[#09090b]">
         <Sidebar />
 
-        <!-- Columna derecha: navbar + contenido -->
-        <div class="flex flex-col flex-1 min-w-0 min-h-dvh">
-
-            <!-- Navbar sticky -->
+        <div class="flex min-h-dvh min-w-0 flex-1 flex-col">
             <div class="sticky top-0 z-[200] shrink-0">
                 <Navbar>
                     <template #title>
@@ -41,11 +44,12 @@
                 </Navbar>
             </div>
 
-            <!-- Contenido scrollable -->
-            <main id="auth-main" class="flex-1 min-w-0 overflow-x-hidden">
+            <main id="auth-main" tabindex="-1" class="min-w-0 flex-1 overflow-x-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] focus:outline-none lg:pb-0">
                 <slot />
             </main>
-
         </div>
     </div>
+
+    <MobileBottomNav />
+    <FlashToaster />
 </template>

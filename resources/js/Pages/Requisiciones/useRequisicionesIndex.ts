@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
 
@@ -10,6 +10,17 @@ import type {
 } from './Requisiciones.types'
 
 import { swalNotify } from '@/lib/swal'
+import { usePermissions } from '@/Composables/usePermissions'
+import { DEFAULT_PER_PAGE, PER_PAGE_OPTIONS } from './Requisiciones.types'
+
+type PerPage = number | 'all'
+
+/** Normaliza "por página" igual que el servidor: 10/15/20/50 o 'all'; si no, 20. */
+function normalizePerPage(v: unknown): PerPage {
+  if (v === 'all' || v === 'todos') return 'all'
+  const n = Number(v)
+  return (PER_PAGE_OPTIONS as readonly number[]).includes(n) ? n : DEFAULT_PER_PAGE
+}
 
 /**
  * Debounce simple para no reventar el backend con cada tecla / cambio.
@@ -86,38 +97,12 @@ function normalizePagerLabel(label: string) {
 
 export function useRequisicionesIndex(props: RequisicionesPageProps) {
   const page = usePage<any>()
-  const role = computed(() => String(page.props?.auth?.user?.rol ?? 'COLABORADOR').toUpperCase())
+  const { can } = usePermissions()
   const empleadoId = computed(() => page.props?.auth?.user?.empleado_id ?? null)
 
-  const canDelete = computed(() => ['ADMIN', 'CONTADOR'].includes(role.value))
-   const isColaborador = computed(() => role.value === 'COLABORADOR')
-  const canPay = computed(() => ['ADMIN', 'CONTADOR'].includes(role.value))
-    const canComprobar = computed(() => ['ADMIN', 'CONTADOR', 'COLABORADOR'].includes(role.value))
-    const colaboradorVisibleStatuses = [
-    'PAGADA',
-    'POR_COMPROBAR',
-    'COMPROBACION_ACEPTADA',
-    'COMPROBACION_RECHAZADA',
-    ]
-    function canPayRow(row: RequisicionRow) {
-        const status = String((row as any).status ?? '').toUpperCase()
-        if (status === 'ELIMINADA') return false
-        if (['ADMIN', 'CONTADOR'].includes(role.value)) return true
-        if (role.value === 'COLABORADOR') {
-            return colaboradorVisibleStatuses.includes(status)
-        }
-        return false
-    }
-
-    function canComprobarRow(row: RequisicionRow) {
-        const status = String((row as any).status ?? '').toUpperCase()
-        if (status === 'ELIMINADA') return false
-        if (['ADMIN', 'CONTADOR'].includes(role.value)) return true
-        if (role.value === 'COLABORADOR') {
-            return colaboradorVisibleStatuses.includes(status)
-        }
-        return false
-    }
+  /** Sin "ver todas": el listado siempre muestra solo las requisiciones propias. */
+  const isColaborador = computed(() => !can('requisiciones.ver_todos'))
+  const canDelete = computed(() => can('requisiciones.eliminar'))
 
   /**
    * STATE = fuente de verdad de filtros.
@@ -144,7 +129,7 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     fecha_registro_from: props.filters?.fecha_registro_from ?? props.filters?.fecha_from ?? '',
     fecha_registro_to:   props.filters?.fecha_registro_to ?? props.filters?.fecha_to ?? '',
 
-    perPage: Number(props.filters?.perPage ?? 20),
+    perPage: normalizePerPage(props.filters?.perPage) as PerPage,
     sort: props.filters?.sort ?? 'created_at',
     dir: (props.filters?.dir ?? 'desc') as 'asc' | 'desc',
   })
@@ -282,7 +267,7 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
         state.fecha_pago_to ||
         state.fecha_registro_from ||
         state.fecha_registro_to ||
-        state.perPage !== 20 ||
+        state.perPage !== DEFAULT_PER_PAGE ||
         state.sort !== 'created_at' ||
         state.dir !== 'desc'
     )
@@ -313,7 +298,7 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
       fecha_registro_from: state.fecha_registro_from || undefined,
       fecha_registro_to:   state.fecha_registro_to || undefined,
 
-      perPage: state.perPage || undefined,
+      perPage: state.perPage,
       sort: state.sort || undefined,
       dir: state.dir || undefined,
     }
@@ -367,7 +352,7 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     state.fecha_pago_to = ''
     state.fecha_registro_from = ''
     state.fecha_registro_to = ''
-    state.perPage = 20
+    state.perPage = DEFAULT_PER_PAGE
     state.sort = 'created_at'
     state.dir = 'desc'
   }
@@ -469,7 +454,9 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
   function goComprobar(id: number) {
     router.visit(comprobarUrl(id))
   }
-  function printReq(_id: number) {}
+  function goAjustes(id: number) {
+    router.visit(route('requisiciones.ajustes', id))
+  }
 
   // URLs reales (para <a> tags que permiten Ctrl+click / abrir en pestaña)
   function _currentHref() {
@@ -571,17 +558,39 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     }
   }
 
-  // Placeholder por si tu SearchableSelect usa overlays externos
-  function onEsc(_e: KeyboardEvent) {}
-  onMounted(() => document.addEventListener('keydown', onEsc))
-  onBeforeUnmount(() => document.removeEventListener('keydown', onEsc))
+  /**
+   * Solicita a Contabilidad eliminar una requisición CAPTURADA (aún no pagada).
+   */
+  async function requestDeletion(row: RequisicionRow) {
+    const dark = document.documentElement.classList.contains('dark')
+    const res = await Swal.fire({
+      title: 'Solicitar eliminación',
+      html: `Contabilidad revisará la solicitud para la requisición <b>${row.folio.replace(/[<>&"]/g, '')}</b>.`,
+      input: 'textarea',
+      inputLabel: 'Motivo',
+      inputPlaceholder: 'Explica por qué debe eliminarse…',
+      inputAttributes: { maxlength: '2000', 'aria-label': 'Motivo de la solicitud' },
+      showCancelButton: true,
+      confirmButtonText: 'Enviar solicitud',
+      cancelButtonText: 'Cancelar',
+      reverseButtons: true,
+      focusCancel: false,
+      background: dark ? '#18181b' : '#ffffff',
+      color: dark ? '#e4e4e7' : '#111827',
+      inputValidator: (v) => (String(v ?? '').trim().length < 5 ? 'Escribe un motivo de al menos 5 caracteres.' : undefined),
+    })
+    if (!res.isConfirmed) return
+
+    router.post(route('requisiciones.eliminacion.store', row.id), { motivo: String(res.value ?? '').trim() }, {
+      preserveScroll: true,
+      onSuccess: () => swalNotify('Solicitud enviada a Contabilidad.', 'ok'),
+      onError: (errors: Record<string, string>) => swalNotify(Object.values(errors)[0] ?? 'No se pudo enviar la solicitud.', 'err'),
+    })
+  }
 
   return {
-    role,
     isColaborador,
     canDelete,
-    canPay,
-    canComprobar,
 
     state,
     rows,
@@ -594,8 +603,6 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     conceptosActive,
     proveedoresActive,
     statusOptions,
-    canPayRow,
-    canComprobarRow,
     inputBase,
     hasActiveFilters,
     clearFilters,
@@ -615,7 +622,8 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
     goCreate,
     goPay,
     goComprobar,
-    printReq,
+    goAjustes,
+    requestDeletion,
     destroyRow,
     captureRow,
     statusPill,

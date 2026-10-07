@@ -132,7 +132,7 @@ export function useLogin(form: InertiaForm<LoginData>) {
     form.post(route('login'), {
       preserveScroll: true,
 
-      onError: (backendErrors) => {
+      onError: (backendErrors: Record<string, string>) => {
         // 1) Si hay status HTTP especial, lo priorizamos
         const statusMsg = friendlyHttpStatus((backendErrors as any)?.status)
         if (statusMsg) {

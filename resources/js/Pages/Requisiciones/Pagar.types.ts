@@ -29,6 +29,14 @@ export type RequisicionPagoData = {
   solicitante_nombre?: string | null
   beneficiario?: Beneficiario | null
   status?: string | null
+  fecha_solicitud?: string | null
+  /** Fecha esperada de pago capturada por el solicitante. */
+  fecha_pago_esperada?: string | null
+  /** Fecha real de autorización del pago. */
+  fecha_autorizacion?: string | null
+  fecha_pago_programada?: string | null
+  cantidad_pagos?: number
+  puede_definir_fecha_pago_general?: boolean
 }
 
 export type TipoPagoOption = {
@@ -41,6 +49,8 @@ export type RequisicionPagoPageProps = {
   pagos: { data: PagoRow[] } | PagoRow[]
   totales?: { pagado: number; pendiente: number }
   tipoPagoOptions: TipoPagoOption[]
+  /** Acciones permitidas por el servidor para el usuario actual. */
+  can?: { autorizar: boolean; registrar: boolean }
   auth?: any
   errors?: any
 }

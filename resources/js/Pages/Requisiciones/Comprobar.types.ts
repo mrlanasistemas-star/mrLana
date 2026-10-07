@@ -40,5 +40,13 @@ export interface RequisicionComprobarPageProps {
   }
   tipoDocOptions: { id: string; nombre: string }[]
   canReview: boolean
+  can?: {
+    revisar: boolean
+    subir: boolean
+    eliminar: boolean
+    administrar_folios: boolean
+    ver_ajustes: boolean
+    solicitar_ajuste: boolean
+  }
   folios?: FolioOption[] | { data: FolioOption[] }
 }

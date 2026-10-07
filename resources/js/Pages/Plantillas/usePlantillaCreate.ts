@@ -1,6 +1,7 @@
 import { reactive, computed, watch, ref } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { swalOk, swalErr, swalLoading, swalClose } from '@/lib/swal'
+import { usePermissions } from '@/Composables/usePermissions'
 
 /**
  * Tipos de catálogo disponibles para crear/editar una Plantilla.
@@ -10,7 +11,8 @@ type Catalogos = {
   sucursales:   { id: number; nombre: string; codigo: string; corporativo_id: number; activo?: boolean }[]
   empleados:    { id: number; nombre: string; sucursal_id: number; activo?: boolean }[]
   conceptos:    { id: number; nombre: string; activo?: boolean }[]
-  proveedores:  { id: number; nombre: string }[]
+  proveedores:  { id: number; nombre?: string; razon_social?: string }[]
+  solicitante_fijo?: boolean
 }
 
 type Plantilla = any | null
@@ -37,7 +39,9 @@ function firstErrorMessage(errors: InertiaErrors | undefined | null): string | n
  */
 export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = null) {
   const page = usePage<any>()
-  const role = computed(() => String(page.props?.auth?.user?.rol ?? 'COLABORADOR').toUpperCase())
+  const { can } = usePermissions()
+  /** Sin "ver todas las requisiciones", el solicitante es el colaborador de la cuenta. */
+  const solicitanteFijo = computed(() => !can('requisiciones.ver_todos'))
   const empleadoId = page.props?.auth?.user?.empleado_id ?? null
 
   const saving = ref(false)
@@ -59,6 +63,7 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
     monto_total: 0,
     // Guardamos la fecha como 'YYYY-MM-DD'; DatePickerShadcn ya emite ese formato.
     fecha_solicitud: '' as string,
+    fecha_pago_esperada: null as string | null,
     observaciones: '',
     detalles: [] as Array<{
       sucursal_id: number | string | null
@@ -84,6 +89,7 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
     state.monto_subtotal = Number(plantilla.monto_subtotal ?? 0)
     state.monto_total = Number(plantilla.monto_total ?? 0)
     state.fecha_solicitud = plantilla.fecha_solicitud ?? ''
+    state.fecha_pago_esperada = plantilla.fecha_pago_esperada || null
     state.observaciones = plantilla.observaciones ?? ''
     state.detalles = (plantilla.detalles ?? []).map((d: any) => ({
       sucursal_id: d.sucursal_id ?? '',
@@ -98,7 +104,7 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
   }
 
   // Auto-asignar solicitante, sucursal y corporativo para colaboradores.
-  if (role.value === 'COLABORADOR' && empleadoId) {
+  if (solicitanteFijo.value && empleadoId) {
     state.solicitante_id = empleadoId
     // Buscar el registro del empleado actual para determinar sucursal y corporativo.
     const empleadoRecord = (catalogos.empleados ?? []).find(
@@ -124,7 +130,7 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
    */
   const corporativosActive = computed(() => {
     const list = (catalogos.corporativos ?? []).filter((c) => c.activo !== false)
-    if (role.value === 'COLABORADOR') {
+    if (solicitanteFijo.value) {
       const corpId = Number(state.corporativo_id || 0)
       return list.filter((c) => Number(c.id) === corpId)
     }
@@ -133,7 +139,7 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
 
   const sucursalesActive = computed(() => {
     const list = (catalogos.sucursales ?? []).filter((s) => s.activo !== false)
-    if (role.value === 'COLABORADOR') {
+    if (solicitanteFijo.value) {
       const sucId = Number(state.sucursal_id || 0)
       return list.filter((s) => Number(s.id) === sucId)
     }
@@ -142,7 +148,7 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
 
   const empleadosActive = computed(() => {
     const list = (catalogos.empleados ?? []).filter((e) => e.activo !== false)
-    if (role.value === 'COLABORADOR') {
+    if (solicitanteFijo.value) {
       return list.filter((e) => Number(e.id) === Number(empleadoId))
     }
     return list
@@ -261,6 +267,7 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
       monto_subtotal: state.monto_subtotal,
       monto_total: state.monto_total,
       fecha_solicitud: state.fecha_solicitud || null,
+      fecha_pago_esperada: state.fecha_pago_esperada || null,
       observaciones: state.observaciones || null,
       detalles: state.detalles.map((d) => ({
         sucursal_id: d.sucursal_id || null,
@@ -354,7 +361,7 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
     save,
     update,
     money,
-    role,
+    solicitanteFijo,
     saving,
     showError,
     fieldError,

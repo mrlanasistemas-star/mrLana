@@ -1,9 +1,8 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { router, useForm, usePage} from '@inertiajs/vue3'
+import { router, useForm } from '@inertiajs/vue3'
 import type { RequisicionPagoPageProps, PagoRow } from './Pagar.types'
 import { formatDateOnlyEsMx } from '@/Utils/date'
 
-declare const route: any
 
 type PreviewKind = 'pdf' | 'image' | 'other'
 type Preview = { url: string; name: string; kind: PreviewKind }
@@ -121,22 +120,9 @@ export function useRequisicionPago(props: RequisicionPagoPageProps) {
     archivo: null,
   })
 
-  // Calcula el rol del usuario conectado
-  const page = usePage<any>()
-  const role = computed(() =>
-    String(page.props?.auth?.user?.rol ?? 'COLABORADOR').toUpperCase()
-  )
-
-  // Sólo ADMIN/CONTADOR pueden autorizar (y sólo si el status es CAPTURADA)
-  const canAuthorize = computed(() =>
-    ['ADMIN', 'CONTADOR'].includes(role.value) &&
-    req.value?.status === 'CAPTURADA'
-  )
-
-  // Sólo ADMIN/CONTADOR pueden subir pagos
-  const canUploadPago = computed(() =>
-    ['ADMIN', 'CONTADOR'].includes(role.value)
-  )
+  // Permisos calculados por el servidor (policy) para esta requisición
+  const canAuthorize = computed(() => props.can?.autorizar === true && req.value?.status === 'CAPTURADA')
+  const canUploadPago = computed(() => props.can?.registrar === true)
 
   const canAttachFile = computed(() => {
     return !!req.value?.fecha_autorizacion

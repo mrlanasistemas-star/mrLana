@@ -52,6 +52,15 @@ export default {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
+        // Colores de marca configurables (módulo Configuración)
+        brand: {
+          primary: { DEFAULT: "rgb(var(--brand-primary) / <alpha-value>)", fg: "rgb(var(--brand-primary-fg) / <alpha-value>)" },
+          accent: { DEFAULT: "rgb(var(--brand-accent) / <alpha-value>)", fg: "rgb(var(--brand-accent-fg) / <alpha-value>)" },
+          button: { DEFAULT: "rgb(var(--brand-button) / <alpha-value>)", fg: "rgb(var(--brand-button-fg) / <alpha-value>)" },
+          success: { DEFAULT: "rgb(var(--brand-success) / <alpha-value>)", fg: "rgb(var(--brand-success-fg) / <alpha-value>)" },
+          warning: { DEFAULT: "rgb(var(--brand-warning) / <alpha-value>)", fg: "rgb(var(--brand-warning-fg) / <alpha-value>)" },
+          danger: { DEFAULT: "rgb(var(--brand-danger) / <alpha-value>)", fg: "rgb(var(--brand-danger-fg) / <alpha-value>)" },
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
