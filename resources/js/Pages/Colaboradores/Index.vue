@@ -201,7 +201,15 @@ function doToggle() {
     const c = confirm.target
     if (!c) return
     confirm.loading = true
-    const opts = { preserveScroll: true, onSuccess: () => (confirm.open = false), onFinish: () => (confirm.loading = false) }
+    const opts = {
+        preserveScroll: true,
+        onSuccess: () => (confirm.open = false),
+        onError: (e: Record<string, string>) => {
+            confirm.open = false
+            swalNotify(Object.values(e)[0] ?? 'No se pudo completar la acción.', 'err')
+        },
+        onFinish: () => (confirm.loading = false),
+    }
     if (c.activo) router.delete(route('colaboradores.destroy', c.id), opts)
     else router.patch(route('colaboradores.activate', c.id), {}, opts)
 }
@@ -478,7 +486,7 @@ const inputClass =
             v-model:open="confirm.open"
             :title="confirm.target?.activo ? 'Dar de baja colaborador' : 'Reactivar colaborador'"
             :description="confirm.target?.activo
-                ? `${confirm.target?.nombre_completo} quedará inactivo. Si tiene cuenta de acceso, se administra por separado en Usuarios.`
+                ? `${confirm.target?.nombre_completo} quedará inactivo. Si tiene cuenta de acceso, también se desactivará y ya no podrá iniciar sesión.`
                 : `${confirm.target?.nombre_completo ?? ''} volverá a estar activo.`"
             :confirm-label="confirm.target?.activo ? 'Dar de baja' : 'Reactivar'"
             :tone="confirm.target?.activo ? 'danger' : 'success'"

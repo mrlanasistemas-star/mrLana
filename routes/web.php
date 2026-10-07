@@ -49,11 +49,6 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Guía / Ayuda
-Route::get('/ayuda/guia', function () {
-    return \Inertia\Inertia::render('Ayuda/Guia');
-})->name('ayuda.guia');
-
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -65,6 +60,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+
+    // Guía del sistema: se adapta a los permisos de quien la consulta.
+    Route::get('/ayuda/guia', fn () => \Inertia\Inertia::render('Ayuda/Guia'))->name('ayuda.guia');
 
     // Rutas para exportar archivos del dashboard (PDF y Excel)
     Route::middleware('permission:reportes.dashboard')->group(function () {

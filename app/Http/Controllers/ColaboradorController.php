@@ -8,7 +8,9 @@ use App\Models\Area;
 use App\Models\Corporativo;
 use App\Models\Empleado;
 use App\Models\Sucursal;
+use App\Models\User;
 use App\Services\Colaboradores\ColaboradorQuery;
+use App\Services\Users\AdministratorGuard;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +26,8 @@ use Inertia\Response;
  */
 class ColaboradorController extends Controller
 {
+    public function __construct(private AdministratorGuard $guard) {}
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -128,19 +132,25 @@ class ColaboradorController extends Controller
     }
 
     /**
-     * Baja lógica. La cuenta de acceso vinculada (si existe) no se modifica:
-     * se administra desde Usuarios para respetar la protección del último administrador.
+     * Baja lógica. Si el colaborador tiene una cuenta de acceso activa, también
+     * se desactiva: una persona dada de baja no debe poder seguir entrando.
+     * Reactivar al colaborador NO reactiva la cuenta (se hace desde Usuarios).
      */
-    public function destroy(Empleado $empleado): RedirectResponse
+    public function destroy(Request $request, Empleado $empleado): RedirectResponse
     {
         if (! $empleado->activo) {
             return back()->with('success', 'El colaborador ya estaba dado de baja.');
         }
 
-        $empleado->update(['activo' => false]);
+        $cuentas = $this->cuentasActivas($request, collect([$empleado->id]));
 
-        return back()->with('success', $empleado->user()->where('activo', true)->exists()
-            ? 'Colaborador dado de baja. Su cuenta de acceso sigue activa; desactívala en Usuarios si corresponde.'
+        DB::transaction(function () use ($empleado, $cuentas) {
+            $empleado->update(['activo' => false]);
+            $cuentas->each(fn (User $u) => $u->forceFill(['activo' => false])->save());
+        });
+
+        return back()->with('success', $cuentas->isNotEmpty()
+            ? 'Colaborador dado de baja. Su cuenta de acceso también se desactivó.'
             : 'Colaborador dado de baja.');
     }
 
@@ -165,9 +175,39 @@ class ColaboradorController extends Controller
             'ids.*.exists' => 'Uno o más colaboradores no existen.',
         ]);
 
-        DB::transaction(fn () => Empleado::query()->whereIn('id', $data['ids'])->where('activo', true)->updateEach(['activo' => false]));
+        $ids = Empleado::query()->whereIn('id', $data['ids'])->where('activo', true)->pluck('id');
+        $cuentas = $this->cuentasActivas($request, $ids);
 
-        return back()->with('success', 'Colaboradores dados de baja.');
+        DB::transaction(function () use ($ids, $cuentas) {
+            Empleado::query()->whereIn('id', $ids)->updateEach(['activo' => false]);
+            $cuentas->each(fn (User $u) => $u->forceFill(['activo' => false])->save());
+        });
+
+        return back()->with('success', $cuentas->isNotEmpty()
+            ? 'Colaboradores dados de baja. Sus cuentas de acceso también se desactivaron.'
+            : 'Colaboradores dados de baja.');
+    }
+
+    /**
+     * Cuentas activas vinculadas a los colaboradores que se darán de baja.
+     * Valida antes de modificar nada: no puedes darte de baja a ti mismo ni
+     * dejar al sistema sin administradores activos.
+     *
+     * @param  \Illuminate\Support\Collection<int, int>  $empleadoIds
+     * @return \Illuminate\Support\Collection<int, User>
+     */
+    private function cuentasActivas(Request $request, $empleadoIds)
+    {
+        $cuentas = User::query()->whereIn('empleado_id', $empleadoIds)->where('activo', true)->get();
+
+        if ($cuentas->contains(fn (User $u) => $u->is($request->user()))) {
+            throw ValidationException::withMessages(['ids' => 'No puedes dar de baja al colaborador vinculado a tu propia cuenta.']);
+        }
+
+        // Se simula la baja acumulada para que una baja masiva no elimine a todos los administradores.
+        $this->guard->assertCanDeactivateMany($cuentas, 'ids');
+
+        return $cuentas;
     }
 
     private function assertOrgActivaOrFail(int $sucursalId, int|string|null $areaId = null): void

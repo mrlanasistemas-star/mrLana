@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
@@ -91,6 +93,26 @@ class User extends Authenticatable
     /*=========================================================
      | ESTADO Y PERMISOS
      =========================================================*/
+
+    /**
+     * Al desactivar una cuenta se revoca todo acceso vigente: sesiones abiertas
+     * en otros dispositivos y la cookie "recordarme". EnsureUserIsActive cubre
+     * cualquier petición que aún llegue con una sesión previa.
+     */
+    protected static function booted(): void
+    {
+        static::updating(function (User $user) {
+            if ($user->isDirty('activo') && ! $user->activo) {
+                $user->remember_token = Str::random(60);
+            }
+        });
+
+        static::updated(function (User $user) {
+            if ($user->wasChanged('activo') && ! $user->activo && config('session.driver') === 'database') {
+                DB::table(config('session.table') ?: 'sessions')->where('user_id', $user->id)->delete();
+            }
+        });
+    }
 
     public function scopeActive(Builder $query): Builder
     {

@@ -28,6 +28,25 @@ class AdministratorGuard
         );
     }
 
+    /**
+     * Al desactivar varias cuentas a la vez (p. ej. baja de colaboradores).
+     *
+     * @param  iterable<User>  $users
+     */
+    public function assertCanDeactivateMany(iterable $users, string $field = 'activo'): void
+    {
+        $ids = collect($users)->map(fn (User $u) => $u->id)->all();
+
+        if ($ids === []) {
+            return;
+        }
+
+        $this->assertRemaining(
+            $this->activeAdmins()->reject(fn (User $u) => in_array($u->id, $ids, true)),
+            $field,
+        );
+    }
+
     /** Al cambiar el rol de un usuario. */
     public function assertCanChangeRole(User $user, ?Role $newRole, string $field = 'role_id'): void
     {

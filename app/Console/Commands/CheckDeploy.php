@@ -26,6 +26,7 @@ class CheckDeploy extends Command
     {
         $this->database();
         $this->duplicatedEmpleados();
+        $this->accountsOfInactiveColaboradores();
         $this->legacyRoles();
         $this->pendingMigrations();
         $this->environment();
@@ -93,6 +94,34 @@ class CheckDeploy extends Command
         $this->components->error('Colaboradores con más de una cuenta (users.empleado_id duplicado). Deja una sola cuenta vinculada por colaborador:');
         $this->table(['user.id', 'empleado_id', 'Nombre', 'Correo'], $dups->map(fn ($u) => (array) $u)->all());
         $this->line('  Ejemplo para desvincular una cuenta sobrante: UPDATE users SET empleado_id = NULL WHERE id = <user.id>;');
+    }
+
+    /**
+     * Antes, dar de baja a un colaborador dejaba su cuenta activa. Se listan
+     * esos casos para decidir (desde Usuarios) si deben desactivarse; no se
+     * cambian automáticamente porque pueden incluir administradores.
+     */
+    private function accountsOfInactiveColaboradores(): void
+    {
+        if (! Schema::hasColumn('users', 'empleado_id') || ! Schema::hasColumn('users', 'activo') || ! Schema::hasColumn('empleados', 'activo')) {
+            return;
+        }
+
+        $rows = DB::table('users')
+            ->join('empleados', 'empleados.id', '=', 'users.empleado_id')
+            ->where('users.activo', true)
+            ->where('empleados.activo', false)
+            ->orderBy('users.id')
+            ->get(['users.id', 'users.name', 'users.email']);
+
+        if ($rows->isEmpty()) {
+            $this->components->twoColumnDetail('Cuentas activas de colaboradores dados de baja', '<fg=green>ninguna</>');
+
+            return;
+        }
+
+        $this->components->warn("Cuentas activas vinculadas a colaboradores dados de baja ({$rows->count()}). Pueden seguir entrando; desactívalas en Usuarios si corresponde:");
+        $this->table(['user.id', 'Nombre', 'Correo'], $rows->map(fn ($u) => (array) $u)->all());
     }
 
     private function legacyRoles(): void
