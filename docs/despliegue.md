@@ -135,6 +135,18 @@ Permisos de escritura (una vez): `sudo chown -R www-data:www-data storage bootst
 3. Descarga un PDF y un Excel (p. ej. Requisiciones).
 4. Solicita un ajuste con un colaborador y verifica que Contabilidad reciba la notificación.
 5. `php artisan queue:failed` debe estar vacío; revisa `storage/logs/laravel.log`.
+6. Da de baja a un colaborador de prueba con cuenta: su cuenta debe quedar desactivada y no poder iniciar sesión.
+
+### Autorizador de pagos anteriores (opcional)
+
+Los pagos autorizados antes de esta versión muestran «No registrado» en «Autorizó». El comando
+siguiente lo recupera **solo** cuando la bitácora lo identifica sin ambigüedad (mismo usuario
+existente y registro junto a la fecha de autorización); el resto se queda como está.
+
+```bash
+php artisan erp:backfill-autorizador-pago --dry-run   # revisa la tabla: Recuperable / Ambiguo / No registrado
+php artisan erp:backfill-autorizador-pago             # guarda solo los «Recuperable» y lo anota en bitácora
+```
 
 ---
 
