@@ -2,171 +2,145 @@
 
 namespace App\Services\Dashboard;
 
-use Carbon\Carbon;
+use App\Models\User;
+use App\Support\BusinessDate;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Datos del dashboard para reportes (PDF / Excel).
+ *
+ * El perfil "personal" se limita a las requisiciones propias del usuario
+ * (creadas por él o donde es el colaborador solicitante).
+ */
 class DashboardDataService
 {
-    /**
-     * Genera el payload del dashboard para Admin/Contador/Colaborador.
-     * IMPORTANTE: Tu BD real usa requisicions.fecha_solicitud (NO fecha_captura)
-     */
-    public function build(string $role): array
+    public const STATUS_LABELS = [
+        'BORRADOR' => 'Borrador',
+        'CAPTURADA' => 'Capturada',
+        'PAGO_AUTORIZADO' => 'Pago autorizado',
+        'PAGO_RECHAZADO' => 'Pago rechazado',
+        'PAGADA' => 'Pagada',
+        'POR_COMPROBAR' => 'Por comprobar',
+        'COMPROBACION_ACEPTADA' => 'Comprobación aceptada',
+        'COMPROBACION_RECHAZADA' => 'Comprobación rechazada',
+        'ELIMINADA' => 'Eliminada',
+    ];
+
+    public const DOC_LABELS = ['FACTURA' => 'Factura', 'TICKET' => 'Ticket', 'NOTA' => 'Nota', 'OTRO' => 'Otro'];
+
+    public function build(DashboardProfile $profile, User $user): array
     {
-        $role = strtoupper(trim($role));
+        $now = CarbonImmutable::now(BusinessDate::timezone());
+        $startMonth = $now->startOfMonth();
+        $endMonth = $now->endOfMonth();
+        $start14 = $now->subDays(13)->startOfDay();
+        $start30 = $now->subDays(29)->startOfDay();
 
-        $now = Carbon::now();
-        $startMonth = $now->copy()->startOfMonth()->startOfDay();
-        $endMonth   = $now->copy()->endOfMonth()->endOfDay();
+        $scope = fn (): Builder => $this->requisiciones($profile, $user);
 
-        $start14 = $now->copy()->subDays(13)->startOfDay(); // 14 días contando hoy
-        $start30 = $now->copy()->subDays(29)->startOfDay();
+        $kpis = match ($profile) {
+            DashboardProfile::Ejecutivo => [
+                ['label' => 'Corporativos activos', 'value' => (string) DB::table('corporativos')->where('activo', 1)->count(), 'hint' => 'Base operativa vigente'],
+                ['label' => 'Sucursales activas', 'value' => (string) DB::table('sucursals')->where('activo', 1)->count(), 'hint' => 'Cobertura actual'],
+                ['label' => 'Colaboradores activos', 'value' => (string) DB::table('empleados')->where('activo', 1)->count(), 'hint' => 'Personas en operación'],
+                ['label' => 'Monto del mes', 'value' => '$'.number_format((float) $scope()->whereBetween('fecha_solicitud', [$startMonth, $endMonth])->sum('monto_total'), 2), 'hint' => 'Por fecha de solicitud'],
+            ],
+            DashboardProfile::Financiero => [
+                ['label' => 'Capturadas', 'value' => (string) $scope()->where('status', 'CAPTURADA')->count(), 'hint' => 'Pendientes de autorización'],
+                ['label' => 'Autorizadas', 'value' => (string) $scope()->where('status', 'PAGO_AUTORIZADO')->count(), 'hint' => 'Pendientes de pago'],
+                ['label' => 'Por comprobar', 'value' => (string) $scope()->where('status', 'POR_COMPROBAR')->count(), 'hint' => 'Pendientes de evidencia'],
+                ['label' => 'Pagado (mes)', 'value' => '$'.number_format((float) $scope()->where('status', 'PAGADA')->whereBetween('fecha_pago', [$startMonth->toDateString(), $endMonth->toDateString()])->sum('monto_total'), 2), 'hint' => 'Por fecha de pago'],
+            ],
+            DashboardProfile::Personal => [
+                ['label' => 'Mis requisiciones', 'value' => (string) $scope()->count(), 'hint' => 'Creadas por mí o como solicitante'],
+                ['label' => 'Pendientes', 'value' => (string) $scope()->whereIn('status', ['CAPTURADA', 'PAGO_AUTORIZADO', 'POR_COMPROBAR'])->count(), 'hint' => 'En proceso'],
+                ['label' => 'Pagadas (mes)', 'value' => (string) $scope()->where('status', 'PAGADA')->whereBetween('fecha_pago', [$startMonth->toDateString(), $endMonth->toDateString()])->count(), 'hint' => 'Por fecha de pago'],
+                ['label' => 'Monto (mes)', 'value' => '$'.number_format((float) $scope()->whereBetween('fecha_solicitud', [$startMonth, $endMonth])->sum('monto_total'), 2), 'hint' => 'Por fecha de solicitud'],
+            ],
+        };
 
-        // =========
-        // KPIs (arriba)
-        // =========
-        $corporativosActivos = DB::table('corporativos')->where('activo', 1)->count();
-        $sucursalesActivas   = DB::table('sucursals')->where('activo', 1)->count();
-        $empleadosActivos    = DB::table('empleados')->where('activo', 1)->count();
-
-        // Monto del mes (por fecha_solicitud)
-        $montoMes = (float) DB::table('requisicions')
-            ->whereBetween('fecha_solicitud', [$startMonth, $endMonth])
-            ->sum('monto_total');
-
-        $kpis = [
-            ['label' => 'Corporativos activos', 'value' => (string) $corporativosActivos, 'hint' => 'Operación base'],
-            ['label' => 'Sucursales activas',   'value' => (string) $sucursalesActivas,   'hint' => 'Cobertura'],
-            ['label' => 'Empleados activos',    'value' => (string) $empleadosActivos,    'hint' => 'Capacidad'],
-            ['label' => 'Monto del mes',        'value' => '$' . number_format($montoMes, 2), 'hint' => 'Mes en curso'],
-        ];
-
-        // =========
-        // ActivityDaily (14 días) -> conteo requisiciones por fecha_solicitud
-        // =========
-        $activityRows = DB::table('requisicions')
-            ->selectRaw("DATE(fecha_solicitud) as d, COUNT(*) as qty")
+        $activityRows = $scope()
+            ->selectRaw('DATE(fecha_solicitud) as d, COUNT(*) as qty, SUM(monto_total) as monto')
             ->where('fecha_solicitud', '>=', $start14)
             ->groupBy('d')
-            ->orderBy('d')
-            ->get()
-            ->keyBy('d');
-
-        // AmountsDaily (14 días) -> sum monto_total por fecha_solicitud
-        $amountRows = DB::table('requisicions')
-            ->selectRaw("DATE(fecha_solicitud) as d, SUM(monto_total) as monto")
-            ->where('fecha_solicitud', '>=', $start14)
-            ->groupBy('d')
-            ->orderBy('d')
             ->get()
             ->keyBy('d');
 
         $activityDaily = [];
-        $amountsDaily  = [];
+        $amountsDaily = [];
         for ($i = 0; $i < 14; $i++) {
-            $day = $start14->copy()->addDays($i);
-            $key = $day->toDateString(); // Y-m-d
-
-            $qty   = isset($activityRows[$key]) ? (int) $activityRows[$key]->qty : 0;
-            $monto = isset($amountRows[$key])   ? (float) $amountRows[$key]->monto : 0.0;
-
-            // name = etiqueta (la usas en Vue). Manténla simple.
-            $label = $day->format('d M');
-
-            $activityDaily[] = ['name' => $label, 'value' => $qty];
-            $amountsDaily[]  = ['name' => $label, 'value' => round($monto, 2)];
+            $day = $start14->addDays($i);
+            $row = $activityRows[$day->toDateString()] ?? null;
+            $label = $day->format('d/m');
+            $activityDaily[] = ['name' => $label, 'value' => (int) ($row->qty ?? 0)];
+            $amountsDaily[] = ['name' => $label, 'value' => round((float) ($row->monto ?? 0), 2)];
         }
 
-        // =========
-        // StatusMix (últimos 30 días) por fecha_solicitud
-        // =========
-        $statusBase = [
-            'BORRADOR' => 0,
-            'ELIMINADA' => 0,
-            'CAPTURADA' => 0,
-            'PAGO_AUTORIZADO' => 0,
-            'PAGO_RECHAZADO' => 0,
-            'PAGADA' => 0,
-            'POR_COMPROBAR' => 0,
-            'COMPROBACION_ACEPTADA' => 0,
-            'COMPROBACION_RECHAZADA' => 0,
-        ];
-
-        $statusRows = DB::table('requisicions')
-            ->selectRaw("status as s, COUNT(*) as c")
+        $statusCounts = $scope()
+            ->selectRaw('status as s, COUNT(*) as c')
             ->where('fecha_solicitud', '>=', $start30)
             ->groupBy('s')
-            ->get();
-
-        foreach ($statusRows as $r) {
-            $k = (string) $r->s;
-            if (array_key_exists($k, $statusBase)) {
-                $statusBase[$k] = (int) $r->c;
-            }
-        }
+            ->pluck('c', 's');
 
         $statusMix = [];
-        foreach ($statusBase as $name => $count) {
-            // puedes filtrar ceros si quieres, pero para charts es ok
-            $statusMix[] = ['name' => $name, 'value' => $count];
+        foreach (self::STATUS_LABELS as $key => $label) {
+            $statusMix[] = ['key' => $key, 'name' => $label, 'value' => (int) ($statusCounts[$key] ?? 0)];
         }
 
-        // =========
-        // ComprobantesMix (mes) -> tu BD real: comprobantes.fecha_emision (fallback created_at)
-        // =========
-        $compBase = ['FACTURA' => 0, 'TICKET' => 0, 'NOTA' => 0, 'OTRO' => 0];
-
-        $compRows = DB::table('comprobantes')
-            ->selectRaw("tipo_doc as t, COUNT(*) as c")
+        $compQuery = DB::table('comprobantes')
+            ->whereIn('requisicion_id', $scope()->select('id'))
             ->where(function ($q) use ($startMonth, $endMonth) {
                 $q->whereBetween('fecha_emision', [$startMonth->toDateString(), $endMonth->toDateString()])
-                  ->orWhere(function ($q2) use ($startMonth, $endMonth) {
-                      $q2->whereNull('fecha_emision')
-                         ->whereBetween('created_at', [$startMonth, $endMonth]);
-                  });
-            })
-            ->groupBy('t')
-            ->get();
+                    ->orWhere(fn ($q2) => $q2->whereNull('fecha_emision')->whereBetween('created_at', [$startMonth, $endMonth]));
+            });
 
-        foreach ($compRows as $r) {
-            $k = (string) $r->t;
-            if (array_key_exists($k, $compBase)) {
-                $compBase[$k] = (int) $r->c;
-            }
-        }
+        $compCounts = $compQuery->selectRaw('tipo_doc as t, COUNT(*) as c')->groupBy('t')->pluck('c', 't');
 
         $comprobantesMix = [];
-        foreach ($compBase as $name => $count) {
-            $comprobantesMix[] = ['name' => $name, 'value' => $count];
+        foreach (self::DOC_LABELS as $key => $label) {
+            $comprobantesMix[] = ['key' => $key, 'name' => $label, 'value' => (int) ($compCounts[$key] ?? 0)];
         }
 
-        // =========
-        // Headline/Subheadline por rol
-        // =========
-        $headline = match ($role) {
-            'ADMIN' => 'Panel ejecutivo',
-            'CONTADOR' => 'Panel financiero',
-            default => 'Mi operación',
-        };
-
-        $subheadline = match ($role) {
-            'ADMIN' => 'KPIs globales + pulso de operación (14 días).',
-            'CONTADOR' => 'Control de flujo, montos y comprobación.',
-            default => 'Visibilidad de tu actividad y pendientes.',
+        $subheadline = match ($profile) {
+            DashboardProfile::Ejecutivo => 'Indicadores globales y pulso de operación (14 días).',
+            DashboardProfile::Financiero => 'Autorización, pago y control de comprobación.',
+            DashboardProfile::Personal => 'Tu actividad y pendientes.',
         };
 
         return [
-            'headline' => $headline,
+            'profile' => $profile->value,
+            'headline' => $profile->label(),
             'subheadline' => $subheadline,
-            'userRole' => $role,
-            // userName lo puede meter controller desde auth; si no, lo dejamos vacío
+            'userName' => $user->name,
+            'userRole' => $user->getRoleNames()->implode(', '),
+            'period' => [
+                'from' => $start14->format('d/m/Y'),
+                'to' => $now->format('d/m/Y'),
+                'month' => $now->locale('es')->isoFormat('MMMM YYYY'),
+            ],
             'kpis' => $kpis,
-
-            // NUEVO payload (el que ya consumes)
             'activityDaily' => $activityDaily,
             'amountsDaily' => $amountsDaily,
             'statusMix' => $statusMix,
             'comprobantesMix' => $comprobantesMix,
         ];
+    }
+
+    private function requisiciones(DashboardProfile $profile, User $user): Builder
+    {
+        $query = DB::table('requisicions');
+
+        if ($profile === DashboardProfile::Personal) {
+            $query->where(function ($q) use ($user) {
+                $q->where('creada_por_user_id', $user->id);
+                if ($user->empleado_id) {
+                    $q->orWhere('solicitante_id', $user->empleado_id);
+                }
+            });
+        }
+
+        return $query;
     }
 }

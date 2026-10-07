@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Services\Dashboard\DashboardProfile;
+use App\Support\BusinessDate;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -13,7 +15,8 @@ class AdminDashboardController extends Controller
     public function index(): Response
     {
         $user = auth()->user();
-        $tz = config('app.timezone', 'America/Mexico_City');
+        abort_unless(DashboardProfile::Ejecutivo->allowedFor($user), 403);
+        $tz = BusinessDate::timezone();
         $now = Carbon::now($tz);
 
         $start14 = $now->copy()->subDays(13)->startOfDay();
@@ -127,7 +130,7 @@ class AdminDashboardController extends Controller
         $kpis = [
             ['label' => 'Corporativos activos', 'value' => number_format($corporativosActivos), 'hint' => 'Base operativa vigente'],
             ['label' => 'Sucursales activas',   'value' => number_format($sucursalesActivas),   'hint' => 'Cobertura actual'],
-            ['label' => 'Empleados activos',    'value' => number_format($empleadosActivos),    'hint' => 'Usuarios operando'],
+            ['label' => 'Colaboradores activos', 'value' => number_format($empleadosActivos),    'hint' => 'Personas en operación'],
             ['label' => 'Monto del mes',        'value' => '$ ' . number_format($montoMes, 2),  'hint' => 'Por fecha de solicitud'],
         ];
 
@@ -136,7 +139,9 @@ class AdminDashboardController extends Controller
                 'headline' => 'Panel ejecutivo',
                 'subheadline' => 'KPIs globales + pulso de operación (14 días).',
                 'userName' => $user->name,
-                'userRole' => $user->rol,
+                'userRole' => $user->getRoleNames()->implode(', '),
+                'exportSegment' => DashboardProfile::Ejecutivo->exportSegment(),
+                'canExport' => $user->can('reportes.dashboard'),
                 'kpis' => $kpis,
 
                 // Estas llaves son las que tu Vue consume

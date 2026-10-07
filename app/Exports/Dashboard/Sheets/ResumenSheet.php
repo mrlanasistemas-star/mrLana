@@ -23,9 +23,9 @@ class ResumenSheet implements FromArray, WithTitle, ShouldAutoSize
     {
         return [
             ['Dashboard', $this->data['headline'] ?? 'Dashboard'],
-            ['Rol', $this->role],
+            ['Perfil', $this->role],
             ['Generado', $this->generatedAt],
-            ['Subheadline', $this->data['subheadline'] ?? ''],
+            ['Descripción', $this->data['subheadline'] ?? ''],
         ];
     }
 }

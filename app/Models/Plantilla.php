@@ -22,9 +22,25 @@ class Plantilla extends Model {
     protected $casts = [
         'monto_subtotal'     => 'decimal:2',
         'monto_total'        => 'decimal:2',
-        'fecha_solicitud'    => 'datetime',
-        'fecha_autorizacion' => 'datetime',
+        'fecha_solicitud'     => 'datetime',
+        'fecha_pago_esperada' => 'date',
+        'fecha_autorizacion'  => 'datetime',
     ];
+
+    /**
+     * Limita la consulta a las plantillas que el usuario puede ver.
+     */
+    public function scopeVisibleTo($query, User $user) {
+        if ($user->can('plantillas.ver_todos')) {
+            return $query;
+        }
+
+        if (! $user->can('plantillas.ver_propios')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where('user_id', $user->id);
+    }
 
     /* ============================
      * Relaciones

@@ -7,7 +7,7 @@ use Illuminate\Foundation\Http\FormRequest;
 class BulkDestroyRequest extends FormRequest {
 
     public function authorize(): bool {
-        return in_array($this->user()?->rol, ['ADMIN', 'CONTADOR'], true);
+        return (bool) $this->user()?->can('requisiciones.eliminar');
     }
 
     public function rules(): array {

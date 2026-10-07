@@ -55,10 +55,10 @@ class FolioController extends Controller {
      * Actualizar folio
      * PATCH /folios/{folio} -> folios.update
      */
+    /**
+     * Requiere el permiso "Editar folios de factura" (middleware de la ruta).
+     */
     public function update(Request $request, Folio $folio) {
-        $user = $request->user();
-        $role = strtoupper((string) ($user->rol ?? $user->role ?? ''));
-        abort_unless($role === 'ADMIN', 403);
         $data = $request->validate([
             'folio' => [
                 'required',

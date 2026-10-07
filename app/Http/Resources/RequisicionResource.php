@@ -29,7 +29,11 @@ class RequisicionResource extends JsonResource {
             'monto_subtotal' => $this->monto_subtotal,
             'monto_total'    => $this->monto_total,
             'fecha_solicitud'    => optional($this->fecha_solicitud)->toISOString(),
+            // Fecha opcional capturada por el solicitante (no es la autorización real).
+            'fecha_pago_esperada' => optional($this->fecha_pago_esperada)->format('Y-m-d'),
+            // Momento real en que se autorizó el pago (auditoría).
             'fecha_autorizacion' => optional($this->fecha_autorizacion)->toISOString(),
+            // Fecha programada/real de pago.
             'fecha_pago'         => optional($this->fecha_pago)->format('Y-m-d'),
             'created_at'         => optional($this->created_at)->toISOString(),
             'updated_at'         => optional($this->updated_at)->toISOString(),
@@ -38,6 +42,8 @@ class RequisicionResource extends JsonResource {
             'fecha_solicitud_ymd' => optional($this->fecha_solicitud)->format('Y-m-d'),
             'fecha_pago_ymd'      => optional($this->fecha_pago)->format('Y-m-d'),
             'observaciones' => $this->observaciones,
+            'eliminacion_pendiente' => (bool) ($this->eliminacion_pendiente ?? false),
+            'can' => $this->when($this->resource->getAttribute('can') !== null, fn () => $this->resource->getAttribute('can')),
             'comprador' => $this->whenLoaded('comprador', fn() => [
                 'id'       => $this->comprador?->id,
                 'nombre'   => $this->comprador?->nombre,

@@ -2,314 +2,209 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\Empleado\StoreEmpleadoRequest;
-use App\Http\Requests\Empleado\UpdateEmpleadoRequest;
-use App\Mail\EmpleadoAccesoCreadoMail;
+use App\Http\Requests\Colaborador\StoreColaboradorRequest;
+use App\Http\Requests\Colaborador\UpdateColaboradorRequest;
 use App\Models\Area;
 use App\Models\Corporativo;
 use App\Models\Empleado;
 use App\Models\Sucursal;
-use App\Models\User;
+use App\Services\Colaboradores\ColaboradorQuery;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Inertia\Response;
 
-class EmpleadoController extends Controller {
+/**
+ * Colaboradores: personas de la organización (tabla interna `empleados`).
+ * Un colaborador puede existir sin cuenta de acceso; las cuentas se
+ * administran en el módulo Usuarios (relación uno a uno).
+ */
+class ColaboradorController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $user = $request->user();
+        $f = ColaboradorQuery::filters($request);
 
-    public function index(Request $request) {
-        // Normalización de filtros
-        $q = trim((string) $request->get('q', ''));
-        $corporativoId = $request->get('corporativo_id', '');
-        $sucursalId    = $request->get('sucursal_id', '');
-        $areaId        = $request->get('area_id', '');
-        $activo = $request->get('activo', '1');
-        $activo = ($activo === '' || $activo === null) ? 'all' : (string) $activo;
-        $activo = in_array($activo, ['all', '1', '0'], true) ? $activo : '1';
-        $perPage = (int) ($request->get('per_page', $request->get('perPage', 15)));
-        $perPage = max(10, min(100, $perPage));
-        $sort = (string) $request->get('sort', 'nombre');
-        $dir  = (string) $request->get('dir', 'asc');
-        $sort = in_array($sort, ['nombre', 'id'], true) ? $sort : 'nombre';
-        $dir  = in_array($dir, ['asc', 'desc'], true) ? $dir : 'asc';
-        $corporativoId = ($corporativoId === '' || $corporativoId === null) ? null : (int) $corporativoId;
-        $sucursalId    = ($sucursalId === '' || $sucursalId === null) ? null : (int) $sucursalId;
-        $areaId        = ($areaId === '' || $areaId === null) ? null : (int) $areaId;
+        $perPage = (int) $request->input('per_page', $request->input('perPage', 20));
+        $perPage = in_array($perPage, [10, 15, 20, 50, 100], true) ? $perPage : 20;
+        $sort = $request->input('sort') === 'id' ? 'id' : 'nombre';
+        $dir = $request->input('dir') === 'desc' ? 'desc' : 'asc';
 
-        $appends = [
-            'q'              => $q,
-            'corporativo_id' => $corporativoId ?? '',
-            'sucursal_id'    => $sucursalId ?? '',
-            'area_id'        => $areaId ?? '',
-            'activo'         => $activo,
-            'per_page'       => $perPage,
-            'sort'           => $sort,
-            'dir'            => $dir,
-        ];
+        $query = ColaboradorQuery::build($f)->with([
+            'sucursal:id,corporativo_id,nombre,codigo,activo',
+            'sucursal.corporativo:id,nombre,codigo,activo',
+            'area:id,corporativo_id,nombre,activo',
+            'user:id,empleado_id,name,email,activo',
+            'user.roles:id,name',
+        ]);
 
-        // Query
-        $query = Empleado::query()
-            ->with([
-                'sucursal:id,corporativo_id,nombre,codigo,activo',
-                'sucursal.corporativo:id,nombre,codigo,activo',
-                'area:id,corporativo_id,nombre,activo',
-                'user:id,empleado_id,name,email,rol,activo',
-            ])
-            ->when($q !== '', function ($qq) use ($q) {
-                $qq->where(function ($w) use ($q) {
-                    $w->where('nombre', 'like', "%{$q}%")
-                        ->orWhere('apellido_paterno', 'like', "%{$q}%")
-                        ->orWhere('apellido_materno', 'like', "%{$q}%")
-                        ->orWhere('telefono', 'like', "%{$q}%")
-                        ->orWhere('puesto', 'like', "%{$q}%")
-                        ->orWhere('email', 'like', "%{$q}%")
-                        ->orWhereHas('user', function ($u) use ($q) {
-                            $u->where('email', 'like', "%{$q}%")
-                              ->orWhere('name', 'like', "%{$q}%");
-                        })
-                        ->orWhereHas('sucursal', fn ($s) => $s->where('nombre', 'like', "%{$q}%"))
-                        ->orWhereHas('area', fn ($a) => $a->where('nombre', 'like', "%{$q}%"));
-                });
-            })
-            ->when(!is_null($sucursalId), fn ($qq) => $qq->where('sucursal_id', $sucursalId))
-            ->when(!is_null($areaId), fn ($qq) => $qq->where('area_id', $areaId))
-            ->when($activo !== 'all', fn ($qq) => $qq->where('activo', (int) $activo))
-            ->when(!is_null($corporativoId), function ($qq) use ($corporativoId) {
-                $qq->whereHas('sucursal', fn ($s) => $s->where('corporativo_id', $corporativoId));
-            });
-
-        // Orden por "nombre completo" (apellido(s) + nombre) para que el A-Z sí se sienta natural
         if ($sort === 'id') {
             $query->orderBy('id', $dir);
         } else {
-            $query->orderByRaw("TRIM(CONCAT(apellido_paterno,' ',COALESCE(apellido_materno,''),' ',nombre)) {$dir}");
+            $query->orderBy('apellido_paterno', $dir)->orderBy('apellido_materno', $dir)->orderBy('nombre', $dir);
         }
-        $query->orderBy('id', 'asc');
 
-        $empleados = $query->paginate($perPage)->appends($appends);
+        $colaboradores = $query->orderBy('id')->paginate($perPage)->withQueryString();
 
-        return Inertia::render('Empleados/Index', [
-            'empleados' => $empleados,
+        $colaboradores->getCollection()->transform(fn (Empleado $e) => [
+            'id' => $e->id,
+            'sucursal_id' => $e->sucursal_id,
+            'area_id' => $e->area_id,
+            'nombre' => $e->nombre,
+            'apellido_paterno' => $e->apellido_paterno,
+            'apellido_materno' => $e->apellido_materno,
+            'nombre_completo' => trim("{$e->nombre} {$e->apellido_paterno} ".($e->apellido_materno ?? '')),
+            'email' => $e->email,
+            'telefono' => $e->telefono,
+            'puesto' => $e->puesto,
+            'activo' => (bool) $e->activo,
+            'sucursal' => $e->sucursal ? [
+                'id' => $e->sucursal->id,
+                'nombre' => $e->sucursal->nombre,
+                'codigo' => $e->sucursal->codigo,
+                'corporativo_id' => $e->sucursal->corporativo_id,
+                'corporativo' => $e->sucursal->corporativo ? [
+                    'id' => $e->sucursal->corporativo->id,
+                    'nombre' => $e->sucursal->corporativo->nombre,
+                ] : null,
+            ] : null,
+            'area' => $e->area ? ['id' => $e->area->id, 'nombre' => $e->area->nombre] : null,
+            'user' => $e->user ? [
+                'id' => $e->user->id,
+                'name' => $e->user->name,
+                'email' => $e->user->email,
+                'activo' => (bool) $e->user->activo,
+                'roles' => $e->user->roles->pluck('name')->values(),
+            ] : null,
+        ]);
 
-            'corporativos' => Corporativo::query()
-                ->select(['id', 'nombre', 'codigo', 'activo'])
-                ->orderBy('nombre')
-                ->get(),
-
-            'sucursales' => Sucursal::query()
-                ->with('corporativo:id,nombre,codigo,activo')
-                ->select(['id', 'corporativo_id', 'nombre', 'codigo', 'activo'])
-                ->orderBy('nombre')
-                ->get(),
-
-            'areas' => Area::query()
-                ->select(['id', 'corporativo_id', 'nombre', 'activo'])
-                ->orderBy('nombre')
-                ->get(),
-
-            'filters' => [
-                'q'              => $q,
-                'corporativo_id' => $corporativoId,
-                'sucursal_id'    => $sucursalId,
-                'area_id'        => $areaId,
-                'activo'         => $activo,
-                'per_page'       => $perPage,
-                'perPage'        => $perPage,
-                'sort'           => $sort,
-                'dir'            => $dir,
+        return Inertia::render('Colaboradores/Index', [
+            'colaboradores' => $colaboradores,
+            'counts' => ColaboradorQuery::counts($f),
+            'corporativos' => Corporativo::query()->select(['id', 'nombre', 'codigo', 'activo'])->orderBy('nombre')->get(),
+            'sucursales' => Sucursal::query()->select(['id', 'corporativo_id', 'nombre', 'codigo', 'activo'])->orderBy('nombre')->get(),
+            'areas' => Area::query()->select(['id', 'corporativo_id', 'nombre', 'activo'])->orderBy('nombre')->get(),
+            'filters' => $f + ['per_page' => $perPage, 'sort' => $sort, 'dir' => $dir],
+            'can' => [
+                'registrar' => $user->can('colaboradores.registrar'),
+                'editar' => $user->can('colaboradores.editar'),
+                'desactivar' => $user->can('colaboradores.desactivar'),
+                'reactivar' => $user->can('colaboradores.reactivar'),
+                'exportar' => $user->can('colaboradores.exportar'),
+                'crear_usuario' => $user->can('usuarios.registrar'),
+                'ver_usuario' => $user->can('usuarios.ver'),
             ],
         ]);
     }
 
-    public function store(StoreEmpleadoRequest $request) {
+    public function store(StoreColaboradorRequest $request): RedirectResponse
+    {
         $data = $request->validated();
-        // Bloqueo organizacional (mensajes humanos)
-        $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] !== null ? (int) $data['area_id'] : null);
+        $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] ?? null);
 
-        // Password 8 chars (A-Z0-9)
-        $plainPassword = Str::upper(Str::random(8));
-
-        try {
-            $user = DB::transaction(function () use ($data, $plainPassword) {
-
-                $empleado = Empleado::create([
-                    'sucursal_id'      => (int) $data['sucursal_id'],
-                    'area_id'          => $data['area_id'] !== null ? (int) $data['area_id'] : null,
-                    'nombre'           => $data['nombre'],
-                    'apellido_paterno' => $data['apellido_paterno'],
-                    'apellido_materno' => $data['apellido_materno'] ?? null,
-                    'email'            => $data['user_email'],
-                    'telefono'         => $data['telefono'] ?? null,
-                    'puesto'           => $data['puesto'] ?? null,
-                    'activo'           => array_key_exists('activo', $data) ? (bool) $data['activo'] : true,
-                ]);
-
-                $user = new User();
-                $user->empleado_id = $empleado->id;
-                $user->name        = $data['user_name'];
-                $user->email       = $data['user_email'];
-                $user->rol         = $data['user_rol'];
-                $user->activo      = array_key_exists('user_activo', $data) ? (bool) $data['user_activo'] : true;
-                $user->password    = Hash::make($plainPassword);
-                $user->save();
-
-                return $user;
-            });
-
-            // correo FUERA de la transacción
-            Mail::to($user->email)->send(new EmpleadoAccesoCreadoMail($user, $plainPassword));
-
-            return back()->with('success', 'Empleado creado. Se enviaron los accesos al correo.');
-        } catch (\Throwable $e) {
-            report($e);
-            dd($e->getMessage(), $e->getFile(), $e->getLine());
-            return back()->withErrors([
-                'user_email' => 'Se creó el empleado, pero falló el envío del correo. Revisa la configuración SMTP / logs.',
-            ]);
-        }
-    }
-
-    public function update(UpdateEmpleadoRequest $request, Empleado $empleado) {
-
-        $data = $request->validated();
-
-        $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] !== null ? (int) $data['area_id'] : null);
-
-        DB::transaction(function () use ($data, $empleado) {
-
-            $empleado->update([
-                'sucursal_id'      => (int) $data['sucursal_id'],
-                'area_id'          => $data['area_id'] !== null ? (int) $data['area_id'] : null,
-                'nombre'           => $data['nombre'],
-                'apellido_paterno' => $data['apellido_paterno'],
-                'apellido_materno' => $data['apellido_materno'] ?? null,
-                'email'            => $data['user_email'], // mantenemos 1 sola fuente
-                'telefono'         => $data['telefono'] ?? null,
-                'puesto'           => $data['puesto'] ?? null,
-                'activo'           => array_key_exists('activo', $data) ? (bool) $data['activo'] : $empleado->activo,
-            ]);
-
-            $user = $empleado->user()->first();
-
-            if (!$user) {
-                $user = new User();
-                $user->empleado_id = $empleado->id;
-            }
-
-            $user->name   = $data['user_name'];
-            $user->email  = $data['user_email'];
-            $user->rol    = $data['user_rol'];
-
-            if (array_key_exists('user_activo', $data)) {
-                $user->activo = (bool) $data['user_activo'];
-            }
-
-            if (!empty($data['user_password'])) {
-                $user->password = Hash::make($data['user_password']);
-            }
-
-            $user->save();
-        });
-
-        return back()->with('success', 'Empleado actualizado.');
-    }
-
-    public function destroy(Empleado $empleado) {
-
-        if (!$empleado->activo) {
-            return back()->with('success', 'El empleado ya estaba dado de baja.');
-        }
-
-        DB::transaction(function () use ($empleado) {
-            $empleado->update(['activo' => false]);
-            $empleado->user()->update(['activo' => false]);
-        });
-
-        return back()->with('success', 'Empleado dado de baja correctamente.');
-    }
-
-    public function activate(Request $request, Empleado $empleado) {
-
-        $this->assertOrgActivaOrFail((int) $empleado->sucursal_id, $empleado->area_id ? (int) $empleado->area_id : null);
-
-        DB::transaction(function () use ($empleado) {
-            $empleado->update(['activo' => true]);
-            $empleado->user()->update(['activo' => true]);
-        });
-
-        return back()->with('success', 'Empleado activado.');
-    }
-
-    public function bulkDestroy(Request $request) {
-
-        $data = $request->validate([
-            'ids'   => ['required', 'array', 'min:1'],
-            'ids.*' => ['integer', 'distinct', Rule::exists('empleados', 'id')],
-        ], [
-            'ids.required' => 'Selecciona al menos un empleado.',
-            'ids.array'    => 'Selección inválida.',
-            'ids.min'      => 'Selecciona al menos un empleado.',
-            'ids.*.exists' => 'Uno o más empleados no existen.',
+        Empleado::create([
+            ...$data,
+            'activo' => $data['activo'] ?? true,
         ]);
 
-        DB::transaction(function () use ($data) {
-            Empleado::query()->whereIn('id', $data['ids'])->update(['activo' => false]);
-            User::query()->whereIn('empleado_id', $data['ids'])->update(['activo' => false]);
-        });
-
-        return back()->with('success', 'Empleados dados de baja.');
+        return back()->with('success', 'Colaborador registrado.');
     }
 
-    private function assertOrgActivaOrFail(int $sucursalId, ?int $areaId = null): void {
+    public function update(UpdateColaboradorRequest $request, Empleado $empleado): RedirectResponse
+    {
+        $data = $request->validated();
+        $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] ?? null);
+
+        $empleado->update([
+            ...$data,
+            'activo' => $data['activo'] ?? $empleado->activo,
+        ]);
+
+        return back()->with('success', 'Colaborador actualizado.');
+    }
+
+    /**
+     * Baja lógica. La cuenta de acceso vinculada (si existe) no se modifica:
+     * se administra desde Usuarios para respetar la protección del último administrador.
+     */
+    public function destroy(Empleado $empleado): RedirectResponse
+    {
+        if (! $empleado->activo) {
+            return back()->with('success', 'El colaborador ya estaba dado de baja.');
+        }
+
+        $empleado->update(['activo' => false]);
+
+        return back()->with('success', $empleado->user()->where('activo', true)->exists()
+            ? 'Colaborador dado de baja. Su cuenta de acceso sigue activa; desactívala en Usuarios si corresponde.'
+            : 'Colaborador dado de baja.');
+    }
+
+    public function activate(Empleado $empleado): RedirectResponse
+    {
+        $this->assertOrgActivaOrFail((int) $empleado->sucursal_id, $empleado->area_id ? (int) $empleado->area_id : null);
+
+        $empleado->update(['activo' => true]);
+
+        return back()->with('success', 'Colaborador reactivado.');
+    }
+
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'distinct', Rule::exists('empleados', 'id')],
+        ], [
+            'ids.required' => 'Selecciona al menos un colaborador.',
+            'ids.array' => 'Selección inválida.',
+            'ids.min' => 'Selecciona al menos un colaborador.',
+            'ids.*.exists' => 'Uno o más colaboradores no existen.',
+        ]);
+
+        DB::transaction(fn () => Empleado::query()->whereIn('id', $data['ids'])->update(['activo' => false]));
+
+        return back()->with('success', 'Colaboradores dados de baja.');
+    }
+
+    private function assertOrgActivaOrFail(int $sucursalId, int|string|null $areaId = null): void
+    {
+        $areaId = $areaId === null || $areaId === '' ? null : (int) $areaId;
 
         $sucursal = Sucursal::query()
             ->select(['id', 'corporativo_id', 'activo'])
             ->with(['corporativo:id,activo'])
             ->find($sucursalId);
 
-        if (!$sucursal) {
-            throw ValidationException::withMessages([
-                'sucursal_id' => 'La sucursal seleccionada no existe.',
-            ]);
+        if (! $sucursal) {
+            throw ValidationException::withMessages(['sucursal_id' => 'La sucursal seleccionada no existe.']);
         }
 
-        if (!$sucursal->activo) {
-            throw ValidationException::withMessages([
-                'sucursal_id' => 'La sucursal está dada de baja. Reactívala para poder continuar.',
-            ]);
+        if (! $sucursal->activo) {
+            throw ValidationException::withMessages(['sucursal_id' => 'La sucursal está dada de baja. Reactívala para poder continuar.']);
         }
 
-        if ($sucursal->corporativo && !$sucursal->corporativo->activo) {
-            throw ValidationException::withMessages([
-                'corporativo_id' => 'El corporativo está dado de baja. Reactívalo para poder continuar.',
-            ]);
+        if ($sucursal->corporativo && ! $sucursal->corporativo->activo) {
+            throw ValidationException::withMessages(['corporativo_id' => 'El corporativo está dado de baja. Reactívalo para poder continuar.']);
         }
 
-        if (!is_null($areaId)) {
+        if ($areaId !== null) {
             $area = Area::query()->select(['id', 'corporativo_id', 'activo'])->find($areaId);
 
-            if (!$area) {
-                throw ValidationException::withMessages([
-                    'area_id' => 'El área seleccionada no existe.',
-                ]);
+            if (! $area) {
+                throw ValidationException::withMessages(['area_id' => 'El área seleccionada no existe.']);
             }
 
-            if (!$area->activo) {
-                throw ValidationException::withMessages([
-                    'area_id' => 'El área está dada de baja. Reactívala para poder continuar.',
-                ]);
+            if (! $area->activo) {
+                throw ValidationException::withMessages(['area_id' => 'El área está dada de baja. Reactívala para poder continuar.']);
             }
 
             if ((int) $area->corporativo_id !== (int) $sucursal->corporativo_id) {
-                throw ValidationException::withMessages([
-                    'area_id' => 'El área no pertenece al corporativo de la sucursal seleccionada.',
-                ]);
+                throw ValidationException::withMessages(['area_id' => 'El área no pertenece al corporativo de la sucursal seleccionada.']);
             }
         }
     }
-
 }

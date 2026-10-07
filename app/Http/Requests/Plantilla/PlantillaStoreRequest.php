@@ -8,7 +8,7 @@ use Illuminate\Validation\Rule;
 class PlantillaStoreRequest extends FormRequest {
 
     public function authorize(): bool {
-        return true;
+        return (bool) $this->user()?->can('plantillas.registrar');
     }
 
     protected function prepareForValidation(): void {
@@ -20,12 +20,12 @@ class PlantillaStoreRequest extends FormRequest {
     }
 
     public function rules(): array {
-        $rol = strtoupper((string)($this->user()?->rol ?? 'COLABORADOR'));
+        // Sin "ver todas las requisiciones" el solicitante se asigna automáticamente.
+        $solicitanteFijo = ! $this->user()?->can('requisiciones.ver_todos');
         return [
             'nombre' => ['required', 'string', 'max:100'],
-            // Para COLABORADOR lo asignas automático en backend/UI, para el resto sí es requerido
             'solicitante_id' => [
-                Rule::requiredIf($rol !== 'COLABORADOR'),
+                Rule::requiredIf(! $solicitanteFijo),
                 'nullable',
                 'integer',
                 'exists:empleados,id',
@@ -39,6 +39,7 @@ class PlantillaStoreRequest extends FormRequest {
             'monto_subtotal' => ['required', 'numeric', 'min:0'],
             'monto_total'    => ['required', 'numeric', 'min:0'],
             'fecha_solicitud'    => ['required', 'date'],
+            'fecha_pago_esperada' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:fecha_solicitud'],
             'fecha_autorizacion' => ['nullable', 'date'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
             // Items: mínimo 1
@@ -70,6 +71,7 @@ class PlantillaStoreRequest extends FormRequest {
             'monto_subtotal' => 'subtotal',
             'monto_total' => 'total',
             'fecha_solicitud' => 'fecha esperada de entrega',
+            'fecha_pago_esperada' => 'fecha esperada de pago',
             'fecha_autorizacion' => 'fecha de autorización',
             'observaciones' => 'observaciones',
             'detalles' => 'items de la plantilla',
@@ -103,6 +105,7 @@ class PlantillaStoreRequest extends FormRequest {
             'fecha_solicitud.required' => 'Selecciona la :attribute.',
             'fecha_solicitud.date' => 'La :attribute no es una fecha válida.',
             'fecha_autorizacion.date' => 'La :attribute no es una fecha válida.',
+            'fecha_pago_esperada.after_or_equal' => 'La fecha esperada de pago no puede ser anterior a la fecha de solicitud.',
             'observaciones.max' => 'Las :attribute no deben exceder 2000 caracteres.',
             // Montos
             'monto_subtotal.required' => 'El :attribute es obligatorio.',

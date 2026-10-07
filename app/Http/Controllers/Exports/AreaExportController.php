@@ -7,7 +7,7 @@ use App\Exports\Areas\AreasExport;
 use App\Models\Area;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 
 class AreaExportController extends Controller
 {
@@ -25,14 +25,12 @@ class AreaExportController extends Controller
 
         $filters = $this->filtersLabel($request);
 
-        $pdf = Pdf::loadView('exports.areas.index', [
+        return app(PdfService::class)->download('exports.areas.index', [
             'rows' => $rows,
             'filters' => $filters,
             'meta' => $meta,
             'totals' => ['total' => count($rows)],
-        ])->setPaper('a4', 'landscape');
-
-        return $pdf->download('areas.pdf');
+        ], 'areas.pdf', ['paper' => 'letter', 'landscape' => true]);
     }
 
     public function excel(Request $request)

@@ -48,12 +48,16 @@
             <td style="padding:6px 0;font-weight:700;">{{ optional($r->proveedor)->razon_social }}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0;color:#6b7280;">Fecha solicitud</td>
-            <td style="padding:6px 0;font-weight:700;">{{ $r->fecha_solicitud }}</td>
+            <td style="padding:6px 0;color:#6b7280;">Fecha de solicitud</td>
+            <td style="padding:6px 0;font-weight:700;">{{ optional($r->fecha_solicitud)->format('d/m/Y') ?? '—' }}</td>
           </tr>
           <tr>
-            <td style="padding:6px 0;color:#6b7280;">Fecha autorización</td>
-            <td style="padding:6px 0;font-weight:700;">{{ $r->fecha_autorizacion ?: '—' }}</td>
+            <td style="padding:6px 0;color:#6b7280;">Fecha esperada de pago</td>
+            <td style="padding:6px 0;font-weight:700;">{{ optional($r->fecha_pago_esperada)->format('d/m/Y') ?? 'Sin definir' }}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#6b7280;">Autorización de pago</td>
+            <td style="padding:6px 0;font-weight:700;">{{ optional($r->fecha_autorizacion)->format('d/m/Y H:i') ?? 'Pendiente' }}</td>
           </tr>
           <tr>
             <td style="padding:6px 0;color:#6b7280;">Total</td>

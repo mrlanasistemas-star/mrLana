@@ -45,6 +45,8 @@ class RequisicionesDataSheet extends BaseReportExport
             'Total items req.',
             'Ajuste neto',
             'Total final req.',
+            'Fecha esperada de pago',
+            'Autorización real',
         ];
     }
 
@@ -77,6 +79,8 @@ class RequisicionesDataSheet extends BaseReportExport
             'X' => 22,
             'Y' => 16,
             'Z' => 22,
+            'AA' => 20,
+            'AB' => 20,
         ];
     }
 
@@ -126,6 +130,8 @@ class RequisicionesDataSheet extends BaseReportExport
             $r['total']             ?? '',
             $r['ajustes_netos']     ?? '',
             $r['total_final']       ?? '',
+            $r['fecha_pago_esperada'] ?? '',
+            $r['fecha_autorizacion']  ?? '',
         ];
     }
 }

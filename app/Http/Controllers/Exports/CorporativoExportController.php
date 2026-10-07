@@ -7,7 +7,7 @@ use App\Exports\Corporativos\CorporativosExport;
 use App\Models\Corporativo;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 
 class CorporativoExportController extends Controller {
 
@@ -24,14 +24,12 @@ class CorporativoExportController extends Controller {
 
         $filters = $this->filtersLabel($request);
 
-        $pdf = Pdf::loadView('exports.corporativos.index', [
+        return app(PdfService::class)->download('exports.corporativos.index', [
             'rows'    => $rows,
             'filters' => $filters,
             'meta'    => $meta,
             'totals'  => ['total' => count($rows)],
-        ])->setPaper('a4', 'landscape');
-
-        return $pdf->download('corporativos.pdf');
+        ], 'corporativos.pdf', ['paper' => 'letter', 'landscape' => true]);
     }
 
     public function excel(Request $request) {

@@ -7,7 +7,9 @@ use Illuminate\Foundation\Http\FormRequest;
 class StorePagoRequest extends FormRequest {
 
     public function authorize(): bool {
-        return true; // aquí mete Gate/Policy si ya lo traes
+        $requisicion = $this->route('requisicion');
+
+        return $requisicion !== null && (bool) $this->user()?->can('registerPayment', $requisicion);
     }
 
     public function rules(): array {

@@ -1,44 +1,37 @@
-@extends('exports.layouts.base-report')
+@php
+    $rows = $rows ?? [];
+    $activos = collect($rows)->filter(fn ($r) => strtoupper((string) ($r['status'] ?? '')) === 'ACTIVO')->count();
+    $stats = ['Total' => count($rows), 'Activos' => $activos, 'Inactivos' => count($rows) - $activos];
+    $meta = ($meta ?? []) + ['title' => 'Reporte de proveedores'];
+@endphp
+@extends('pdf.layouts.report')
 
 @section('content')
-    <table>
+    <table class="data">
         <thead>
-        <tr>
-            <th style="width: 26px;">#</th>
-            <th>Razón social</th>
-            <th>RFC</th>
-            <th>CLABE</th>
-            <th>Banco</th>
-            <th style="width: 70px;">Estatus</th>
-        </tr>
+            <tr>
+                <th style="width:5%">#</th>
+                <th>Razón social</th>
+                <th style="width:15%">RFC</th>
+                <th style="width:22%">CLABE</th>
+                <th style="width:15%">Banco</th>
+                <th style="width:10%">Estatus</th>
+            </tr>
         </thead>
         <tbody>
-        @forelse($rows as $i => $r)
-            <tr>
-                <td>{{ $i + 1 }}</td>
-                <td>{{ $r['razon_social'] ?? '—' }}</td>
-                <td>{{ $r['rfc'] ?? '—' }}</td>
-                <td>{{ $r['clabe'] ?? '—' }}</td>
-                <td>{{ $r['banco'] ?? '—' }}</td>
-                <td>
-                    @if(strtoupper((string)($r['status'] ?? '')) === 'ACTIVO')
-                        <span class="badge badge-ok">Activo</span>
-                    @else
-                        <span class="badge badge-off">Inactivo</span>
-                    @endif
-                </td>
-            </tr>
-        @empty
-            <tr>
-                <td colspan="6" class="muted" style="text-align:center; padding: 18px;">
-                    No hay registros con los filtros actuales.
-                </td>
-            </tr>
-        @endforelse
+            @forelse ($rows as $i => $r)
+                @php $ok = strtoupper((string) ($r['status'] ?? '')) === 'ACTIVO'; @endphp
+                <tr>
+                    <td class="muted">{{ $i + 1 }}</td>
+                    <td class="strong">{{ $r['razon_social'] ?? '—' }}</td>
+                    <td>{{ $r['rfc'] ?? '—' }}</td>
+                    <td style="font-family: monospace;">{{ $r['clabe'] ?? '—' }}</td>
+                    <td>{{ $r['banco'] ?? '—' }}</td>
+                    <td><span class="badge {{ $ok ? 'badge-ok' : 'badge-off' }}">{{ $ok ? 'Activo' : 'Inactivo' }}</span></td>
+                </tr>
+            @empty
+                <tr><td colspan="6" class="empty">No hay registros con los filtros actuales.</td></tr>
+            @endforelse
         </tbody>
     </table>
-
-    <div style="margin-top:10px" class="muted">
-        Total registros: <strong>{{ $totals['total'] ?? count($rows) }}</strong>
-    </div>
 @endsection

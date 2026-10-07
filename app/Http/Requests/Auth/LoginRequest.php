@@ -41,11 +41,25 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        // Las cuentas desactivadas no pueden iniciar sesión aunque la contraseña sea correcta.
+        $inactive = false;
+        $authenticated = Auth::attemptWhen(
+            $this->only('email', 'password'),
+            function ($user) use (&$inactive) {
+                $inactive = ! $user->activo;
+
+                return ! $inactive;
+            },
+            $this->boolean('remember'),
+        );
+
+        if (! $authenticated) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => $inactive
+                    ? 'Tu cuenta está desactivada. Contacta a un administrador.'
+                    : trans('auth.failed'),
             ]);
         }
 

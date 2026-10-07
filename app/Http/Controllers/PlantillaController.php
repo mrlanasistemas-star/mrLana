@@ -23,7 +23,6 @@ class PlantillaController extends Controller {
      */
     public function index(Request $request): Response {
         $user = $request->user();
-        $rol  = strtoupper((string)($user->rol ?? 'COLABORADOR'));
 
         $filters = [
             'q'       => trim((string)$request->input('q', '')),
@@ -48,7 +47,7 @@ class PlantillaController extends Controller {
                 'proveedor:id,razon_social',
                 'concepto:id,nombre',
             ])
-            ->when($rol === 'COLABORADOR', fn($qq) => $qq->where('user_id', $user->id))
+            ->visibleTo($user)
             ->when($filters['q'] !== '', function ($qq) use ($filters) {
                 $q = $filters['q'];
                 $qq->where(function ($sub) use ($q) {
@@ -70,6 +69,7 @@ class PlantillaController extends Controller {
                 'monto_subtotal' => (string)$p->monto_subtotal,
                 'monto_total' => (string)$p->monto_total,
                 'fecha_solicitud' => $p->fecha_solicitud ? (string)$p->fecha_solicitud : null,
+                'fecha_pago_esperada' => $p->fecha_pago_esperada?->format('Y-m-d'),
                 'fecha_autorizacion' => $p->fecha_autorizacion ? (string)$p->fecha_autorizacion : null,
 
                 'sucursal' => $p->sucursal ? [
@@ -142,6 +142,12 @@ class PlantillaController extends Controller {
                 'meta' => $meta,
             ],
             'filters' => $filters,
+            'can' => [
+                'registrar' => $user->can('plantillas.registrar'),
+                'editar' => $user->can('plantillas.editar'),
+                'eliminar' => $user->can('plantillas.eliminar'),
+                'usar' => $user->can('requisiciones.registrar'),
+            ],
         ]);
     }
 
@@ -172,6 +178,11 @@ class PlantillaController extends Controller {
             $data['comprador_corp_id'] = $sucursal?->corporativo_id;
         }
 
+        // Sin "ver todas las requisiciones" el solicitante es el colaborador de la cuenta.
+        if (! $user->can('requisiciones.ver_todos')) {
+            $data['solicitante_id'] = $user->empleado_id;
+        }
+
         $data['user_id'] = $user->id;
         $data['status']  = 'BORRADOR';
 
@@ -191,7 +202,7 @@ class PlantillaController extends Controller {
      */
     public function edit(Request $request, Plantilla $plantilla): Response
     {
-        $rol = $this->guardPlantillaAccess($request, $plantilla);
+        $this->authorize('update', $plantilla);
 
         $plantilla->load(['detalles', 'sucursal', 'solicitante', 'proveedor', 'concepto']);
 
@@ -202,7 +213,7 @@ class PlantillaController extends Controller {
                 'index'  => route('plantillas.index'),
                 'update' => route('plantillas.update', $plantilla),
             ],
-            'ui' => ['rol' => $rol],
+            'ui' => ['solicitante_fijo' => ! $request->user()->can('requisiciones.ver_todos')],
         ]);
     }
 
@@ -211,7 +222,7 @@ class PlantillaController extends Controller {
      */
     public function update(PlantillaUpdateRequest $request, Plantilla $plantilla): RedirectResponse
     {
-        $this->guardPlantillaAccess($request, $plantilla);
+        $this->authorize('update', $plantilla);
 
         $data = $request->validated();
         $detalles = $data['detalles'] ?? [];
@@ -238,7 +249,7 @@ class PlantillaController extends Controller {
      * Soft delete (status).
      */
     public function destroy(Request $request, Plantilla $plantilla): RedirectResponse {
-        $this->guardPlantillaAccess($request, $plantilla);
+        $this->authorize('delete', $plantilla);
         $plantilla->update(['status' => 'ELIMINADA']);
         return redirect()->route('plantillas.index')
             ->with('success', 'Plantilla eliminada.');
@@ -249,7 +260,7 @@ class PlantillaController extends Controller {
      * Mandamos la misma estructura "plana" que edit().
      */
     public function show(Request $request, Plantilla $plantilla) {
-        $this->guardPlantillaAccess($request, $plantilla);
+        $this->authorize('view', $plantilla);
         $plantilla->load(['detalles', 'sucursal', 'solicitante', 'proveedor', 'concepto']);
         return response()->json([
             'plantilla' => $this->formatPlantillaForForm($plantilla),
@@ -257,7 +268,7 @@ class PlantillaController extends Controller {
     }
 
     public function reactivate(Request $request, Plantilla $plantilla): RedirectResponse {
-        $this->guardPlantillaAccess($request, $plantilla);
+        $this->authorize('delete', $plantilla);
         $plantilla->update(['status' => 'BORRADOR']);
         return redirect()->route('plantillas.index')
             ->with('success', 'Plantilla reactivada.');
@@ -265,9 +276,7 @@ class PlantillaController extends Controller {
 
     // Catálogos para Create/Edit.
     private function catalogos(): array {
-        // Obtener usuario y rol
         $user = auth()->user();
-        $rol  = strtoupper((string)($user->rol ?? 'COLABORADOR'));
 
         // Catálogos generales
         $corporativos = Corporativo::select('id','nombre','activo')
@@ -286,8 +295,7 @@ class PlantillaController extends Controller {
         $proveedoresQuery = Proveedor::select('id','razon_social')
             ->orderBy('razon_social');
 
-        if (!in_array($rol, ['ADMIN','CONTADOR'], true)) {
-            // Multi‑tenant simple
+        if (! $user->can('proveedores.ver_todos')) {
             $proveedoresQuery->where('user_duenio_id', $user->id);
         }
 
@@ -316,22 +324,6 @@ class PlantillaController extends Controller {
             'conceptos'    => $conceptos,
             'proveedores'  => $proveedores,
         ];
-    }
-
-    /**
-     * Asegura acceso por rol.
-     * Retorna el rol por si lo quieres en UI.
-     */
-    private function guardPlantillaAccess(Request $request, Plantilla $plantilla): string
-    {
-        $user = $request->user();
-        $rol  = strtoupper((string)($user->rol ?? 'COLABORADOR'));
-
-        if ($rol === 'COLABORADOR' && (int)$plantilla->user_id !== (int)$user->id) {
-            abort(403);
-        }
-
-        return $rol;
     }
 
     /**
@@ -380,6 +372,7 @@ class PlantillaController extends Controller {
             'monto_total' => (float)($plantilla->monto_total ?? 0),
 
             'fecha_solicitud' => $fechaSolicitud,
+            'fecha_pago_esperada' => $plantilla->fecha_pago_esperada?->format('Y-m-d') ?? '',
             'fecha_autorizacion' => $fechaAutorizacion,
             'observaciones' => $plantilla->observaciones,
 

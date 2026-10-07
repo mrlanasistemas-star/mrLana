@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Services\Dashboard\DashboardProfile;
+use App\Support\BusinessDate;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -13,8 +15,9 @@ class ContadorDashboardController extends Controller
     public function index(): Response
     {
         $user = auth()->user();
+        abort_unless(DashboardProfile::Financiero->allowedFor($user), 403);
 
-        $tz = config('app.timezone', 'America/Mexico_City');
+        $tz = BusinessDate::timezone();
         $now = Carbon::now($tz);
 
         $start14 = $now->copy()->subDays(13)->startOfDay();
@@ -69,7 +72,9 @@ class ContadorDashboardController extends Controller
                 'headline' => 'Panel financiero',
                 'subheadline' => 'Autorización, pago y control operativo (14 días).',
                 'userName' => $user->name,
-                'userRole' => $user->rol,
+                'userRole' => $user->getRoleNames()->implode(', '),
+                'exportSegment' => DashboardProfile::Financiero->exportSegment(),
+                'canExport' => $user->can('reportes.dashboard'),
                 'kpis' => $kpis,
                 'activityDaily' => $activityDaily,
                 'amountsDaily' => $amountsDaily,

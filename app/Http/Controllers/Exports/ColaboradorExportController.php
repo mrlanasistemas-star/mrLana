@@ -2,158 +2,94 @@
 
 namespace App\Http\Controllers\Exports;
 
+use App\Exports\Colaboradores\ColaboradoresExport;
 use App\Http\Controllers\Controller;
-use App\Exports\Empleados\EmpleadosExport;
+use App\Models\Area;
+use App\Models\Corporativo;
 use App\Models\Empleado;
+use App\Models\Sucursal;
+use App\Services\Colaboradores\ColaboradorQuery;
+use App\Services\Pdf\PdfService;
+use App\Support\BusinessDate;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
 
-class EmpleadoExportController extends Controller {
-
-    public function pdf(Request $request) {
+class ColaboradorExportController extends Controller
+{
+    public function pdf(Request $request, PdfService $pdf)
+    {
         $rows = $this->buildRows($request);
 
-        $meta = [
-            'title' => 'Reporte de Empleados',
-            'subtitle' => 'Exportación con filtros actuales',
-            'generated_at' => now()->format('Y-m-d H:i'),
-            'generated_by' => optional($request->user())->name,
-            'footer_left' => 'ERP MR-Lana',
-        ];
-
-        $filters = $this->filtersLabel($request);
-
-        $pdf = Pdf::loadView('exports.empleados.index', [
+        return $pdf->download('exports.colaboradores.index', [
             'rows' => $rows,
-            'filters' => $filters,
-            'meta' => $meta,
-            'totals' => ['total' => count($rows)],
-        ])->setPaper('a4', 'landscape');
-
-        return $pdf->download('empleados.pdf');
+            'filters' => $this->filtersLabel($request),
+            'meta' => $this->meta($request),
+        ], 'colaboradores.pdf', ['paper' => 'letter', 'landscape' => true]);
     }
 
     public function excel(Request $request)
     {
-        $rows = $this->buildRows($request);
+        return Excel::download(
+            new ColaboradoresExport($this->buildRows($request), $this->filtersLabel($request), $this->meta($request)),
+            'colaboradores.xlsx'
+        );
+    }
 
-        $meta = [
-            'title' => 'Reporte de Empleados',
-            'subtitle' => 'Exportación con filtros actuales',
-            'generated_at' => now()->format('Y-m-d H:i'),
-            'generated_by' => optional($request->user())->name,
+    private function meta(Request $request): array
+    {
+        return [
+            'title' => 'Reporte de colaboradores',
+            'subtitle' => 'Exportación con los filtros actuales',
+            'generated_at' => now()->timezone(BusinessDate::timezone())->format('d/m/Y H:i'),
+            'generated_by' => $request->user()?->name,
+            'footer_left' => 'ERP MR-Lana',
         ];
-
-        $filters = $this->filtersLabel($request);
-
-        return Excel::download(new EmpleadosExport($rows, $filters, $meta), 'empleados.xlsx');
     }
 
     private function buildRows(Request $request): array
     {
-        // Parametros esperados desde Vue:
-        // corporativo_id, sucursal_id, area_id, q, activo(all|1|0), sort, perPage
-        $corporativoId = $request->integer('corporativo_id') ?: null;
-        $sucursalId    = $request->integer('sucursal_id') ?: null;
-        $areaId        = $request->integer('area_id') ?: null;
-        $q             = trim((string) $request->get('q', ''));
-        $activo        = (string) $request->get('activo', 'all');
-        $sort          = (string) $request->get('sort', 'nombre_asc');
-
-        $query = Empleado::query()
+        $items = ColaboradorQuery::build(ColaboradorQuery::filters($request))
             ->with([
-                'sucursal.corporativo:id,nombre,activo',
                 'sucursal:id,corporativo_id,nombre,activo',
+                'sucursal.corporativo:id,nombre,activo',
                 'area:id,nombre,activo',
-                'user:id,empleado_id,email',
-            ]);
+                'user:id,empleado_id,email,activo',
+                'user.roles:id,name',
+            ])
+            ->orderBy('apellido_paterno')
+            ->orderBy('nombre')
+            ->get();
 
-        // Reglas de negocio alineadas a tu UI:
-        // - Si no hay corporativo_id, normalmente tu UI deshabilita todo; aquí igual no filtramos.
-        if ($corporativoId) {
-            $query->whereHas('sucursal', fn($sq) => $sq->where('corporativo_id', $corporativoId));
-        }
-
-        if ($sucursalId) {
-            $query->where('sucursal_id', $sucursalId);
-        }
-
-        if ($areaId) {
-            $query->where('area_id', $areaId);
-        }
-
-        if ($activo !== 'all') {
-            $query->where('activo', $activo === '1' || $activo === 'true');
-        }
-
-        if ($q !== '') {
-            $query->where(function ($qq) use ($q) {
-                $qq->where('nombre', 'like', "%{$q}%")
-                  ->orWhere('apellido_paterno', 'like', "%{$q}%")
-                  ->orWhere('apellido_materno', 'like', "%{$q}%")
-                  ->orWhere('email', 'like', "%{$q}%")
-                  ->orWhere('telefono', 'like', "%{$q}%")
-                  ->orWhere('puesto', 'like', "%{$q}%")
-                  ->orWhereHas('sucursal', fn($s) => $s->where('nombre', 'like', "%{$q}%"))
-                  ->orWhereHas('area', fn($a) => $a->where('nombre', 'like', "%{$q}%"))
-                  ->orWhereHas('sucursal.corporativo', fn($c) => $c->where('nombre', 'like', "%{$q}%"));
-            });
-        }
-
-        // Orden estándar (adáptalo a lo que ya manejes en useEmpleadosIndex)
-        switch ($sort) {
-            case 'nombre_desc':
-                $query->orderBy('nombre', 'desc')->orderBy('apellido_paterno', 'desc');
-                break;
-            case 'apellido_asc':
-                $query->orderBy('apellido_paterno', 'asc')->orderBy('nombre', 'asc');
-                break;
-            case 'apellido_desc':
-                $query->orderBy('apellido_paterno', 'desc')->orderBy('nombre', 'desc');
-                break;
-            default: // nombre_asc
-                $query->orderBy('nombre', 'asc')->orderBy('apellido_paterno', 'asc');
-                break;
-        }
-
-        $items = $query->get();
-
-        // Flatten para PDF/Excel
         return $items->map(function (Empleado $e) {
-            $empleado = trim(($e->nombre ?? '') . ' ' . ($e->apellido_paterno ?? '') . ' ' . ($e->apellido_materno ?? ''));
-            $corp = optional(optional($e->sucursal)->corporativo)->nombre;
-            $suc  = optional($e->sucursal)->nombre;
-            $area = optional($e->area)->nombre;
-
-            $correo = $e->email;
-            if (!$correo) {
-                $correo = optional($e->user)->email; // fallback si usas email en User
-            }
+            $acceso = $e->user
+                ? 'Con acceso · '.($e->user->roles->pluck('name')->implode(', ') ?: 'Sin rol').($e->user->activo ? '' : ' (cuenta inactiva)')
+                : 'Sin acceso';
 
             return [
-                'empleado'   => $empleado ?: '—',
-                'puesto'     => $e->puesto,
-                'corporativo'=> $corp,
-                'sucursal'   => $suc,
-                'area'       => $area,
-                'correo'     => $correo,
-                'activo'     => (bool) $e->activo,
+                'empleado' => trim("{$e->nombre} {$e->apellido_paterno} ".($e->apellido_materno ?? '')) ?: '—',
+                'puesto' => $e->puesto,
+                'corporativo' => $e->sucursal?->corporativo?->nombre,
+                'sucursal' => $e->sucursal?->nombre,
+                'area' => $e->area?->nombre,
+                'correo' => $e->email ?: $e->user?->email,
+                'acceso' => $acceso,
+                'con_acceso' => $e->user !== null,
+                'activo' => (bool) $e->activo,
             ];
         })->values()->all();
     }
 
     private function filtersLabel(Request $request): array
     {
+        $f = ColaboradorQuery::filters($request);
+
         return [
-            'Corporativo' => $request->get('corporativo_id'),
-            'Sucursal'    => $request->get('sucursal_id'),
-            'Área'        => $request->get('area_id'),
-            'Búsqueda'    => $request->get('q'),
-            'Estatus'     => $request->get('activo'),
-            'Orden'       => $request->get('sort'),
-            'Por página'  => $request->get('perPage'),
+            'Corporativo' => $f['corporativo_id'] ? Corporativo::whereKey($f['corporativo_id'])->value('nombre') : null,
+            'Sucursal' => $f['sucursal_id'] ? Sucursal::whereKey($f['sucursal_id'])->value('nombre') : null,
+            'Área' => $f['area_id'] ? Area::whereKey($f['area_id'])->value('nombre') : null,
+            'Búsqueda' => $f['q'],
+            'Estatus' => ['all' => null, '1' => 'Activos', '0' => 'Inactivos'][$f['activo']],
+            'Acceso' => ['all' => null, 'con' => 'Con usuario', 'sin' => 'Sin usuario'][$f['acceso']],
         ];
     }
-
 }

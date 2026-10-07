@@ -7,7 +7,7 @@ use App\Exports\Proveedores\ProveedoresExport;
 use App\Models\Proveedor;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 
 class ProveedorExportController extends Controller {
 
@@ -21,13 +21,12 @@ class ProveedorExportController extends Controller {
             'footer_left'=> 'ERP MR-Lana',
         ];
         $filters = $this->filtersLabel($request);
-        $pdf = Pdf::loadView('exports.proveedores.index', [
+        return app(PdfService::class)->download('exports.proveedores.index', [
             'rows'    => $rows,
             'filters' => $filters,
             'meta'    => $meta,
             'totals'  => ['total' => count($rows)],
-        ])->setPaper('a4', 'landscape');
-        return $pdf->download('proveedores.pdf');
+        ], 'proveedores.pdf', ['paper' => 'letter', 'landscape' => true]);
     }
 
     public function excel(Request $request) {
@@ -49,7 +48,7 @@ class ProveedorExportController extends Controller {
         $owner  = $request->integer('user_duenio_id');
         $sort   = (string) $request->get('sort', 'created_at');
         $dir    = strtolower((string) $request->get('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $isAdminLike = in_array((string) ($request->user()->rol ?? ''), ['ADMIN','CONTADOR'], true);
+        $isAdminLike = $request->user()->can('proveedores.ver_todos');
         $query = Proveedor::query()
             ->select(['id','user_duenio_id','razon_social','rfc','clabe','banco','status','created_at']);
         if (!$isAdminLike) {

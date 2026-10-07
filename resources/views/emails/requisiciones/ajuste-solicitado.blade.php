@@ -43,7 +43,7 @@
         </tr>
         <tr>
             <td><strong>Motivo:</strong></td>
-            <td>{{ $ajuste->motivo ?? '—' }}</td>
+            <td style="white-space: pre-wrap; word-break: break-word;">{{ $ajuste->motivo ?? '—' }}</td>
         </tr>
     </table>
 

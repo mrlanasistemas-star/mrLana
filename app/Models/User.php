@@ -2,20 +2,25 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordNotification;
+use App\Support\Permissions\PermissionCatalog;
+use App\Traits\LogsActivity;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Mail\CambioContraseñaEmail;
-use Illuminate\Support\Facades\Mail;
-use App\Traits\LogsActivity;
-use App\Notifications\ResetPasswordNotification;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * Class User
  *
- * Representa a un usuario autenticable dentro del sistema. Puede estar asociado a un empleado, tener un rol definido (ADMIN, CONTADOR, COLABORADOR) y relacionarse con proveedores, requisiciones, comprobantes, ajustes y folios registrados.
+ * Cuenta autenticable del sistema. Puede estar vinculada (uno a uno) a un
+ * colaborador (tabla `empleados`). La autorización se resuelve con roles y
+ * permisos (spatie/laravel-permission).
  *
- * Este modelo conserva completamente las configuraciones originales de Laravel Breeze y agrega las relaciones necesarias para el ERP de gastos (Filament)
+ * `rol` es un campo LEGADO (ADMIN/CONTADOR/COLABORADOR): se conserva por
+ * compatibilidad y se mantiene sincronizado con el rol asignado, pero ya no es
+ * la fuente de autorización. No lo uses para decidir accesos.
  *
  * @property int $id
  * @property int|null $empleado_id
@@ -27,8 +32,7 @@ use App\Notifications\ResetPasswordNotification;
  */
 class User extends Authenticatable
 {
-
-    use HasFactory, Notifiable, LogsActivity;
+    use HasFactory, HasRoles, LogsActivity, Notifiable;
 
     /**
      * Atributos con asignación masiva permitida.
@@ -39,6 +43,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'empleado_id',
+        'activo',
     ];
 
     /**
@@ -49,6 +55,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'roles',
+        'permissions',
     ];
 
     /**
@@ -61,6 +69,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'activo' => 'boolean',
         ];
     }
 
@@ -69,13 +78,61 @@ class User extends Authenticatable
         $this->notify(new ResetPasswordNotification($token));
     }
 
+    /**
+     * Canal privado de broadcasting para notificaciones del usuario.
+     */
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return 'App.Models.User.'.$this->id;
+    }
+
+    /*=========================================================
+     | ESTADO Y PERMISOS
+     =========================================================*/
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('activo', true);
+    }
+
+    /** Tiene administración total (roles + usuarios). */
+    public function hasFullAdministration(): bool
+    {
+        foreach (PermissionCatalog::ADMIN_PERMISSIONS as $permission) {
+            if (! $this->hasPermissionTo($permission)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** Nombres de permisos efectivos (directos + vía roles). */
+    public function permissionNames(): array
+    {
+        return $this->getAllPermissions()->pluck('name')->values()->all();
+    }
+
+    /** Mantiene el campo legado `rol` coherente con el rol asignado. */
+    public function syncLegacyRol(?Role $role): void
+    {
+        $map = array_flip(PermissionCatalog::LEGACY_ROLE_MAP);
+        $legacy = $role ? ($map[$role->name] ?? null) : null;
+
+        if ($legacy === null && $role) {
+            $legacy = $role->hasPermissionTo('roles.editar') ? 'ADMIN'
+                : ($role->hasPermissionTo('pagos.autorizar') ? 'CONTADOR' : 'COLABORADOR');
+        }
+
+        $this->rol = $legacy ?? 'COLABORADOR';
+    }
+
     /*=========================================================
      | RELACIONES DEL ERP
      =========================================================*/
 
     /**
-     * Relación: Usuario → Empleado (opcional).
-     * Un usuario puede estar ligado al registro de un empleado.
+     * Relación: Usuario → Colaborador (opcional, uno a uno).
      */
     public function empleado()
     {
@@ -121,5 +178,4 @@ class User extends Authenticatable
     {
         return $this->hasMany(Folio::class, 'user_registro_id');
     }
-
 }

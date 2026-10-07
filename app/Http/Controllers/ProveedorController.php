@@ -29,7 +29,7 @@ class ProveedorController extends Controller {
         $perPage = (int) $request->get('perPage', 10);
         $perPage = $perPage > 0 ? $perPage : 10;
 
-        $isAdminLike = in_array((string) ($user->rol ?? ''), ['ADMIN', 'CONTADOR'], true);
+        $isAdminLike = $user->can('proveedores.ver_todos');
 
         $query = Proveedor::query()
             ->select(['id','user_duenio_id','razon_social','rfc','clabe','banco','status','created_at','updated_at']);
@@ -95,7 +95,14 @@ class ProveedorController extends Controller {
             ],
             'rows' => $rows,
             'owners' => $owners,
-            'canDelete' => true, // en tu UI decides si lo muestras o no
+            'can' => [
+                'registrar' => $user->can('proveedores.registrar'),
+                'editar' => $user->can('proveedores.editar'),
+                'desactivar' => $user->can('proveedores.desactivar'),
+                'reactivar' => $user->can('proveedores.reactivar'),
+                'exportar' => $user->can('proveedores.exportar'),
+            ],
+            'canDelete' => $user->can('proveedores.desactivar')
         ]);
     }
 
@@ -133,6 +140,8 @@ class ProveedorController extends Controller {
      */
     public function update(Request $request, Proveedor $proveedore): RedirectResponse
     {
+        $this->authorize("update", $proveedore);
+
         $data = $request->validate([
             'razon_social' => ['required','string','max:200'],
             'rfc' => ['required','string','max:20'],
@@ -154,6 +163,8 @@ class ProveedorController extends Controller {
      * En UI es “Eliminar”, pero yo solo marco INACTIVO.
      */
     public function destroy(Request $request, Proveedor $proveedore): RedirectResponse {
+        $this->authorize("delete", $proveedore);
+
         if (strtoupper((string) $proveedore->status) === 'INACTIVO') {
             // Yo no hago “doble eliminación”
             return back()->with('success', 'Proveedor eliminado.');
@@ -177,6 +188,7 @@ class ProveedorController extends Controller {
 
         Proveedor::query()
             ->whereIn('id', $data['ids'])
+            ->when(! $request->user()->can('proveedores.ver_todos'), fn ($q) => $q->where('user_duenio_id', $request->user()->id))
             ->where('status', 'ACTIVO')
             ->update(['status' => 'INACTIVO']);
 
@@ -184,8 +196,9 @@ class ProveedorController extends Controller {
     }
 
     // PATCH /proveedores/{proveedor}/activate
-    public function activate(\Illuminate\Http\Request $request, Proveedor $proveedor) {
-        // Reactivar = status ACTIVO. No meto permisos aquí porque lo controlamos en el front.
+    public function activate(Request $request, Proveedor $proveedor): RedirectResponse {
+        $this->authorize("restore", $proveedor);
+
         $proveedor->status = 'ACTIVO';
         $proveedor->save();
 

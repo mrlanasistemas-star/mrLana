@@ -23,6 +23,7 @@ class Requisicion extends Model {
         'monto_subtotal',
         'monto_total',
         'fecha_solicitud',
+        'fecha_pago_esperada',
         'fecha_autorizacion',
         'fecha_pago',
         'observaciones',
@@ -33,6 +34,7 @@ class Requisicion extends Model {
         'monto_subtotal'      => 'decimal:2',
         'monto_total'         => 'decimal:2',
         'fecha_solicitud'     => 'datetime',
+        'fecha_pago_esperada' => 'date',
         'fecha_autorizacion'  => 'datetime',
         'fecha_pago'          => 'date',
     ];
@@ -92,6 +94,49 @@ class Requisicion extends Model {
     // Ajustes asociados (devoluciones o faltantes)
     public function ajustes() {
         return $this->hasMany(Ajuste::class, 'requisicion_id');
+    }
+
+    // Solicitudes de eliminación (colaborador solicita, Contabilidad autoriza)
+    public function eliminacionSolicitudes() {
+        return $this->hasMany(RequisicionEliminacionSolicitud::class, 'requisicion_id');
+    }
+
+    /* ============================
+     * Alcance por usuario (permisos "ver todos" / "ver propios")
+     * ============================ */
+
+    /**
+     * Una requisición es "propia" si el usuario la creó o si es el
+     * colaborador solicitante vinculado a su cuenta.
+     */
+    public function isOwnedBy(User $user): bool {
+        if ((int) $this->creada_por_user_id === (int) $user->id) {
+            return true;
+        }
+
+        return $user->empleado_id !== null
+            && (int) $this->solicitante_id === (int) $user->empleado_id;
+    }
+
+    /**
+     * Limita la consulta a lo que el usuario puede ver según sus permisos.
+     * Sin "ver todos" ni "ver propios" no devuelve registros.
+     */
+    public function scopeVisibleTo($query, User $user) {
+        if ($user->can('requisiciones.ver_todos')) {
+            return $query;
+        }
+
+        if (! $user->can('requisiciones.ver_propios')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($q) use ($user) {
+            $q->where('creada_por_user_id', $user->id);
+            if ($user->empleado_id) {
+                $q->orWhere('solicitante_id', $user->empleado_id);
+            }
+        });
     }
 
     /* ============================

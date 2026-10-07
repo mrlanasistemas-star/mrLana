@@ -1,101 +1,85 @@
-<!doctype html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <title>Dashboard {{ $role }}</title>
-    <style>
-        body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 12px; color: #111; }
-        .h1 { font-size: 18px; margin: 0 0 6px 0; }
-        .muted { color: #555; margin: 0 0 14px 0; }
-        .card { border: 1px solid #ddd; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-        th { background: #f2f2f2; }
-        .grid { display: table; width: 100%; table-layout: fixed; }
-        .col { display: table-cell; vertical-align: top; padding-right: 8px; }
-    </style>
-</head>
-<body>
-    <div class="h1">{{ $data['headline'] ?? 'Dashboard' }} — {{ $role }}</div>
-    <p class="muted">Generado: {{ $generatedAt }}</p>
+@php
+    $meta = [
+        'title' => $data['headline'] ?? 'Dashboard',
+        'subtitle' => ($data['subheadline'] ?? '').' Periodo: '.($data['period']['from'] ?? '').' – '.($data['period']['to'] ?? ''),
+        'generated_at' => $generatedAt ?? now()->format('d/m/Y H:i'),
+        'generated_by' => trim(($data['userName'] ?? '').(!empty($data['userRole']) ? ' · '.$data['userRole'] : '')),
+        'footer_left' => 'ERP MR-Lana · Reporte de dashboard',
+    ];
+    $stats = collect($data['kpis'] ?? [])->mapWithKeys(fn ($k) => [$k['label'] => $k['value']])->all();
+    $activityTotal = collect($data['activityDaily'] ?? [])->sum('value');
+    $amountTotal = collect($data['amountsDaily'] ?? [])->sum('value');
+@endphp
+@extends('pdf.layouts.report')
 
-    <div class="card">
-        <strong>KPIs</strong>
-        <table style="margin-top:8px;">
-            <thead>
-                <tr><th>KPI</th><th>Valor</th></tr>
-            </thead>
-            <tbody>
-                @foreach(($data['kpis'] ?? []) as $k)
-                    <tr>
-                        <td>{{ $k['label'] ?? '' }}</td>
-                        <td>{{ $k['value'] ?? '' }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
+@push('styles')
+    .charts { width: 100%; border-collapse: separate; border-spacing: 10px; margin: 0 -10px; }
+    .chart-card { border: 1px solid #E4E4E7; border-radius: 12px; padding: 12px 14px; vertical-align: top; background: #FFFFFF; page-break-inside: avoid; }
+    .chart-title { font-size: 11px; font-weight: 700; color: #09090B; margin: 0; }
+    .chart-desc { font-size: 9px; color: #71717A; margin: 2px 0 8px; }
+    .chart-img { width: 100%; height: auto; display: block; }
+    .kpi-hint { font-size: 8.5px; color: #71717A; margin-top: 2px; }
+@endpush
 
-    <div class="grid">
-        <div class="col">
-            <div class="card">
-                <strong>Actividad (14 días)</strong>
-                <table style="margin-top:8px;">
-                    <thead><tr><th>Fecha</th><th>Cantidad</th></tr></thead>
-                    <tbody>
-                    @foreach(($data['activityDaily'] ?? []) as $p)
-                        <tr>
-                            <td>{{ $p['date'] ?? '' }}</td>
-                            <td>{{ $p['value'] ?? 0 }}</td>
-                        </tr>
-                    @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
+@section('content')
+    <table class="charts">
+        <tr>
+            <td class="chart-card" style="width: 50%;">
+                <p class="chart-title">Requisiciones por día</p>
+                <p class="chart-desc">Últimos 14 días · {{ number_format($activityTotal) }} en total</p>
+                <img class="chart-img" src="{{ $charts['activity'] }}" alt="Requisiciones por día">
+            </td>
+            <td class="chart-card" style="width: 50%;">
+                <p class="chart-title">Monto solicitado por día</p>
+                <p class="chart-desc">Últimos 14 días · ${{ number_format($amountTotal, 2) }} en total</p>
+                <img class="chart-img" src="{{ $charts['amounts'] }}" alt="Monto solicitado por día">
+            </td>
+        </tr>
+        @if (($data['profile'] ?? '') !== 'personal' || collect($data['statusMix'] ?? [])->sum('value') > 0)
+            <tr>
+                <td class="chart-card">
+                    <p class="chart-title">Estatus de requisiciones</p>
+                    <p class="chart-desc">Últimos 30 días por fecha de solicitud</p>
+                    <img class="chart-img" src="{{ $charts['status'] }}" alt="Estatus de requisiciones">
+                </td>
+                <td class="chart-card">
+                    <p class="chart-title">Comprobantes del mes</p>
+                    <p class="chart-desc">{{ ucfirst($data['period']['month'] ?? '') }} por tipo de documento</p>
+                    <img class="chart-img" src="{{ $charts['comprobantes'] }}" alt="Comprobantes del mes">
+                </td>
+            </tr>
+        @endif
+    </table>
 
-        <div class="col">
-            <div class="card">
-                <strong>Montos (14 días)</strong>
-                <table style="margin-top:8px;">
-                    <thead><tr><th>Fecha</th><th>Monto</th></tr></thead>
-                    <tbody>
-                    @foreach(($data['amountsDaily'] ?? []) as $p)
-                        <tr>
-                            <td>{{ $p['date'] ?? '' }}</td>
-                            <td>{{ number_format((float)($p['value'] ?? 0), 2) }}</td>
-                        </tr>
-                    @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    <p class="section-title">Indicadores</p>
+    <table class="data">
+        <thead>
+            <tr><th>Indicador</th><th class="num" style="width: 22%;">Valor</th><th style="width: 40%;">Referencia</th></tr>
+        </thead>
+        <tbody>
+            @foreach (($data['kpis'] ?? []) as $k)
+                <tr>
+                    <td class="strong">{{ $k['label'] }}</td>
+                    <td class="num strong">{{ $k['value'] }}</td>
+                    <td class="muted">{{ $k['hint'] ?? '' }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
 
-    @if(($role ?? '') === 'ADMIN')
-        <div class="card">
-            <strong>Distribución por estatus (30 días)</strong>
-            <table style="margin-top:8px;">
-                <thead><tr><th>Estatus</th><th>Cantidad</th></tr></thead>
-                <tbody>
-                @foreach(($data['statusMix'] ?? []) as $k => $v)
-                    <tr><td>{{ $k }}</td><td>{{ $v }}</td></tr>
-                @endforeach
-                </tbody>
-            </table>
-        </div>
-
-        <div class="card">
-            <strong>Comprobantes por tipo (mes)</strong>
-            <table style="margin-top:8px;">
-                <thead><tr><th>Tipo</th><th>Cantidad</th></tr></thead>
-                <tbody>
-                @foreach(($data['comprobantesMix'] ?? []) as $k => $v)
-                    <tr><td>{{ $k }}</td><td>{{ $v }}</td></tr>
-                @endforeach
-                </tbody>
-            </table>
-        </div>
-    @endif
-</body>
-</html>
+    <p class="section-title">Detalle diario</p>
+    <table class="data">
+        <thead>
+            <tr><th>Día</th><th class="num">Requisiciones</th><th class="num">Monto</th></tr>
+        </thead>
+        <tbody>
+            @foreach (($data['activityDaily'] ?? []) as $i => $p)
+                <tr>
+                    <td>{{ $p['name'] }}</td>
+                    <td class="num">{{ number_format($p['value']) }}</td>
+                    <td class="num">${{ number_format($data['amountsDaily'][$i]['value'] ?? 0, 2) }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+@endsection

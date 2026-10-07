@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Exports\Empleados;
+namespace App\Exports\Colaboradores;
 
 use App\Exports\Core\BaseReportExport;
 
-class EmpleadosExport extends BaseReportExport
+class ColaboradoresExport extends BaseReportExport
 {
     protected function headings(): array
     {
-        return ['Empleado', 'Puesto', 'Corporativo', 'Sucursal', 'Área', 'Correo', 'Estatus'];
+        return ['Colaborador', 'Puesto', 'Corporativo', 'Sucursal', 'Área', 'Correo', 'Acceso al sistema', 'Estatus'];
     }
 
     protected function mapRow(array $r): array
@@ -20,6 +20,7 @@ class EmpleadosExport extends BaseReportExport
             $r['sucursal'] ?? '—',
             $r['area'] ?? '—',
             $r['correo'] ?? '—',
+            $r['acceso'] ?? 'Sin acceso',
             (($r['activo'] ?? false) ? 'Activo' : 'Inactivo'),
         ];
     }
@@ -33,8 +34,8 @@ class EmpleadosExport extends BaseReportExport
             'D' => 22,
             'E' => 18,
             'F' => 32,
-            'G' => 12,
+            'G' => 26,
+            'H' => 12,
         ];
     }
-    
 }

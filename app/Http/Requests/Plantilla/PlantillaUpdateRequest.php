@@ -10,12 +10,12 @@ use Illuminate\Foundation\Http\FormRequest;
 class PlantillaUpdateRequest extends FormRequest {
 
     public function authorize(): bool {
-        return true;
+        $plantilla = $this->route('plantilla');
+
+        return $plantilla !== null && (bool) $this->user()?->can('update', $plantilla);
     }
 
     public function rules(): array {
-        $id = $this->route('plantilla')?->id;
-
         return [
             'nombre' => ['required','string','max:100'],
             'solicitante_id'    => ['nullable','integer','exists:empleados,id'],
@@ -26,6 +26,7 @@ class PlantillaUpdateRequest extends FormRequest {
             'monto_subtotal'    => ['required','numeric','min:0'],
             'monto_total'       => ['required','numeric','min:0'],
             'fecha_solicitud'   => ['nullable','date'],
+            'fecha_pago_esperada' => ['nullable','date_format:Y-m-d','after_or_equal:fecha_solicitud'],
             'fecha_autorizacion'=> ['nullable','date'],
             'observaciones'     => ['nullable','string','max:2000'],
             'detalles'          => ['required','array','min:1'],
@@ -37,6 +38,12 @@ class PlantillaUpdateRequest extends FormRequest {
             'detalles.*.subtotal'    => ['required','numeric','min:0'],
             'detalles.*.iva'         => ['required','numeric','min:0'],
             'detalles.*.total'       => ['required','numeric','min:0'],
+        ];
+    }
+
+    public function messages(): array {
+        return [
+            'fecha_pago_esperada.after_or_equal' => 'La fecha esperada de pago no puede ser anterior a la fecha de solicitud.',
         ];
     }
 

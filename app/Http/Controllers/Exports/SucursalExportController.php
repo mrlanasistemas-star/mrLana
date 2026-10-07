@@ -7,7 +7,7 @@ use App\Exports\Sucursales\SucursalesExport;
 use App\Models\Sucursal;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 
 class SucursalExportController extends Controller
 {
@@ -25,14 +25,12 @@ class SucursalExportController extends Controller
 
         $filters = $this->filtersLabel($request);
 
-        $pdf = Pdf::loadView('exports.sucursales.index', [
+        return app(PdfService::class)->download('exports.sucursales.index', [
             'rows' => $rows,
             'filters' => $filters,
             'meta' => $meta,
             'totals' => ['total' => count($rows)],
-        ])->setPaper('a4', 'landscape');
-
-        return $pdf->download('sucursales.pdf');
+        ], 'sucursales.pdf', ['paper' => 'letter', 'landscape' => true]);
     }
 
     public function excel(Request $request)

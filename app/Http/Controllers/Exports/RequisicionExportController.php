@@ -3,13 +3,14 @@
 namespace App\Http\Controllers\Exports;
 
 use App\Exports\Requisiciones\RequisicionesExport;
+use App\Http\Controllers\RequisicionController;
 use App\Models\Concepto;
 use App\Models\Corporativo;
 use App\Models\Empleado;
 use App\Models\Proveedor;
 use App\Models\Requisicion;
 use App\Models\Sucursal;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -45,13 +46,11 @@ class RequisicionExportController {
             'footer_left'  => 'ERP MR-Lana',
         ];
 
-        $pdf = Pdf::loadView('exports.requisiciones.index', [
+        return app(PdfService::class)->download('exports.requisiciones.index', [
             'rows'    => $rows,
             'filters' => $filters,
             'meta'    => $meta,
-        ])->setPaper('letter', 'landscape');
-
-        return $pdf->download('requisiciones.pdf');
+        ], 'requisiciones.pdf', ['paper' => 'letter', 'landscape' => true]);
     }
 
     /**
@@ -72,7 +71,6 @@ class RequisicionExportController {
         $solicitanteId = $request->query('solicitante_id');
         $conceptoId    = $request->query('concepto_id');
         $proveedorId   = $request->query('proveedor_id');
-        $tipo          = (string) $request->query('tipo', '');
         $registroFrom = $this->safeYmd($request->query('fecha_registro_from') ?? $request->query('fecha_from'));
         $registroTo   = $this->safeYmd($request->query('fecha_registro_to') ?? $request->query('fecha_to'));
         $pagoFrom     = $this->safeYmd($request->query('fecha_pago_from'));
@@ -82,9 +80,10 @@ class RequisicionExportController {
         $sort          = $this->normalizeSort($sortRaw);
 
         $user = $request->user();
-        $rol  = strtoupper((string)($user->rol ?? 'COLABORADOR'));
+        $verTodos = $user->can('requisiciones.ver_todos');
 
         $query = Requisicion::query()
+            ->visibleTo($user)
             ->with([
                 'sucursal:id,nombre,codigo,corporativo_id',
                 'sucursal.corporativo:id,nombre',
@@ -94,14 +93,6 @@ class RequisicionExportController {
                 'comprador:id,nombre',
                 'detalles',
             ]);
-
-        if ($rol === 'COLABORADOR') {
-            if ($user && $user->empleado_id) {
-                $query->where('solicitante_id', (int) $user->empleado_id);
-            } else {
-                $query->whereRaw('1=0');
-            }
-        }
 
         if ($status === 'ELIMINADA' || $tab === 'ELIMINADAS') {
             $query->where('status', 'ELIMINADA');
@@ -125,8 +116,9 @@ class RequisicionExportController {
 
                 case 'ACTIVAS':
                 default:
-                    if ($rol !== 'COLABORADOR') {
-                        $query->whereNotIn('status', ['BORRADOR', 'ELIMINADA']);
+                    // Igual que el listado: sin borradores ajenos para quien ve todas.
+                    if ($verTodos) {
+                        $query->where(fn ($w) => $w->where('status', '!=', 'BORRADOR')->orWhere('creada_por_user_id', $user->id));
                     }
                     break;
             }
@@ -147,27 +139,24 @@ class RequisicionExportController {
 
         if (!empty($corpId))        $query->where('comprador_corp_id', (int) $corpId);
         if (!empty($sucursalId))    $query->where('sucursal_id', (int) $sucursalId);
-        if ($rol !== 'COLABORADOR' && !empty($solicitanteId)) {
+        if ($verTodos && !empty($solicitanteId)) {
             $query->where('solicitante_id', (int) $solicitanteId);
         }
         if (!empty($conceptoId))    $query->where('concepto_id', (int) $conceptoId);
         if (!empty($proveedorId))   $query->where('proveedor_id', (int) $proveedorId);
-        if ($tipo !== '')           $query->where('tipo', $tipo);
         if ($registroFrom) $query->whereDate('created_at', '>=', $registroFrom);
         if ($registroTo)   $query->whereDate('created_at', '<=', $registroTo);
         if ($pagoFrom)     $query->whereDate('fecha_pago', '>=', $pagoFrom);
         if ($pagoTo)       $query->whereDate('fecha_pago', '<=', $pagoTo);
 
-        $allowed = ['folio', 'created_at', 'monto_total', 'status', 'tipo', 'id'];
+        $allowed = ['folio', 'created_at', 'monto_total', 'status', 'id'];
         if (!in_array($sort, $allowed, true)) {
             $sort = 'created_at';
         }
 
-        $perPageRaw = $request->query('perPage', 0);
-        $showAll = $perPageRaw === 'all' || $perPageRaw === 'todos';
-
-        $perPage = $showAll ? 0 : (int) $perPageRaw;
-        $page    = (int) $request->query('page', 0);
+        // Misma normalización de "por página" que el listado (predeterminado 20).
+        $page = (int) $request->query('page', 0);
+        [$perPage, $showAll] = RequisicionController::resolvePerPage($request->query('perPage'));
 
         $itemsQuery = $query
             ->orderBy($sort, $dir)
@@ -202,6 +191,8 @@ class RequisicionExportController {
                 'fecha_captura'   => optional($req->created_at)->format('Y-m-d H:i'),
                 'fecha_solicitud' => $req->fecha_solicitud ? optional($req->fecha_solicitud)->format('Y-m-d') : '',
                 'fecha_pago'      => $req->fecha_pago ? optional($req->fecha_pago)->format('Y-m-d') : '',
+                'fecha_pago_esperada' => $req->fecha_pago_esperada ? $req->fecha_pago_esperada->format('Y-m-d') : '',
+                'fecha_autorizacion'  => $req->fecha_autorizacion ? $req->fecha_autorizacion->format('Y-m-d H:i') : '',
                 'tipo'            => $req->tipo,
                 'estatus'         => $req->status,
 
@@ -235,6 +226,8 @@ class RequisicionExportController {
                     'fecha_captura'     => !$printedHeader ? $common['fecha_captura'] : '',
                     'fecha_solicitud'   => !$printedHeader ? $common['fecha_solicitud'] : '',
                     'fecha_pago'        => !$printedHeader ? $common['fecha_pago'] : '',
+                    'fecha_pago_esperada' => !$printedHeader ? $common['fecha_pago_esperada'] : '',
+                    'fecha_autorizacion'  => !$printedHeader ? $common['fecha_autorizacion'] : '',
                     'tipo'              => !$printedHeader ? $common['tipo'] : '',
                     'estatus'           => !$printedHeader ? $common['estatus'] : '',
                     'comprador'         => !$printedHeader ? $common['comprador'] : '',
@@ -273,6 +266,8 @@ class RequisicionExportController {
                     'fecha_captura'     => $common['fecha_captura'],
                     'fecha_solicitud'   => $common['fecha_solicitud'],
                     'fecha_pago'        => $common['fecha_pago'],
+                    'fecha_pago_esperada' => $common['fecha_pago_esperada'],
+                    'fecha_autorizacion'  => $common['fecha_autorizacion'],
                     'tipo'              => $common['tipo'],
                     'estatus'           => $common['estatus'],
                     'comprador'         => $common['comprador'],
@@ -311,6 +306,8 @@ class RequisicionExportController {
                     'fecha_captura'     => '',
                     'fecha_solicitud'   => '',
                     'fecha_pago'        => '',
+                    'fecha_pago_esperada' => '',
+                    'fecha_autorizacion'  => '',
                     'tipo'              => '',
                     'estatus'           => '',
                     'comprador'         => '',

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Services\Dashboard\DashboardProfile;
+use App\Support\BusinessDate;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -13,8 +15,9 @@ class ColaboradorDashboardController extends Controller
     public function index(): Response
     {
         $user = auth()->user();
+        abort_unless(DashboardProfile::Personal->allowedFor($user), 403);
 
-        $tz = config('app.timezone', 'America/Mexico_City');
+        $tz = BusinessDate::timezone();
         $now = Carbon::now($tz);
 
         $start14 = $now->copy()->subDays(13)->startOfDay();
@@ -85,7 +88,9 @@ class ColaboradorDashboardController extends Controller
                 'headline' => 'Mi operación',
                 'subheadline' => 'Tus métricas (14 días) y foco de pendientes.',
                 'userName' => $user->name,
-                'userRole' => $user->rol,
+                'userRole' => $user->getRoleNames()->implode(', '),
+                'exportSegment' => DashboardProfile::Personal->exportSegment(),
+                'canExport' => $user->can('reportes.dashboard'),
                 'kpis' => $kpis,
                 'activityDaily' => $activityDaily,
                 'amountsDaily' => $amountsDaily,

@@ -7,7 +7,7 @@ use App\Exports\Conceptos\ConceptosExport;
 use App\Models\Concepto;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\Pdf\PdfService;
 
 class ConceptoExportController extends Controller
 {
@@ -25,14 +25,12 @@ class ConceptoExportController extends Controller
 
         $filters = $this->filtersLabel($request);
 
-        $pdf = Pdf::loadView('exports.conceptos.index', [
+        return app(PdfService::class)->download('exports.conceptos.index', [
             'rows' => $rows,
             'filters' => $filters,
             'meta' => $meta,
             'totals' => ['total' => count($rows)],
-        ])->setPaper('a4', 'landscape');
-
-        return $pdf->download('conceptos.pdf');
+        ], 'conceptos.pdf', ['paper' => 'letter', 'landscape' => true]);
     }
 
     public function excel(Request $request)

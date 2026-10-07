@@ -2,18 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\NotificationTopic;
 use App\Http\Requests\Pagos\StorePagoRequest;
+use App\Mail\RequisicionPagadaMail;
+use App\Mail\RequisicionPagoAutorizadoMail;
 use App\Models\Pago;
 use App\Models\Requisicion;
+use App\Services\Notifications\NotificationService;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 
 class RequisicionPagoController extends Controller {
 
-    public function create(Requisicion $requisicion) {
+    public function __construct(private NotificationService $notifications) {}
+
+    public function create(Request $request, Requisicion $requisicion) {
+        $this->authorize('viewPayments', $requisicion);
+        $user = $request->user();
+
         $requisicion->load(['proveedor', 'concepto', 'solicitante']);
 
         $pagos = $requisicion->pagos()->latest('id')->get();
@@ -60,6 +69,8 @@ class RequisicionPagoController extends Controller {
                     'solicitante_nombre' => $this->safeNombre($requisicion->solicitante),
                     'beneficiario' => $benef,
                     'status' => (string) ($requisicion->status ?? ''),
+                    'fecha_solicitud' => optional($requisicion->fecha_solicitud)->format('Y-m-d'),
+                    'fecha_pago_esperada' => optional($requisicion->fecha_pago_esperada)->format('Y-m-d'),
                     'fecha_autorizacion' => optional($requisicion->fecha_autorizacion)->format('Y-m-d'),
                     'fecha_pago_programada' => optional($requisicion->fecha_pago)->format('Y-m-d'),
                     'cantidad_pagos'                    => $cantidadPagos,
@@ -80,35 +91,61 @@ class RequisicionPagoController extends Controller {
                 ['id' => 'CHEQUE', 'nombre' => 'Cheque'],
                 ['id' => 'OTRO', 'nombre' => 'Otro'],
             ],
+            'can' => [
+                'autorizar' => $user->can('authorizePayment', $requisicion),
+                'registrar' => $user->can('registerPayment', $requisicion),
+            ],
         ]);
     }
 
     public function authorizePago(Request $request, Requisicion $requisicion) {
-        $rol = strtoupper((string) (auth()->user()->rol ?? 'COLABORADOR'));
-        abort_unless(in_array($rol, ['ADMIN', 'CONTADOR'], true), 403);
+        $this->authorize('authorizePayment', $requisicion);
         $data = $request->validate([
-            'fecha_pago' => ['required', 'date'],
+            'fecha_pago' => ['required', 'date_format:Y-m-d'],
+        ], [
+            'fecha_pago.required' => 'Indica la fecha programada de pago.',
+            'fecha_pago.date_format' => 'La fecha de pago debe tener formato AAAA-MM-DD.',
         ]);
-        if (strtoupper((string) $requisicion->status) !== 'CAPTURADA') {
+
+        // fecha_autorizacion registra el momento REAL de la autorización (auditoría).
+        $autorizada = DB::transaction(fn () => Requisicion::query()
+            ->whereKey($requisicion->id)
+            ->where('status', 'CAPTURADA')
+            ->update([
+                'fecha_autorizacion' => now(),
+                'fecha_pago'         => $data['fecha_pago'], // fecha programada
+                'status'             => 'PAGO_AUTORIZADO',
+            ]) === 1);
+
+        if (! $autorizada) {
             return back()->with('error', 'La requisición no se puede autorizar en su estado actual.');
         }
-        $requisicion->update([
-            'fecha_autorizacion' => now(),
-            'fecha_pago'         => $data['fecha_pago'], // fecha posible/programada
-            'status'             => 'PAGO_AUTORIZADO',
-        ]);
-        $requisicion->load(['solicitante.user']);
+
+        $requisicion->refresh()->load(['solicitante.user', 'creadaPor']);
+        $this->notifications->notify(
+            topic: NotificationTopic::Pagos,
+            event: 'pago.autorizado',
+            title: "Pago autorizado: {$requisicion->folio}",
+            message: 'Pago programado para el '.Carbon::parse($data['fecha_pago'])->format('d/m/Y').'.',
+            severity: 'success',
+            url: route('requisiciones.show', $requisicion->id, false),
+            direct: [$requisicion->solicitante?->user, $requisicion->creadaPor],
+            actor: $request->user(),
+        );
+
         $colaborador = $requisicion->solicitante?->user;
-        if ($colaborador && $colaborador->email) {
-            Mail::to($colaborador->email)
-                ->send(new \App\Mail\RequisicionPagoAutorizadoMail($requisicion, $data['fecha_pago']));
+        if ($colaborador?->email) {
+            $this->notifications->mail($colaborador->email, new RequisicionPagoAutorizadoMail($requisicion, $data['fecha_pago']));
         }
+
         return back()->with('success', 'Pago autorizado correctamente.');
     }
 
     public function store(StorePagoRequest $request, Requisicion $requisicion) {
-        $requisicion->load(['proveedor', 'solicitante.user']);
-        return DB::transaction(function () use ($request, $requisicion) {
+        $this->authorize('registerPayment', $requisicion);
+        $requisicion->load(['proveedor', 'solicitante.user', 'creadaPor']);
+
+        $resultado = DB::transaction(function () use ($request, $requisicion) {
             $pagadoActual = (float) $requisicion->pagos()->sum('monto');
             $montoTotal   = (float) $requisicion->monto_total;
             $pendiente    = max(0, $montoTotal - $pagadoActual);
@@ -147,14 +184,8 @@ class RequisicionPagoController extends Controller {
                 $requisicion->update([
                     'status' => $nuevoStatus,
                 ]);
-                if ($nuevoStatus === 'PAGADA') {
-                    $colaborador = $requisicion->solicitante?->user;
-                    if ($colaborador && $colaborador->email) {
-                        Mail::to($colaborador->email)
-                            ->send(new \App\Mail\RequisicionPagadaMail($requisicion));
-                    }
-                }
-                return back()->with('success', 'Pago registrado correctamente.');
+
+                return $nuevoStatus;
             } catch (\Throwable $e) {
                 if ($stored) {
                     Storage::disk('public')->delete($stored);
@@ -162,11 +193,35 @@ class RequisicionPagoController extends Controller {
                 throw $e;
             }
         });
+
+        if (! is_string($resultado)) {
+            return $resultado; // error de validación de montos
+        }
+
+        // Notificaciones fuera de la transacción: un fallo SMTP no revierte el pago.
+        if ($resultado === 'PAGADA') {
+            $this->notifications->notify(
+                topic: NotificationTopic::Pagos,
+                event: 'pago.completado',
+                title: "Pago completado: {$requisicion->folio}",
+                message: 'Se registró el pago total de $'.number_format((float) $requisicion->monto_total, 2).'. Ya puedes cargar tus comprobantes.',
+                severity: 'success',
+                url: route('requisiciones.comprobar', $requisicion->id, false),
+                direct: [$requisicion->solicitante?->user, $requisicion->creadaPor],
+                actor: $request->user(),
+            );
+
+            $colaborador = $requisicion->solicitante?->user;
+            if ($colaborador?->email) {
+                $this->notifications->mail($colaborador->email, new RequisicionPagadaMail($requisicion));
+            }
+        }
+
+        return back()->with('success', 'Pago registrado correctamente.');
     }
 
     public function updateFechaPagoGeneral(Request $request, Requisicion $requisicion) {
-        $rol = strtoupper((string) (auth()->user()->rol ?? 'COLABORADOR'));
-        abort_unless(in_array($rol, ['ADMIN', 'CONTADOR'], true), 403);
+        $this->authorize('registerPayment', $requisicion);
 
         $data = $request->validate([
             'fecha_pago' => ['required', 'date'],
