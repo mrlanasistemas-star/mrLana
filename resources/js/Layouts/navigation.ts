@@ -1,5 +1,6 @@
 import type { Component } from 'vue'
 import {
+    Banknote,
     Bell,
     Building2,
     ClipboardList,
@@ -8,6 +9,7 @@ import {
     LayoutDashboard,
     Layers3,
     MapPin,
+    Receipt,
     ScrollText,
     Settings,
     Tags,
@@ -45,6 +47,8 @@ export const NAVIGATION: NavGroup[] = [
         items: [
             { label: 'Requisiciones', routeName: 'requisiciones.index', activePattern: 'requisiciones.*', icon: FileText, anyOf: ['requisiciones.ver_todos', 'requisiciones.ver_propios'] },
             { label: 'Plantillas', routeName: 'plantillas.index', activePattern: 'plantillas.*', icon: ClipboardList, anyOf: ['plantillas.ver_todos', 'plantillas.ver_propios'] },
+            { label: 'Pagos', routeName: 'pagos.index', activePattern: 'pagos.*', icon: Banknote, anyOf: ['pagos.ver'] },
+            { label: 'Comprobantes', routeName: 'comprobantes.index', activePattern: 'comprobantes.*', icon: Receipt, anyOf: ['comprobaciones.ver'] },
         ],
     },
     {

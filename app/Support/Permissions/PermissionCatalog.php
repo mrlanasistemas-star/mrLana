@@ -81,6 +81,7 @@ final class PermissionCatalog
                 'pagos.ver' => 'Ver pagos',
                 'pagos.autorizar' => 'Autorizar pagos',
                 'pagos.registrar' => 'Registrar pagos',
+                'pagos.exportar' => 'Exportar pagos',
             ]],
             'comprobaciones' => ['label' => 'Comprobaciones', 'permissions' => [
                 'comprobaciones.ver' => 'Ver comprobaciones',
@@ -88,6 +89,7 @@ final class PermissionCatalog
                 'comprobaciones.revisar' => 'Revisar comprobantes',
                 'comprobaciones.eliminar' => 'Eliminar comprobantes',
                 'comprobaciones.administrar_folios' => 'Editar folios de factura',
+                'comprobaciones.exportar' => 'Exportar comprobantes',
             ]],
             'ajustes' => ['label' => 'Ajustes de monto', 'permissions' => [
                 'ajustes.ver' => 'Ver ajustes',
@@ -186,8 +188,8 @@ final class PermissionCatalog
             [
                 'requisiciones.ver_todos', 'requisiciones.registrar', 'requisiciones.editar',
                 'requisiciones.eliminar', 'requisiciones.exportar', 'requisiciones.autorizar_eliminacion',
-                'pagos.ver', 'pagos.autorizar', 'pagos.registrar',
-                'comprobaciones.ver', 'comprobaciones.subir', 'comprobaciones.revisar', 'comprobaciones.eliminar',
+                'pagos.ver', 'pagos.autorizar', 'pagos.registrar', 'pagos.exportar',
+                'comprobaciones.ver', 'comprobaciones.subir', 'comprobaciones.revisar', 'comprobaciones.eliminar', 'comprobaciones.exportar',
                 'ajustes.ver', 'ajustes.solicitar', 'ajustes.revisar', 'ajustes.aplicar',
                 'plantillas.ver_todos', 'plantillas.registrar', 'plantillas.editar', 'plantillas.eliminar',
                 'reportes.dashboard',

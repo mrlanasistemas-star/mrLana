@@ -89,6 +89,12 @@ class Requisicion extends Model
         return $this->belongsTo(User::class, 'creada_por_user_id');
     }
 
+    //  Usuario que autorizó el pago (desde octubre 2026; antes no se registraba)
+    public function pagoAutorizadoPor()
+    {
+        return $this->belongsTo(User::class, 'pago_autorizado_por_id');
+    }
+
     //  Detalles (líneas de la requisición)
     public function detalles()
     {

@@ -117,6 +117,7 @@ class RequisicionPagoController extends Controller
             ->where('status', 'CAPTURADA')
             ->update([
                 'fecha_autorizacion' => now(),
+                'pago_autorizado_por_id' => $request->user()->id,
                 'fecha_pago' => $data['fecha_pago'], // fecha programada
                 'status' => 'PAGO_AUTORIZADO',
             ]) === 1);

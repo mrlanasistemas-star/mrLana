@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AreaController;
 use App\Http\Controllers\ColaboradorController;
+use App\Http\Controllers\ComprobanteController;
 use App\Http\Controllers\ConceptoController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\CorporativoController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Exports\RequisicionExportController;
 use App\Http\Controllers\Exports\SucursalExportController;
 use App\Http\Controllers\FolioController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PagoController;
 use App\Http\Controllers\PlantillaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProveedorController;
@@ -258,6 +260,20 @@ Route::middleware('auth')->group(function () {
         ->name('comprobantes.review');
     Route::post('/requisiciones/{requisicion}/comprobaciones/notify', [RequisicionComprobanteController::class, 'notify'])->middleware('permission:comprobaciones.subir')
         ->name('requisiciones.comprobaciones.notify');
+
+    // Módulos de consulta: comprobantes y pagos de todas las requisiciones visibles.
+    Route::get('/comprobantes', [ComprobanteController::class, 'index'])->middleware('permission:comprobaciones.ver')->name('comprobantes.index');
+    Route::get('/comprobantes/{comprobante}/archivo', [ComprobanteController::class, 'archivo'])->middleware('permission:comprobaciones.ver')->name('comprobantes.archivo');
+    Route::get('/pagos', [PagoController::class, 'index'])->middleware('permission:pagos.ver')->name('pagos.index');
+    Route::get('/pagos/{pago}/archivo', [PagoController::class, 'archivo'])->middleware('permission:pagos.ver')->name('pagos.archivo');
+    Route::middleware('permission:comprobaciones.exportar')->group(function () {
+        Route::get('/exports/comprobantes/pdf', [ComprobanteController::class, 'pdf'])->name('comprobantes.export.pdf');
+        Route::get('/exports/comprobantes/excel', [ComprobanteController::class, 'excel'])->name('comprobantes.export.excel');
+    });
+    Route::middleware('permission:pagos.exportar')->group(function () {
+        Route::get('/exports/pagos/pdf', [PagoController::class, 'pdf'])->name('pagos.export.pdf');
+        Route::get('/exports/pagos/excel', [PagoController::class, 'excel'])->name('pagos.export.excel');
+    });
 
     Route::get('/folios', [FolioController::class, 'index'])->middleware('permission:comprobaciones.ver')->name('folios.index');
     Route::post('/folios', [FolioController::class, 'store'])->middleware('permission:comprobaciones.subir')->name('folios.store');
