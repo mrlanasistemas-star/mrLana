@@ -19,12 +19,12 @@ class SystemLogController extends Controller
     /** Nombre del módulo por tabla. */
     public const MODULES = [
         'requisicions' => 'Requisiciones',
-        'detalles' => 'Partidas de requisición',
+        'detalles' => 'Items de requisición',
         'pagos' => 'Pagos',
         'comprobantes' => 'Comprobantes',
         'folios' => 'Folios',
         'plantillas' => 'Plantillas',
-        'plantilla_detalles' => 'Partidas de plantilla',
+        'plantilla_detalles' => 'Items de plantilla',
         'proveedors' => 'Proveedores',
         'conceptos' => 'Conceptos',
         'corporativos' => 'Corporativos',

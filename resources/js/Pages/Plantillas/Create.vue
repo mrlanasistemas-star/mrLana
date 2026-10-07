@@ -267,14 +267,14 @@ const isEdit = computed(() => !!plantilla)
                     </div>
                 </div>
 
-                <!-- ── Sección 5: Partidas ── -->
+                <!-- ── Sección 5: Items ── -->
                 <div class="erp-form-section">
                     <div class="erp-form-section-header">
                         <div class="erp-form-section-icon">
                             <FilePlus2 class="h-4 w-4" />
                         </div>
                         <div>
-                            <div class="erp-form-section-title">Partidas</div>
+                            <div class="erp-form-section-title">Items</div>
                             <div class="erp-form-section-desc">Artículos o servicios que componen la plantilla</div>
                         </div>
                         <button
@@ -283,23 +283,23 @@ const isEdit = computed(() => !!plantilla)
                             class="erp-button erp-button-primary ml-auto"
                         >
                             <Plus class="h-4 w-4" />
-                            Agregar partida
+                            Agregar item
                         </button>
                     </div>
 
                     <div class="erp-form-section-body space-y-3">
-                        <!-- Empty state de partidas -->
+                        <!-- Empty state de items -->
                         <div v-if="items.length === 0" class="erp-empty-state py-8">
                             <div class="erp-empty-state-icon">
                                 <FilePlus2 class="h-6 w-6" />
                             </div>
-                            <p class="erp-empty-state-title">Sin partidas</p>
+                            <p class="erp-empty-state-title">Sin items</p>
                             <p class="erp-empty-state-desc">
-                                Agrega partidas para comenzar a construir la plantilla.
+                                Agrega items para comenzar a construir la plantilla.
                             </p>
                         </div>
 
-                        <!-- Lista de partidas -->
+                        <!-- Lista de items -->
                         <div
                             v-for="(item, index) in items"
                             :key="index"
@@ -362,7 +362,7 @@ const isEdit = computed(() => !!plantilla)
                                 </div>
                             </div>
 
-                            <!-- Total de la partida + botón quitar -->
+                            <!-- Total del item + botón quitar -->
                             <div class="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-white/[0.06]">
                                 <div class="text-sm text-slate-500 dark:text-zinc-400 space-x-4">
                                     <span>
@@ -382,7 +382,7 @@ const isEdit = computed(() => !!plantilla)
                                     type="button"
                                     @click="removeItem(index)"
                                     class="erp-icon-button text-rose-500 border-rose-200 dark:border-rose-500/25 hover:bg-rose-50 dark:hover:bg-rose-500/10"
-                                    aria-label="Quitar partida"
+                                    aria-label="Quitar item"
                                 >
                                     <Trash2 class="h-4 w-4" />
                                 </button>

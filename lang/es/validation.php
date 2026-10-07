@@ -207,7 +207,7 @@ return [
         'cuenta' => 'cuenta',
         'current_password' => 'contraseña actual',
         'descripcion' => 'descripción',
-        'detalles' => 'partidas',
+        'detalles' => 'items',
         'direccion' => 'dirección',
         'email' => 'correo electrónico',
         'empleado_id' => 'colaborador',

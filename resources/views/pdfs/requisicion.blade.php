@@ -138,14 +138,15 @@
     </div>
 
     <div class="card">
-        <p class="section">Partidas</p>
+        <p class="section">Items solicitados</p>
         <table class="items">
             <thead>
                 <tr>
                     <th style="width: 8%;">Cant.</th>
-                    <th style="width: 16%;">Sucursal</th>
-                    <th>Descripción</th>
-                    <th class="num" style="width: 14%;">Importe</th>
+                    <th style="width: 14%;">Sucursal</th>
+                    <th>Item</th>
+                    <th class="num" style="width: 11%;">Precio unit.</th>
+                    <th class="num" style="width: 12%;">Subtotal</th>
                     <th class="num" style="width: 11%;">IVA</th>
                     <th class="num" style="width: 14%;">Total</th>
                 </tr>
@@ -156,24 +157,25 @@
                         <td>{{ rtrim(rtrim(number_format((float) $d->cantidad, 2), '0'), '.') }}</td>
                         <td>{{ $d->sucursal->nombre ?? '—' }}</td>
                         <td class="pre">{{ $d->descripcion ?? '—' }}</td>
+                        <td class="num">{{ $money($d->precio_unitario) }}</td>
                         <td class="num">{{ $money($d->subtotal) }}</td>
                         <td class="num">{{ $money($d->iva) }}</td>
                         <td class="num"><strong>{{ $money($d->total) }}</strong></td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="muted" style="text-align:center; padding: 16px;">Sin partidas.</td></tr>
+                    <tr><td colspan="7" class="muted" style="text-align:center; padding: 16px;">Sin items.</td></tr>
                 @endforelse
             </tbody>
         </table>
 
         <table class="totals" style="width: 46%; margin-left: 54%; margin-top: 10px;">
             <tr><td class="muted">Subtotal</td><td class="num">{{ $money($requisicion->monto_subtotal) }}</td></tr>
-            <tr><td class="muted">Total por partidas</td><td class="num">{{ $money($totalItemsOriginal) }}</td></tr>
-            <tr><td class="muted">Ajuste neto aplicado</td><td class="num">{{ $money($totalAjustesAplicados) }}</td></tr>
+            <tr><td class="muted">Total de items</td><td class="num">{{ $money($totalItemsOriginal) }}</td></tr>
+            <tr><td class="muted">Ajustes aplicados (devoluciones, faltantes…)</td><td class="num">{{ $money($totalAjustesAplicados) }}</td></tr>
             @if ($pagadoTotal > 0)
                 <tr><td class="muted">Pagado</td><td class="num">{{ $money($pagadoTotal) }}</td></tr>
             @endif
-            <tr class="grand"><td>Total final</td><td class="num">{{ $money($totalFinalAuditado) }}</td></tr>
+            <tr class="grand"><td>Total efectuado</td><td class="num">{{ $money($totalFinalAuditado) }}</td></tr>
         </table>
     </div>
 
