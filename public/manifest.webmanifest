@@ -1,0 +1,25 @@
+{
+    "id": "/",
+    "name": "MR-Lana ERP",
+    "short_name": "MR-Lana",
+    "description": "ERP de gastos: requisiciones, pagos, comprobaciones y catálogos.",
+    "lang": "es-MX",
+    "start_url": "/dashboard?source=pwa",
+    "scope": "/",
+    "display": "standalone",
+    "display_override": ["window-controls-overlay", "standalone"],
+    "orientation": "any",
+    "background_color": "#FFFFFF",
+    "theme_color": "#18181B",
+    "categories": ["business", "finance", "productivity"],
+    "icons": [
+        { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ],
+    "shortcuts": [
+        { "name": "Nueva requisición", "url": "/requisiciones/registrar?source=pwa", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+        { "name": "Requisiciones", "url": "/requisiciones?source=pwa", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+        { "name": "Notificaciones", "url": "/notificaciones?source=pwa", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    ]
+}

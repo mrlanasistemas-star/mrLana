@@ -5,6 +5,10 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import { initPwa } from './Composables/usePwaInstall';
+
+// Aplicación instalable: captura el aviso de instalación y registra el service worker.
+initPwa();
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 

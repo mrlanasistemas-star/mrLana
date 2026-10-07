@@ -391,10 +391,10 @@ const errorList = computed(() => Object.values(form.errors as Record<string, str
                         <fieldset :disabled="!canEdit || form.processing" class="ui-card min-w-0 p-4 sm:p-5">
                             <legend class="sr-only">Aplicación</legend>
                             <h3 class="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-zinc-100">
-                                <Smartphone class="h-4 w-4 text-brand-accent" aria-hidden="true" /> Descargar aplicación
+                                <Smartphone class="h-4 w-4 text-brand-accent" aria-hidden="true" /> Aplicación instalable
                             </h3>
-                            <p class="ui-help">Enlace del botón «Descargar aplicación» (AppView) en el menú y la barra superior.</p>
-                            <label for="app-url" class="ui-label mt-3">URL de descarga</label>
+                            <p class="ui-help">El botón «Instalar app» del menú instala el ERP como aplicación en escritorio (Chrome/Edge) y Android, sin tiendas ni archivos. Solo si tienes un instalador propio (p. ej. un APK), escribe aquí su enlace y el botón lo descargará.</p>
+                            <label for="app-url" class="ui-label mt-3">URL de instalador propio <span class="font-normal text-slate-400">(opcional)</span></label>
                             <div class="relative">
                                 <Link2 class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                                 <input
@@ -412,7 +412,7 @@ const errorList = computed(() => Object.values(form.errors as Record<string, str
                             <p v-else-if="!form.mobile_app_url && mobileAppFallback" class="ui-help break-words [overflow-wrap:anywhere]">
                                 Vacío: se usa la URL del servidor ({{ mobileAppFallback }}).
                             </p>
-                            <p v-else-if="!form.mobile_app_url" class="ui-help">Vacío: el botón se mostrará deshabilitado.</p>
+                            <p v-else-if="!form.mobile_app_url" class="ui-help">Vacío: se instala la aplicación web (recomendado).</p>
                         </fieldset>
                     </div>
                 </div>
