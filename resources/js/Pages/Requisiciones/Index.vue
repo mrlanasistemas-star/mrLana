@@ -32,6 +32,11 @@ import {
 
 const props = defineProps<RequisicionesPageProps>();
 
+const PER_PAGE_OPTIONS: { id: number | 'all'; nombre: string }[] = [
+    ...[10, 15, 20, 50].map((n) => ({ id: n, nombre: String(n) })),
+    { id: 'all', nombre: 'Todos' },
+];
+
 const { can } = usePermissions();
 
 const {
@@ -503,23 +508,17 @@ function statusAccentColor(s: any): string {
                     </div>
 
                     <div class="lg:col-span-3 min-w-0">
-                        <label
-                            class="block text-xs font-black text-slate-600 dark:text-zinc-300"
-                            >Estatus</label
-                        >
-                        <select
+                        <SearchableSelect
                             v-model="state.status"
-                            :class="inputBase"
-                            class="mt-1"
-                        >
-                            <option
-                                v-for="s in statusOptions"
-                                :key="s.id"
-                                :value="s.id"
-                            >
-                                {{ s.nombre }}
-                            </option>
-                        </select>
+                            :options="statusOptions"
+                            label="Estatus"
+                            placeholder="Todos"
+                            searchPlaceholder="Buscar estatus..."
+                            rounded="2xl"
+                            zIndexClass="z-[200000]"
+                            labelKey="nombre"
+                            valueKey="id"
+                        />
                     </div>
 
                     <div class="lg:col-span-4 min-w-0">
@@ -650,21 +649,15 @@ function statusAccentColor(s: any): string {
                         </div>
 
                         <div class="lg:col-span-3 min-w-0">
-                            <label
-                                class="block text-xs font-black text-slate-600 dark:text-zinc-300"
-                                >Por página</label
-                            >
-                            <select
+                            <SearchableSelect
                                 v-model="state.perPage"
-                                :class="inputBase"
-                                class="mt-1"
-                            >
-                                <option :value="10">10</option>
-                                <option :value="15">15</option>
-                                <option :value="20">20</option>
-                                <option :value="50">50</option>
-                                <option value="all">Todos</option>
-                            </select>
+                                :options="PER_PAGE_OPTIONS"
+                                label="Por página"
+                                rounded="2xl"
+                                zIndexClass="z-[200000]"
+                                labelKey="nombre"
+                                valueKey="id"
+                            />
                         </div>
 
                         <div class="lg:col-span-6 min-w-0 relative z-[999994]">

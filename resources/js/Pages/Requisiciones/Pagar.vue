@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
+import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
 
 import { ArrowLeft, Upload, FileText, X } from 'lucide-vue-next'
 import type { RequisicionPagoPageProps } from './Pagar.types'
@@ -616,12 +617,17 @@ function saveFechaGeneral() {
                 </div>
 
                 <div class="lg:col-span-4 min-w-0">
-                    <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">Tipo de pago</label>
-                    <select v-model="form.tipo_pago" :class="inputBase" class="mt-1">
-                    <option v-for="t in props.tipoPagoOptions" :key="t.id" :value="t.id">
-                        {{ t.nombre }}
-                    </option>
-                    </select>
+                    <SearchableSelect
+                        v-model="form.tipo_pago"
+                        :options="props.tipoPagoOptions"
+                        label="Tipo de pago"
+                        placeholder="Selecciona…"
+                        searchPlaceholder="Buscar tipo de pago..."
+                        rounded="xl"
+                        labelKey="nombre"
+                        valueKey="id"
+                        :error="form.errors.tipo_pago"
+                    />
                     <div v-if="form.errors.tipo_pago" class="mt-1 text-xs font-bold text-rose-600">
                     {{ form.errors.tipo_pago }}
                     </div>
