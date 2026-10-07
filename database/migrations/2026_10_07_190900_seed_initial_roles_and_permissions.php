@@ -2,6 +2,7 @@
 
 use App\Support\Permissions\RoleSynchronizer;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Migración de datos (idempotente): crea el catálogo de permisos, los roles
@@ -16,6 +17,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Con `migrate --pretend` no hay escrituras reales: la siembra depende
+        // de sus propios inserts, así que solo se describe.
+        if (DB::pretending()) {
+            DB::select("SELECT 'Siembra de permisos, roles iniciales y asignación por users.rol (RoleSynchronizer)' AS paso");
+
+            return;
+        }
+
         app(RoleSynchronizer::class)->sync();
     }
 
