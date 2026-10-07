@@ -26,6 +26,11 @@ export function initPwa() {
     started = true
     installed.value = standalone()
 
+    // El aviso se captura en el <head> (app.blade.php) porque puede llegar antes que este script.
+    const w = window as Window & { __erpInstallPrompt?: InstallPrompt }
+    const take = () => { if (w.__erpInstallPrompt) deferred.value = w.__erpInstallPrompt }
+    take()
+    window.addEventListener('erp:installable', take)
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault() // se muestra con nuestro botón, no con el aviso automático
         deferred.value = e as InstallPrompt

@@ -49,6 +49,14 @@
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-title" content="MR-Lana">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
+        {{-- Chrome avisa que se puede instalar antes de que cargue la app: se guarda el aviso para «Instalar app». --}}
+        <script>
+            window.addEventListener('beforeinstallprompt', function (e) {
+                e.preventDefault();
+                window.__erpInstallPrompt = e;
+                window.dispatchEvent(new Event('erp:installable'));
+            });
+        </script>
 
         {{-- Colores de marca configurados (primer pintado sin parpadeo) --}}
         <style>{!! \App\Support\BrandCss::render() !!}</style>
