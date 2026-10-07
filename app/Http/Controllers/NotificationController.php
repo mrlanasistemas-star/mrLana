@@ -38,6 +38,9 @@ class NotificationController extends Controller
             'filters' => ['filtro' => $filter, 'categoria' => $categoria],
             'categorias' => NotificationTopic::options(),
             'unreadCount' => $request->user()->unreadNotifications()->count(),
+            // No leídas por categoría (para los contadores del panel lateral).
+            'unreadByCategory' => $request->user()->unreadNotifications()->get(['data'])
+                ->countBy(fn (DatabaseNotification $n) => NotificationTopic::tryFrom((string) ($n->data['category'] ?? ''))?->value ?? 'sistema'),
         ]);
     }
 

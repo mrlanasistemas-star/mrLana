@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
-import { AlertTriangle, BellOff, CheckCheck, CheckCircle2, ExternalLink, Info, Loader2, XCircle } from 'lucide-vue-next'
+import {
+    AlertTriangle, Banknote, Bell, BellOff, CheckCheck, CheckCircle2, ChevronRight, FileText, Inbox, Info, Loader2,
+    Mail, MailOpen, Receipt, Scale, Settings, ShieldCheck, XCircle,
+} from 'lucide-vue-next'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { ConfirmDialog } from '@/Components/ui/dialog'
 import { safeInternalUrl, useNotifications } from '@/Composables/useNotifications'
@@ -14,6 +17,7 @@ const props = defineProps<{
     filters: { filtro: 'todas' | 'no_leidas'; categoria: string | null }
     categorias: { value: string; label: string }[]
     unreadCount: number
+    unreadByCategory: Record<string, number>
 }>()
 
 useFlashSuccess()
@@ -42,13 +46,44 @@ watch(() => [f.filtro, f.categoria], () => {
     )
 })
 
+const categoryIcon: Record<string, unknown> = {
+    requisiciones: FileText,
+    pagos: Banknote,
+    comprobaciones: Receipt,
+    ajustes: Scale,
+    seguridad: ShieldCheck,
+    sistema: Settings,
+}
+
 const severity = {
-    info: { icon: Info, cls: 'text-brand-accent bg-brand-accent/10', bar: 'bg-brand-accent', label: 'Información' },
-    success: { icon: CheckCircle2, cls: 'text-brand-success bg-brand-success/10', bar: 'bg-brand-success', label: 'Éxito' },
-    warning: { icon: AlertTriangle, cls: 'text-brand-warning bg-brand-warning/10', bar: 'bg-brand-warning', label: 'Atención' },
-    danger: { icon: XCircle, cls: 'text-brand-danger bg-brand-danger/10', bar: 'bg-brand-danger', label: 'Importante' },
+    info: { icon: Info, chip: 'text-brand-accent bg-brand-accent/10 ring-brand-accent/20', bar: 'bg-brand-accent', label: 'Información' },
+    success: { icon: CheckCircle2, chip: 'text-brand-success bg-brand-success/10 ring-brand-success/20', bar: 'bg-brand-success', label: 'Éxito' },
+    warning: { icon: AlertTriangle, chip: 'text-brand-warning bg-brand-warning/10 ring-brand-warning/20', bar: 'bg-brand-warning', label: 'Atención' },
+    danger: { icon: XCircle, chip: 'text-brand-danger bg-brand-danger/10 ring-brand-danger/20', bar: 'bg-brand-danger', label: 'Importante' },
 } as const
 const sev = (n: ErpNotificationItem) => severity[n.severity] ?? severity.info
+
+/* Agrupación por día: Hoy, Ayer o la fecha. */
+const dayLabel = (iso: string | null) => {
+    if (!iso) return 'Sin fecha'
+    const d = new Date(iso)
+    const today = new Date()
+    const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+    const diff = Math.round((startOf(today) - startOf(d)) / 86400000)
+    if (diff === 0) return 'Hoy'
+    if (diff === 1) return 'Ayer'
+    return new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' }).format(d)
+}
+const groups = computed(() => {
+    const out: { label: string; items: ErpNotificationItem[] }[] = []
+    for (const n of props.notifications.data) {
+        const label = dayLabel(n.created_at)
+        const last = out[out.length - 1]
+        if (last && last.label === label) last.items.push(n)
+        else out.push({ label, items: [n] })
+    }
+    return out
+})
 
 const busyId = ref<string | null>(null)
 function markRead(n: ErpNotificationItem, then?: () => void) {
@@ -87,6 +122,14 @@ const emptyText = computed(() => {
     if (f.categoria || f.filtro === 'no_leidas') return 'No hay notificaciones con estos filtros.'
     return 'Aún no tienes notificaciones.'
 })
+
+const navItem = (on: boolean) => [
+    'group flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50',
+    on
+        ? 'bg-brand-primary/[0.07] text-slate-900 ring-1 ring-inset ring-brand-primary/15 dark:bg-white/[0.07] dark:text-zinc-50 dark:ring-white/10'
+        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-zinc-100',
+]
 </script>
 
 <template>
@@ -95,139 +138,157 @@ const emptyText = computed(() => {
     <AuthenticatedLayout>
         <template #header>Notificaciones</template>
 
-        <div class="mx-auto w-full min-w-0 max-w-5xl space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        <div class="w-full min-w-0 space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
             <section class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div class="min-w-0">
-                    <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">Centro de notificaciones</h2>
-                    <p class="text-sm text-slate-500 dark:text-zinc-400" aria-live="polite">
-                        {{ unreadCount === 0 ? 'Estás al día.' : `${unreadCount} sin leer.` }}
-                    </p>
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-accent/10 text-brand-accent">
+                        <Bell class="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <div class="min-w-0">
+                        <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">Centro de notificaciones</h2>
+                        <p class="text-sm text-slate-500 dark:text-zinc-400" aria-live="polite">
+                            {{ unreadCount === 0 ? 'Estás al día.' : `${unreadCount} sin leer de ${notifications.total} en esta vista.` }}
+                        </p>
+                    </div>
                 </div>
                 <button v-if="unreadCount > 0" type="button" class="ui-btn-secondary self-start sm:self-auto" @click="confirmAll = true">
                     <CheckCheck class="h-4 w-4" aria-hidden="true" /> Marcar todas como leídas
                 </button>
             </section>
 
-            <section class="ui-card space-y-3 p-4" aria-label="Filtros">
-                <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Estado de lectura">
-                    <button
-                        v-for="opt in ([['todas', 'Todas'], ['no_leidas', 'No leídas']] as const)"
-                        :key="opt[0]"
-                        type="button"
-                        class="ui-chip"
-                        :class="f.filtro === opt[0] ? 'ui-chip-on' : ''"
-                        :aria-pressed="f.filtro === opt[0]"
-                        @click="f.filtro = opt[0]"
-                    >
-                        {{ opt[1] }}
-                        <span v-if="opt[0] === 'no_leidas' && unreadCount > 0" class="rounded-full bg-brand-danger px-1.5 text-[10px] font-black text-brand-danger-fg">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
-                    </button>
-                    <span v-if="loading" class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400" role="status">
-                        <Loader2 class="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Cargando…
-                    </span>
-                </div>
-                <div class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible" role="group" aria-label="Categoría">
-                    <button type="button" class="ui-chip shrink-0" :class="!f.categoria ? 'ui-chip-on' : ''" :aria-pressed="!f.categoria" @click="f.categoria = null">
-                        Todas las categorías
-                    </button>
-                    <button
-                        v-for="c in categorias"
-                        :key="c.value"
-                        type="button"
-                        class="ui-chip shrink-0"
-                        :class="f.categoria === c.value ? 'ui-chip-on' : ''"
-                        :aria-pressed="f.categoria === c.value"
-                        @click="f.categoria = c.value"
-                    >
-                        {{ c.label }}
-                    </button>
-                </div>
-            </section>
-
-            <section class="ui-card overflow-hidden transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading">
-                <div v-if="notifications.data.length === 0" class="flex flex-col items-center gap-3 p-10 text-center">
-                    <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-zinc-400">
-                        <BellOff class="h-6 w-6" aria-hidden="true" />
-                    </span>
-                    <p class="text-sm font-semibold text-slate-700 dark:text-zinc-200">{{ emptyText }}</p>
-                    <button v-if="f.categoria || f.filtro !== 'todas'" type="button" class="ui-btn-secondary" @click="Object.assign(f, { filtro: 'todas', categoria: null })">
-                        Ver todas
-                    </button>
-                </div>
-
-                <ul v-else class="divide-y divide-slate-100 dark:divide-white/5">
-                    <li
-                        v-for="n in notifications.data"
-                        :key="n.id"
-                        class="relative flex gap-3 p-4 transition sm:gap-4 sm:px-5"
-                        :class="n.read_at ? '' : 'bg-slate-50/70 dark:bg-white/[0.03]'"
-                    >
-                        <span v-if="!n.read_at" class="absolute inset-y-3 left-0 w-1 rounded-r-full" :class="sev(n).bar" aria-hidden="true" />
-                        <span class="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full" :class="sev(n).cls">
-                            <component :is="sev(n).icon" class="h-4 w-4" aria-hidden="true" />
-                            <span class="sr-only">{{ sev(n).label }}</span>
-                        </span>
-
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-                                <p class="min-w-0 break-words text-sm text-slate-900 [overflow-wrap:anywhere] dark:text-zinc-100" :class="n.read_at ? 'font-medium' : 'font-bold'">
-                                    {{ n.title }}
-                                    <span v-if="!n.read_at" class="sr-only">(sin leer)</span>
-                                </p>
-                                <time
-                                    :datetime="n.created_at ?? undefined"
-                                    :title="formatDateTime(n.created_at)"
-                                    class="shrink-0 text-xs text-slate-500 dark:text-zinc-400"
-                                >
-                                    {{ formatRelative(n.created_at) }}
-                                </time>
-                            </div>
-                            <p class="mt-1 whitespace-pre-wrap break-words text-sm text-slate-600 [overflow-wrap:anywhere] dark:text-zinc-300">{{ n.message }}</p>
-                            <div class="mt-3 flex flex-wrap items-center gap-2">
-                                <span class="ui-badge ui-badge-muted">{{ n.category_label }}</span>
-                                <button
-                                    v-if="safeInternalUrl(n.url)"
-                                    type="button"
-                                    class="ui-btn-sm"
-                                    :disabled="busyId === n.id"
-                                    @click="open(n)"
-                                >
-                                    <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" /> Ver detalle
-                                </button>
-                                <button
-                                    v-if="!n.read_at"
-                                    type="button"
-                                    class="ui-btn-sm"
-                                    :disabled="busyId === n.id"
-                                    @click="markRead(n)"
-                                >
-                                    <Loader2 v-if="busyId === n.id" class="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                                    <CheckCheck v-else class="h-3.5 w-3.5" aria-hidden="true" />
-                                    Marcar como leída
-                                </button>
-                            </div>
-                        </div>
-                    </li>
-                </ul>
-
-                <nav v-if="notifications.last_page > 1" class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 dark:border-white/5" aria-label="Paginación">
-                    <p class="text-xs text-slate-500 dark:text-zinc-400">Mostrando {{ notifications.from }}–{{ notifications.to }} de {{ notifications.total }}</p>
-                    <div class="flex flex-wrap gap-1.5">
+            <div class="grid grid-cols-1 gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)]">
+                <!-- Panel de filtros -->
+                <aside class="ui-card h-fit space-y-4 p-3 lg:sticky lg:top-20" aria-label="Filtros">
+                    <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/[0.04]" role="group" aria-label="Estado de lectura">
                         <button
-                            v-for="(l, i) in notifications.links"
-                            :key="i"
+                            v-for="opt in ([['todas', 'Todas', Inbox], ['no_leidas', 'No leídas', Mail]] as const)"
+                            :key="opt[0]"
                             type="button"
-                            class="min-h-[38px] min-w-[38px] rounded-xl px-3 text-xs font-semibold transition disabled:opacity-40"
-                            :class="l.active ? 'bg-brand-primary text-brand-primary-fg dark:bg-brand-primary/20 dark:text-zinc-50' : 'border border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
-                            :disabled="!l.url"
-                            :aria-current="l.active ? 'page' : undefined"
-                            @click="goPage(l.url)"
+                            class="inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg text-xs font-semibold transition"
+                            :class="f.filtro === opt[0]
+                                ? 'bg-white text-slate-900 shadow-sm dark:bg-white/10 dark:text-zinc-50'
+                                : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100'"
+                            :aria-pressed="f.filtro === opt[0]"
+                            @click="f.filtro = opt[0]"
                         >
-                            {{ pageLabel(l.label) }}
+                            <component :is="opt[2]" class="h-3.5 w-3.5" aria-hidden="true" />
+                            {{ opt[1] }}
+                            <span v-if="opt[0] === 'no_leidas' && unreadCount > 0" class="rounded-full bg-brand-danger px-1.5 text-[10px] font-black text-white">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
                         </button>
                     </div>
-                </nav>
-            </section>
+
+                    <div>
+                        <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Categorías</p>
+                        <nav class="-mx-0.5 flex gap-1 overflow-x-auto pb-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:pb-0" aria-label="Categorías">
+                            <button type="button" :class="[navItem(!f.categoria), 'shrink-0 lg:shrink']" :aria-pressed="!f.categoria" @click="f.categoria = null">
+                                <Inbox class="h-4 w-4 shrink-0 text-slate-400 group-hover:text-current" aria-hidden="true" />
+                                <span class="flex-1 whitespace-nowrap">Todas</span>
+                                <span v-if="unreadCount" class="hidden rounded-full bg-slate-200 px-2 text-[11px] font-bold tabular-nums text-slate-600 dark:bg-white/10 dark:text-zinc-300 lg:inline">{{ unreadCount }}</span>
+                            </button>
+                            <button
+                                v-for="c in categorias"
+                                :key="c.value"
+                                type="button"
+                                :class="[navItem(f.categoria === c.value), 'shrink-0 lg:shrink']"
+                                :aria-pressed="f.categoria === c.value"
+                                @click="f.categoria = c.value"
+                            >
+                                <component :is="categoryIcon[c.value] ?? Bell" class="h-4 w-4 shrink-0 text-slate-400 group-hover:text-current" aria-hidden="true" />
+                                <span class="flex-1 whitespace-nowrap">{{ c.label }}</span>
+                                <span v-if="unreadByCategory[c.value]" class="hidden rounded-full bg-brand-danger/10 px-2 text-[11px] font-bold tabular-nums text-brand-danger lg:inline">
+                                    {{ unreadByCategory[c.value] }}
+                                </span>
+                            </button>
+                        </nav>
+                    </div>
+                </aside>
+
+                <!-- Lista -->
+                <section class="ui-card min-w-0 overflow-hidden transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading">
+                    <div v-if="loading" class="flex items-center gap-2 border-b border-slate-100 px-5 py-2 text-xs text-slate-500 dark:border-white/[0.06] dark:text-zinc-400" role="status">
+                        <Loader2 class="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Cargando…
+                    </div>
+
+                    <div v-if="notifications.data.length === 0" class="flex flex-col items-center gap-3 px-6 py-16 text-center">
+                        <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-zinc-500">
+                            <BellOff class="h-7 w-7" aria-hidden="true" />
+                        </span>
+                        <p class="text-base font-semibold text-slate-700 dark:text-zinc-200">{{ emptyText }}</p>
+                        <p class="max-w-sm text-sm text-slate-500 dark:text-zinc-400">Aquí verás avisos de requisiciones, pagos, comprobaciones, ajustes y cambios de seguridad.</p>
+                        <button v-if="f.categoria || f.filtro !== 'todas'" type="button" class="ui-btn-secondary" @click="Object.assign(f, { filtro: 'todas', categoria: null })">
+                            Ver todas
+                        </button>
+                    </div>
+
+                    <div v-for="g in groups" v-else :key="g.label">
+                        <h3 class="border-b border-slate-100 bg-slate-50/80 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 backdrop-blur first-letter:uppercase dark:border-white/[0.06] dark:bg-zinc-900/95 dark:text-zinc-400">
+                            {{ g.label }}
+                        </h3>
+                        <ul class="divide-y divide-slate-100 dark:divide-white/[0.06]">
+                            <li
+                                v-for="n in g.items"
+                                :key="n.id"
+                                class="group relative flex gap-4 px-4 py-4 transition-colors hover:bg-slate-50 sm:px-5 dark:hover:bg-white/[0.03]"
+                                :class="n.read_at ? '' : 'bg-brand-accent/[0.03]'"
+                            >
+                                <span v-if="!n.read_at" class="absolute inset-y-3 left-0 w-1 rounded-r-full" :class="sev(n).bar" aria-hidden="true" />
+
+                                <span class="relative mt-0.5 block h-11 w-11 shrink-0">
+                                    <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 transition group-hover:scale-105 motion-reduce:transform-none dark:bg-white/[0.06] dark:text-zinc-300">
+                                        <component :is="categoryIcon[n.category] ?? Bell" class="h-5 w-5" aria-hidden="true" />
+                                    </span>
+                                    <span class="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-white dark:ring-zinc-900" :class="sev(n).chip">
+                                        <component :is="sev(n).icon" class="h-3 w-3" aria-hidden="true" />
+                                        <span class="sr-only">{{ sev(n).label }}</span>
+                                    </span>
+                                </span>
+
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                                        <p class="min-w-0 break-words text-sm text-slate-900 [overflow-wrap:anywhere] dark:text-zinc-100" :class="n.read_at ? 'font-medium' : 'font-bold'">
+                                            {{ n.title }}
+                                            <span v-if="!n.read_at" class="sr-only">(sin leer)</span>
+                                        </p>
+                                        <time :datetime="n.created_at ?? undefined" :title="formatDateTime(n.created_at)" class="shrink-0 text-xs tabular-nums text-slate-500 dark:text-zinc-400">
+                                            {{ formatRelative(n.created_at) }}
+                                        </time>
+                                    </div>
+                                    <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 [overflow-wrap:anywhere] dark:text-zinc-300">{{ n.message }}</p>
+                                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                                        <span class="ui-badge" :class="sev(n).chip">{{ n.category_label }}</span>
+                                        <button v-if="safeInternalUrl(n.url)" type="button" class="ui-btn-sm" :disabled="busyId === n.id" @click="open(n)">
+                                            Ver detalle <ChevronRight class="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
+                                        </button>
+                                        <button v-if="!n.read_at" type="button" class="ui-btn-sm" :disabled="busyId === n.id" @click="markRead(n)">
+                                            <Loader2 v-if="busyId === n.id" class="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                                            <MailOpen v-else class="h-3.5 w-3.5" aria-hidden="true" />
+                                            Marcar como leída
+                                        </button>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <nav v-if="notifications.last_page > 1" class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 dark:border-white/[0.06]" aria-label="Paginación">
+                        <p class="text-xs text-slate-500 dark:text-zinc-400">Mostrando {{ notifications.from }}–{{ notifications.to }} de {{ notifications.total }}</p>
+                        <div class="flex flex-wrap gap-1.5">
+                            <button
+                                v-for="(l, i) in notifications.links"
+                                :key="i"
+                                type="button"
+                                class="min-h-[38px] min-w-[38px] rounded-xl px-3 text-xs font-semibold transition disabled:opacity-40"
+                                :class="l.active ? 'bg-brand-primary text-brand-primary-fg dark:bg-brand-primary/20 dark:text-zinc-50' : 'border border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
+                                :disabled="!l.url"
+                                :aria-current="l.active ? 'page' : undefined"
+                                @click="goPage(l.url)"
+                            >
+                                {{ pageLabel(l.label) }}
+                            </button>
+                        </div>
+                    </nav>
+                </section>
+            </div>
         </div>
 
         <ConfirmDialog
