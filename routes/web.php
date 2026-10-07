@@ -62,7 +62,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::middleware('auth')->group(function () {
 
     // Guía del sistema: se adapta a los permisos de quien la consulta.
-    Route::get('/ayuda/guia', fn () => \Inertia\Inertia::render('Ayuda/Guia'))->name('ayuda.guia');
+    Route::get('/ayuda/guia', fn () => \Inertia\Inertia::render('Ayuda/Guia', [
+        // Etiquetas humanas de permisos para el resumen «Tu acceso» de cada módulo.
+        'catalogo' => collect(\App\Support\Permissions\PermissionCatalog::modules())
+            ->map(fn (array $m) => $m['permissions']),
+    ]))->name('ayuda.guia');
 
     // Rutas para exportar archivos del dashboard (PDF y Excel)
     Route::middleware('permission:reportes.dashboard')->group(function () {

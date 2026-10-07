@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "guia:pdf": "node scripts/guia-pdf.ts"
     },
     "devDependencies": {
         "@inertiajs/vue3": "^2.3.4",
