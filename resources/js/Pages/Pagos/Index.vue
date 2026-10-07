@@ -131,11 +131,11 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
             </section>
 
             <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-                <div v-for="k in kpiCards" :key="k.label" class="ui-card flex items-center gap-3 p-4">
+                <div v-for="k in kpiCards" :key="k.label" class="ui-card flex flex-col items-start gap-2 p-4 min-[420px]:flex-row min-[420px]:items-center min-[420px]:gap-3">
                     <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent"><component :is="k.icon" class="h-5 w-5" aria-hidden="true" /></span>
                     <span class="min-w-0">
                         <span class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ k.label }}</span>
-                        <span class="block truncate text-lg font-black tabular-nums text-slate-900 dark:text-zinc-100">{{ k.value }}</span>
+                        <span class="block break-words text-base font-black leading-tight tabular-nums sm:text-lg text-slate-900 dark:text-zinc-100">{{ k.value }}</span>
                     </span>
                 </div>
             </div>
@@ -193,13 +193,13 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
 
                         <dl class="space-y-1 text-xs">
                             <div class="min-w-0"><dt class="sr-only">Beneficiario</dt><dd class="break-words font-semibold text-slate-700 dark:text-zinc-200">{{ p.beneficiario ?? '—' }}</dd></div>
-                            <div v-if="p.banco || p.cuenta" class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><Landmark class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dd class="truncate">{{ [p.banco, p.cuenta].filter(Boolean).join(' · ') }}</dd></div>
-                            <div class="flex gap-1.5 text-slate-500 dark:text-zinc-400"><dt class="shrink-0">Solicitó:</dt><dd class="min-w-0 truncate text-slate-700 dark:text-zinc-300">{{ p.requisicion?.solicitante ?? '—' }}</dd></div>
+                            <div v-if="p.banco || p.cuenta" class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><Landmark class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dd class="min-w-0 break-words">{{ [p.banco, p.cuenta].filter(Boolean).join(' · ') }}</dd></div>
+                            <div class="flex gap-1.5 text-slate-500 dark:text-zinc-400"><dt class="shrink-0">Solicitó:</dt><dd class="min-w-0 break-words text-slate-700 dark:text-zinc-300">{{ p.requisicion?.solicitante ?? '—' }}</dd></div>
                             <div class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400">
                                 <BadgeCheck class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dt class="sr-only">Autorizó</dt>
-                                <dd class="min-w-0 truncate">Autorizó: {{ p.requisicion?.autorizo ?? 'No registrado' }}<template v-if="p.requisicion?.fecha_autorizacion"> · {{ formatDateTime(p.requisicion.fecha_autorizacion) }}</template></dd>
+                                <dd class="min-w-0 break-words">Autorizó: {{ p.requisicion?.autorizo ?? 'No registrado' }}<template v-if="p.requisicion?.fecha_autorizacion"> · {{ formatDateTime(p.requisicion.fecha_autorizacion) }}</template></dd>
                             </div>
-                            <div class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><Upload class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dt class="sr-only">Registró</dt><dd class="min-w-0 truncate">Registró: {{ p.user_carga ?? '—' }}</dd></div>
+                            <div class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><Upload class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dt class="sr-only">Registró</dt><dd class="min-w-0 break-words">Registró: {{ p.user_carga ?? '—' }}</dd></div>
                             <div v-if="p.referencia" class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><Hash class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dd class="min-w-0 break-words [overflow-wrap:anywhere]">{{ p.referencia }}</dd></div>
                         </dl>
 

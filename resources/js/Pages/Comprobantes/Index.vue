@@ -149,7 +149,7 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
                     v-for="k in kpiCards"
                     :key="k.label"
                     type="button"
-                    class="ui-card flex items-center gap-3 p-4 text-left transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50 dark:hover:border-white/15"
+                    class="ui-card flex flex-col items-start gap-2 p-4 text-left transition min-[420px]:flex-row min-[420px]:items-center min-[420px]:gap-3 hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50 dark:hover:border-white/15"
                     :class="k.key && f.estatus === k.key ? 'ring-2 ring-brand-accent/40' : ''"
                     :disabled="!k.key"
                     :aria-pressed="k.key ? f.estatus === k.key : undefined"
@@ -158,7 +158,7 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
                     <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" :class="k.tone"><component :is="k.icon" class="h-5 w-5" aria-hidden="true" /></span>
                     <span class="min-w-0">
                         <span class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ k.label }}</span>
-                        <span class="block truncate text-lg font-black tabular-nums text-slate-900 dark:text-zinc-100">{{ k.value }}</span>
+                        <span class="block break-words text-base font-black leading-tight tabular-nums sm:text-lg text-slate-900 dark:text-zinc-100">{{ k.value }}</span>
                     </span>
                 </button>
             </div>
@@ -220,9 +220,9 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
 
                         <dl class="space-y-1 text-xs">
                             <div v-if="c.requisicion?.proveedor" class="flex gap-1.5"><dt class="sr-only">Proveedor</dt><dd class="min-w-0 break-words font-semibold text-slate-700 dark:text-zinc-200">{{ c.requisicion.proveedor }}</dd></div>
-                            <div class="flex gap-1.5 text-slate-500 dark:text-zinc-400"><dt class="shrink-0">Solicitó:</dt><dd class="min-w-0 truncate text-slate-700 dark:text-zinc-300">{{ c.requisicion?.solicitante ?? '—' }}</dd></div>
-                            <div class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><Upload class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dt class="sr-only">Cargó</dt><dd class="min-w-0 truncate">{{ c.user_carga ?? '—' }}</dd></div>
-                            <div class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><ShieldCheck class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dt class="sr-only">Revisó</dt><dd class="min-w-0 truncate">{{ c.user_revision ?? 'Sin revisar' }}<template v-if="c.revisado_at"> · {{ formatDateTime(c.revisado_at) }}</template></dd></div>
+                            <div class="flex gap-1.5 text-slate-500 dark:text-zinc-400"><dt class="shrink-0">Solicitó:</dt><dd class="min-w-0 break-words text-slate-700 dark:text-zinc-300">{{ c.requisicion?.solicitante ?? '—' }}</dd></div>
+                            <div class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><Upload class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dt class="sr-only">Cargó</dt><dd class="min-w-0 break-words">{{ c.user_carga ?? '—' }}</dd></div>
+                            <div class="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400"><ShieldCheck class="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><dt class="sr-only">Revisó</dt><dd class="min-w-0 break-words">{{ c.user_revision ?? 'Sin revisar' }}<template v-if="c.revisado_at"> · {{ formatDateTime(c.revisado_at) }}</template></dd></div>
                         </dl>
 
                         <p v-if="c.comentario_revision" class="flex gap-1.5 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 dark:bg-white/[0.04] dark:text-zinc-300">

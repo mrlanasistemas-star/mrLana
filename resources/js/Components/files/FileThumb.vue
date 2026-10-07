@@ -27,7 +27,7 @@ const broken = ref(false)
             :src="url"
             :alt="name ?? ''"
             loading="lazy"
-            class="h-full w-full object-cover transition duration-300 group-hover/thumb:scale-[1.03] motion-reduce:transform-none"
+            class="h-full w-full object-contain p-1.5 transition duration-300 group-hover/thumb:scale-[1.03] motion-reduce:transform-none"
             @error="broken = true"
         />
         <div v-else-if="kind === 'pdf'" class="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-rose-50 to-white dark:from-rose-500/10 dark:to-transparent">
@@ -35,7 +35,7 @@ const broken = ref(false)
                 <FileText class="h-7 w-7 text-rose-500" aria-hidden="true" />
                 <span class="absolute -bottom-2 rounded bg-rose-500 px-1.5 py-px text-[10px] font-black text-white">PDF</span>
             </span>
-            <span class="mt-2 line-clamp-1 max-w-[85%] text-center text-[11px] text-slate-500 dark:text-zinc-400">{{ name }}</span>
+            <span class="mt-2 line-clamp-2 max-w-[85%] break-words text-center text-[11px] text-slate-500 dark:text-zinc-400">{{ name }}</span>
         </div>
         <div v-else class="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400 dark:text-zinc-500">
             <component :is="kind === 'none' ? FileX : ImageOff" class="h-8 w-8" aria-hidden="true" />
