@@ -16,7 +16,10 @@
     import ICON_EXCEL from '@/img/excel.png'
     import { toQS, downloadFile } from '@/Utils/exports'
 
+    import { usePermissions } from '@/Composables/usePermissions'
     const props = defineProps<CorporativosProps>()
+    // Solo ayuda visual: el backend vuelve a autorizar cada acción.
+    const { can } = usePermissions()
 
     const {
         state,
@@ -92,7 +95,7 @@
                     <h2 class="text-xl font-black text-slate-900 dark:text-zinc-100">Corporativos</h2>
                     <p class="text-sm text-slate-500 dark:text-zinc-400 mt-0.5">Administra todos tus corporativos</p>
                 </div>
-                <button type="button" @click="openCreate" class="erp-button erp-button-primary h-11 px-5">
+                <button v-if="can('corporativos.registrar')" type="button" @click="openCreate" class="erp-button erp-button-primary h-11 px-5">
                     <Plus class="h-4 w-4" /> Nuevo
                 </button>
             </div>
@@ -101,7 +104,7 @@
         <div class="erp-page space-y-4">
 
             <!-- Bulk actions -->
-            <div v-if="selectedCount > 0" class="erp-panel p-3 flex flex-wrap items-center gap-3">
+            <div v-if="selectedCount > 0 && can('corporativos.desactivar')" class="erp-panel p-3 flex flex-wrap items-center gap-3">
                 <span class="text-sm font-semibold text-slate-700 dark:text-zinc-200">
                     {{ selectedCount }} seleccionado(s)
                 </span>
@@ -135,12 +138,12 @@
                         <option :value="100">100 / pág</option>
                     </select>
 
-                    <button type="button" @click="downloadFile(exportPdfUrl)"
+                    <button v-if="can('corporativos.exportar')" type="button" @click="downloadFile(exportPdfUrl)"
                         class="erp-icon-button" title="Exportar PDF">
                         <img :src="ICON_PDF" alt="PDF" class="h-5 w-5" />
                     </button>
 
-                    <button type="button" @click="downloadFile(exportExcelUrl)"
+                    <button v-if="can('corporativos.exportar')" type="button" @click="downloadFile(exportExcelUrl)"
                         class="erp-icon-button" title="Exportar Excel">
                         <img :src="ICON_EXCEL" alt="Excel" class="h-5 w-5" />
                     </button>
@@ -191,15 +194,15 @@
                             </div>
 
                             <div class="flex gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-white/8">
-                                <button type="button" @click="openEdit(row)"
+                                <button v-if="can('corporativos.editar')" type="button" @click="openEdit(row)"
                                     class="erp-button erp-button-secondary h-9 text-xs flex-1">
                                     <Pencil class="h-3.5 w-3.5" /> Editar
                                 </button>
-                                <button v-if="row.activo" type="button" @click="confirmDelete(row)"
+                                <button v-if="row.activo && can('corporativos.desactivar')" type="button" @click="confirmDelete(row)"
                                     class="erp-button erp-button-danger h-9 text-xs">
                                     <Trash2 class="h-3.5 w-3.5" />
                                 </button>
-                                <button v-else type="button" @click="confirmActivate(row)"
+                                <button v-else-if="!row.activo && can('corporativos.reactivar')" type="button" @click="confirmActivate(row)"
                                     class="erp-button h-9 text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20">
                                     Activar
                                 </button>
@@ -294,16 +297,16 @@
 
                             <td>
                                 <div class="flex items-center justify-end gap-1.5">
-                                    <button type="button" @click="openEdit(row)"
+                                    <button v-if="can('corporativos.editar')" type="button" @click="openEdit(row)"
                                         class="erp-icon-button" title="Editar">
                                         <Pencil class="h-4 w-4" />
                                     </button>
-                                    <button v-if="row.activo" type="button" @click="confirmDelete(row)"
+                                    <button v-if="row.activo && can('corporativos.desactivar')" type="button" @click="confirmDelete(row)"
                                         class="erp-icon-button text-rose-500 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 hover:border-rose-200 dark:hover:text-rose-300 dark:hover:bg-rose-500/15 dark:hover:border-rose-500/30"
                                         title="Eliminar">
                                         <Trash2 class="h-4 w-4" />
                                     </button>
-                                    <button v-else type="button" @click="confirmActivate(row)"
+                                    <button v-else-if="!row.activo && can('corporativos.reactivar')" type="button" @click="confirmActivate(row)"
                                         class="erp-icon-button text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 hover:border-emerald-200 dark:hover:text-emerald-300 dark:hover:bg-emerald-500/15 dark:hover:border-emerald-500/30"
                                         title="Activar">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"

@@ -18,7 +18,10 @@
     // Importamos funciones para exportar archivos
     import { toQS, downloadFile } from '@/Utils/exports'
 
+    import { usePermissions } from '@/Composables/usePermissions'
     const props = defineProps<ConceptosPageProps>()
+    // Solo ayuda visual: el backend vuelve a autorizar cada acción.
+    const { can } = usePermissions()
 
     const {
         // filtros + paginación
@@ -138,7 +141,7 @@
 
                     <div class="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0 w-full sm:w-auto">
                         <!-- Bulk bar compacta -->
-                        <div v-if="selectedCount > 0"
+                        <div v-if="selectedCount > 0 && can('conceptos.desactivar')"
                         class="flex flex-wrap items-center gap-2
                         rounded-2xl border border-slate-200/70 dark:border-white/10
                         bg-slate-50 dark:bg-neutral-950/40 px-3 py-2
@@ -169,7 +172,7 @@
                             </button>
                         </div>
 
-                        <button type="button"
+                        <button v-if="can('conceptos.registrar')" type="button"
                         @click="openCreate"
                         class="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold
                         bg-slate-900 text-white hover:bg-slate-800
@@ -215,13 +218,13 @@
 
                     <div class="lg:col-span-4 min-w-0 flex flex-wrap items-end gap-x-6 gap-y-2 ml-2">
                         <!-- PDF -->
-                        <button type="button" @click="downloadFile(exportPdfUrl)" class="group flex flex-col items-center gap-1 py-2 ...">
+                        <button v-if="can('conceptos.exportar')" type="button" @click="downloadFile(exportPdfUrl)" class="group flex flex-col items-center gap-1 py-2 ...">
                             <img :src="ICON_PDF" alt="PDF" class="h-6 w-6 transition-transform group-hover:scale-125"/>
                             <span class="relative text-[11px] leading-none ...">Descargar</span>
                         </button>
 
                         <!-- EXCEL -->
-                        <button type="button" @click="downloadFile(exportExcelUrl)" class="group flex flex-col items-center gap-1 py-2 ...">
+                        <button v-if="can('conceptos.exportar')" type="button" @click="downloadFile(exportExcelUrl)" class="group flex flex-col items-center gap-1 py-2 ...">
                             <img :src="ICON_EXCEL" alt="EXCEL" class="h-6 w-6 transition-transform group-hover:scale-125"/>
                             <span class="relative text-[11px] leading-none ...">Descargar</span>
                         </button>
@@ -320,7 +323,7 @@
                             <td class="px-4 py-3 whitespace-nowrap text-right">
                                 <div class="inline-flex gap-2">
                                 <button
-                                    type="button"
+                                    v-if="can('conceptos.editar')" type="button"
                                     @click="openEdit(row)"
                                     class="rounded-xl px-3 py-2 text-xs font-extrabold
                                         border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
@@ -332,7 +335,7 @@
 
                                 <!-- Activo => baja lógica -->
                                 <button
-                                    v-if="row.activo"
+                                    v-if="row.activo && can('conceptos.desactivar')"
                                     type="button"
                                     @click="destroyRow(row)"
                                     class="rounded-xl px-3 py-2 text-xs font-extrabold
@@ -345,7 +348,7 @@
 
                                 <!-- Inactivo => activar -->
                                 <button
-                                    v-else
+                                    v-else-if="!row.activo && can('conceptos.reactivar')"
                                     type="button"
                                     @click="confirmActivate(row)"
                                     class="rounded-xl px-3 py-2 text-xs font-extrabold
@@ -442,7 +445,7 @@
 
                     <div class="mt-4 grid grid-cols-2 gap-2 min-w-0">
                     <button
-                        type="button"
+                        v-if="can('conceptos.editar')" type="button"
                         @click="openEdit(row)"
                         class="rounded-xl px-3 py-2 text-xs font-extrabold
                             border border-slate-200 bg-white text-slate-700 hover:bg-slate-50
@@ -454,7 +457,7 @@
 
                     <!-- Activo => baja lógica / Inactivo => activar -->
                     <button
-                        v-if="row.activo"
+                        v-if="row.activo && can('conceptos.desactivar')"
                         type="button"
                         @click="destroyRow(row)"
                         class="rounded-xl px-3 py-2 text-xs font-extrabold
@@ -466,7 +469,7 @@
                     </button>
 
                     <button
-                        v-else
+                        v-else-if="!row.activo && can('conceptos.reactivar')"
                         type="button"
                         @click="confirmActivate(row)"
                         class="rounded-xl px-3 py-2 text-xs font-extrabold

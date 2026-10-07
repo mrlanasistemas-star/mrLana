@@ -408,7 +408,7 @@ function statusAccentColor(s: any): string {
                 </div>
 
                 <div class="mt-4 flex flex-wrap items-center gap-2">
-                    <button
+                    <button v-if="can('requisiciones.exportar')"
                         type="button"
                         @click="downloadFile(exportExcelUrl)"
                         class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
@@ -418,7 +418,7 @@ function statusAccentColor(s: any): string {
                         Excel
                     </button>
 
-                    <button
+                    <button v-if="can('requisiciones.exportar')"
                         type="button"
                         @click="downloadFile(exportPdfUrl)"
                         class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
