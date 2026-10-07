@@ -17,6 +17,22 @@ export default defineConfig({
             },
         }),
     ],
+    // Pre-empaqueta al arrancar las dependencias que solo cargan páginas
+    // diferidas (dashboards, catálogos). Sin esto, Vite las descubre tarde,
+    // re-optimiza y el navegador recibe "504 Outdated Optimize Dep".
+    optimizeDeps: {
+        include: [
+            'apexcharts',
+            'vue3-apexcharts',
+            'sweetalert2',
+            'reka-ui',
+            'lucide-vue-next',
+            '@tabler/icons-vue',
+            'axios',
+            'clsx',
+            'tailwind-merge',
+        ],
+    },
     build: {
         chunkSizeWarningLimit: 700,
         rollupOptions: {
