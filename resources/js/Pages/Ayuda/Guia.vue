@@ -71,8 +71,8 @@
 
     const roleBadge = computed(() => {
         // solo estilos; neutro premium
-        if (isAdmin.value) return 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
-        if (isContador.value) return 'bg-neutral-800 text-white dark:bg-neutral-100 dark:text-neutral-900'
+        if (isAdmin.value) return 'bg-neutral-900 text-white dark:bg-zinc-300 dark:text-neutral-900'
+        if (isContador.value) return 'bg-neutral-800 text-white dark:bg-zinc-300 dark:text-neutral-900'
         return 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
     })
 
@@ -568,7 +568,7 @@
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0">
                 <div class="flex items-center gap-3">
-                <div class="grid h-10 w-10 place-items-center rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+                <div class="grid h-10 w-10 place-items-center rounded-2xl bg-neutral-900 text-white dark:bg-zinc-300 dark:text-neutral-900">
                     <BookOpen class="h-5 w-5" />
                 </div>
 
@@ -594,7 +594,7 @@
                     rel="noopener noreferrer"
                     class="inline-flex items-center gap-2 rounded-2xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white
                         hover:opacity-90 active:scale-[0.99]
-                        dark:bg-white dark:text-neutral-900"
+                        dark:bg-zinc-300 dark:text-neutral-900"
                 >
                     <LifeBuoy class="h-4 w-4" />
                     Soporte (tickets)

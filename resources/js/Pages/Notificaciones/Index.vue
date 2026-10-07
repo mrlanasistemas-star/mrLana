@@ -218,7 +218,7 @@ const emptyText = computed(() => {
                             :key="i"
                             type="button"
                             class="min-h-[38px] min-w-[38px] rounded-xl px-3 text-xs font-semibold transition disabled:opacity-40"
-                            :class="l.active ? 'bg-brand-primary text-brand-primary-fg' : 'border border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
+                            :class="l.active ? 'bg-brand-primary text-brand-primary-fg dark:bg-brand-primary/20 dark:text-zinc-50' : 'border border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
                             :disabled="!l.url"
                             :aria-current="l.active ? 'page' : undefined"
                             @click="goPage(l.url)"

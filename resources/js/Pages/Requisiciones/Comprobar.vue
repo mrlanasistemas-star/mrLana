@@ -289,7 +289,7 @@ const montoPendiente = computed({
                     class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
                            bg-slate-900 text-white hover:bg-slate-800 hover:shadow-sm hover:-translate-y-[1px]
                            transition active:scale-[0.98]
-                           dark:bg-white dark:text-slate-900 dark:hover:bg-neutral-200"
+                           dark:bg-zinc-300 dark:text-slate-900 dark:hover:bg-neutral-200"
                     @click="addFolio"
                   >
                     <Plus class="h-4 w-4" />
@@ -1014,7 +1014,7 @@ const montoPendiente = computed({
                     class="shrink-0 inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-black
                             bg-slate-900 text-white hover:bg-slate-800 hover:shadow-sm hover:-translate-y-[1px]
                             transition active:scale-[0.98]
-                            dark:bg-white dark:text-slate-900 dark:hover:bg-neutral-200"
+                            dark:bg-zinc-300 dark:text-slate-900 dark:hover:bg-neutral-200"
                     >
                     Ir a Ajustes
                 </Link>

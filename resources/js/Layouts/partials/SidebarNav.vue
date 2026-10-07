@@ -52,7 +52,7 @@ const items = computed(() =>
                 class="group relative flex min-h-[40px] items-center rounded-xl px-[15px] [@media(max-height:820px)]:min-h-[33px] text-[13.5px] font-medium transition-colors duration-150
                        focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
                 :class="isActive(item.activePattern)
-                    ? 'bg-brand-primary text-brand-primary-fg shadow-sm shadow-brand-primary/20'
+                    ? 'bg-brand-primary text-brand-primary-fg shadow-sm shadow-brand-primary/20 dark:bg-brand-primary/[0.16] dark:text-zinc-50 dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.08]'
                     : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100'"
                 :aria-current="isActive(item.activePattern) ? 'page' : undefined"
                 :aria-label="props.expanded ? undefined : item.label"

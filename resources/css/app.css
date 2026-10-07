@@ -88,11 +88,11 @@
 @layer base {
   :root {
     --brand-primary-light: 24 24 27;       --brand-primary-light-fg: 255 255 255;
-    --brand-primary-dark: 244 244 245;     --brand-primary-dark-fg: 9 9 11;
+    --brand-primary-dark: 212 212 216;     --brand-primary-dark-fg: 9 9 11;
     --brand-accent-light: 15 118 110;      --brand-accent-light-fg: 255 255 255;
     --brand-accent-dark: 45 212 191;       --brand-accent-dark-fg: 9 9 11;
     --brand-button-light: 24 24 27;        --brand-button-light-fg: 255 255 255;
-    --brand-button-dark: 244 244 245;      --brand-button-dark-fg: 9 9 11;
+    --brand-button-dark: 212 212 216;      --brand-button-dark-fg: 9 9 11;
     --brand-success-light: 22 163 74;      --brand-success-light-fg: 255 255 255;
     --brand-success-dark: 74 222 128;      --brand-success-dark-fg: 9 9 11;
     --brand-warning-light: 217 119 6;      --brand-warning-light-fg: 255 255 255;
@@ -188,7 +188,8 @@
       dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10;
   }
   .ui-chip-on {
-    @apply bg-brand-primary text-brand-primary-fg hover:bg-brand-primary dark:bg-brand-primary dark:text-brand-primary-fg dark:hover:bg-brand-primary;
+    @apply bg-brand-primary text-brand-primary-fg hover:bg-brand-primary
+      dark:bg-brand-primary/20 dark:text-zinc-50 dark:ring-1 dark:ring-inset dark:ring-brand-primary/30 dark:hover:bg-brand-primary/25;
   }
   .ui-badge {
     @apply inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1;

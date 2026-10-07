@@ -182,7 +182,7 @@ const submit = async () => {
           <span
             class="ml-auto inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold
                    bg-slate-900 text-white
-                   dark:bg-zinc-100 dark:text-zinc-900"
+                   dark:bg-zinc-300 dark:text-zinc-900"
           >
             Verificada
           </span>

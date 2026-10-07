@@ -398,7 +398,7 @@ const inputClass =
                             :key="i"
                             type="button"
                             class="min-h-[36px] min-w-[36px] rounded-xl px-3 text-xs font-semibold transition disabled:opacity-40"
-                            :class="l.active ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'border border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
+                            :class="l.active ? 'bg-slate-900 text-white dark:bg-zinc-300 dark:text-zinc-900' : 'border border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
                             :disabled="!l.url"
                             :aria-current="l.active ? 'page' : undefined"
                             @click="goPage(l.url)"
@@ -510,7 +510,7 @@ const inputClass =
         focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10;
 }
 .chip-on {
-    @apply bg-slate-900 text-white hover:bg-slate-900 dark:bg-zinc-100 dark:text-zinc-900;
+    @apply bg-slate-900 text-white hover:bg-slate-900 dark:bg-zinc-300 dark:text-zinc-900;
 }
 .badge {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1;

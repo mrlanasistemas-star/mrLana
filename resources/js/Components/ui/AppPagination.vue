@@ -20,7 +20,7 @@ defineEmits<{ (e: 'go', url: string | null): void }>()
              disabled:opacity-50 disabled:cursor-not-allowed"
       :class="
         l.active
-          ? 'bg-slate-900 text-white border-slate-900 dark:bg-neutral-100 dark:text-neutral-900 dark:border-neutral-100'
+          ? 'bg-slate-900 text-white border-slate-900 dark:bg-zinc-300 dark:text-neutral-900 dark:border-neutral-100'
           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-neutral-900 dark:text-neutral-200 dark:border-white/10 dark:hover:bg-neutral-950/40'
       "
       v-html="l.label"

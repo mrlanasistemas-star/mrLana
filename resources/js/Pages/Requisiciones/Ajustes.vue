@@ -350,7 +350,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                 :aria-selected="filtro === opt"
                                 class="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition
                                        focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60"
-                                :class="filtro === opt ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10'"
+                                :class="filtro === opt ? 'bg-slate-900 text-white dark:bg-zinc-300 dark:text-zinc-900' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10'"
                                 @click="filtro = opt"
                             >
                                 {{ opt === 'TODOS' ? 'Todos' : ESTATUS[opt].label }}

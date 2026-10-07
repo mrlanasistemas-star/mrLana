@@ -483,8 +483,8 @@ const { can } = usePermissions()
                             <SecondaryButton @click="closeModal">Cancelar</SecondaryButton>
                             <button type="button" class="rounded-2xl px-4 py-2 font-semibold
                             bg-slate-900 text-white hover:bg-slate-800
-                            dark:bg-neutral-100 dark:text-neutral-900
-                            dark:hover:bg-white transition active:scale-[0.98]"
+                            dark:bg-zinc-300 dark:text-neutral-900
+                            dark:hover:bg-zinc-200 transition active:scale-[0.98]"
                             :disabled="form.processing" @click="submit">
                                 {{ editing ? 'Guardar cambios' : 'Crear proveedor' }}
                             </button>

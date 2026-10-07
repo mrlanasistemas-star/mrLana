@@ -633,7 +633,7 @@ function saveFechaGeneral() {
                     :disabled="!canSubmit || submitting"
                     @click="submit"
                     class="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black
-                            bg-slate-900 text-white hover:bg-slate-950 dark:bg-white dark:text-slate-900 dark:hover:bg-neutral-200
+                            bg-slate-900 text-white hover:bg-slate-950 dark:bg-zinc-300 dark:text-slate-900 dark:hover:bg-neutral-200
                             transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                     <Upload class="h-4 w-4" />

@@ -600,8 +600,9 @@
 }
 
 .dark .erp-pager-btn.active {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: rgba(255,255,255,0.12);
+  color: #fafafa;
+  border-color: rgba(255,255,255,0.16);
 }
 
 .erp-pager-btn:disabled {
