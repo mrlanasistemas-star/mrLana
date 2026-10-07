@@ -2,7 +2,7 @@
     $meta = [
         'title' => $data['headline'] ?? 'Dashboard',
         'subtitle' => ($data['subheadline'] ?? '').' Periodo: '.($data['period']['from'] ?? '').' – '.($data['period']['to'] ?? ''),
-        'generated_at' => $generatedAt ?? now()->format('d/m/Y H:i'),
+        'generated_at' => $generatedAt ?? \App\Support\BusinessDate::now()->format('d/m/Y H:i'),
         'generated_by' => trim(($data['userName'] ?? '').(!empty($data['userRole']) ? ' · '.$data['userRole'] : '')),
         'footer_left' => 'ERP MR-Lana · Reporte de dashboard',
     ];

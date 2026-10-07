@@ -16,6 +16,12 @@ final class BusinessDate
         return (string) config('erp.business_timezone', 'America/Mexico_City');
     }
 
+    /** Fecha y hora actuales en la zona de negocio (p. ej. "Generado:" en reportes). */
+    public static function now(): CarbonImmutable
+    {
+        return CarbonImmutable::now(self::timezone());
+    }
+
     public static function today(): CarbonImmutable
     {
         return CarbonImmutable::now(self::timezone())->startOfDay();

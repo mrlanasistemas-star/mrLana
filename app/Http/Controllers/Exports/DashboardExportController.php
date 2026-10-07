@@ -8,6 +8,7 @@ use App\Models\AppSetting;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\Dashboard\DashboardProfile;
 use App\Services\Pdf\PdfService;
+use App\Support\BusinessDate;
 use App\Support\Pdf\SvgCharts;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -38,7 +39,7 @@ class DashboardExportController extends Controller
             'charts' => $charts,
             'palette' => $palette,
             'generatedAt' => now()->timezone(\App\Support\BusinessDate::timezone())->format('d/m/Y H:i'),
-        ], 'dashboard_'.$profile->value.'_'.now()->format('Ymd_His').'.pdf', ['paper' => 'letter']);
+        ], 'dashboard_'.$profile->value.'_'.BusinessDate::now()->format('Ymd_His').'.pdf', ['paper' => 'letter']);
     }
 
     /**
@@ -55,8 +56,8 @@ class DashboardExportController extends Controller
         $data['comprobantesMix'] = array_column($data['comprobantesMix'], 'value', 'name');
 
         return Excel::download(
-            new DashboardExcelExport($profile->label(), now()->format('Y-m-d H:i'), $data, $profile !== DashboardProfile::Personal),
-            'dashboard_'.$profile->value.'_'.now()->format('Ymd_His').'.xlsx'
+            new DashboardExcelExport($profile->label(), BusinessDate::now()->format('Y-m-d H:i'), $data, $profile !== DashboardProfile::Personal),
+            'dashboard_'.$profile->value.'_'.BusinessDate::now()->format('Ymd_His').'.xlsx'
         );
     }
 

@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Exports;
 
-use App\Http\Controllers\Controller;
 use App\Exports\Areas\AreasExport;
+use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Services\Pdf\PdfService;
+use App\Support\BusinessDate;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Services\Pdf\PdfService;
 
 class AreaExportController extends Controller
 {
@@ -18,7 +19,7 @@ class AreaExportController extends Controller
         $meta = [
             'title' => 'Reporte de Áreas',
             'subtitle' => 'Exportación con filtros actuales',
-            'generated_at' => now()->format('Y-m-d H:i'),
+            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
             'generated_by' => optional($request->user())->name,
             'footer_left' => 'ERP MR-Lana',
         ];
@@ -40,7 +41,7 @@ class AreaExportController extends Controller
         $meta = [
             'title' => 'Reporte de Áreas',
             'subtitle' => 'Exportación con filtros actuales',
-            'generated_at' => now()->format('Y-m-d H:i'),
+            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
             'generated_by' => optional($request->user())->name,
         ];
 
@@ -54,10 +55,10 @@ class AreaExportController extends Controller
         // Parámetros esperados desde Vue:
         // corporativo_id, q, activo(all|1|0), sort, dir(asc|desc)
         $corporativoId = $request->integer('corporativo_id') ?: null;
-        $q             = trim((string) $request->get('q', ''));
-        $activo        = (string) $request->get('activo', 'all');
-        $sort          = (string) $request->get('sort', 'nombre');
-        $dir           = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $q = trim((string) $request->get('q', ''));
+        $activo = (string) $request->get('activo', 'all');
+        $sort = (string) $request->get('sort', 'nombre');
+        $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         $query = Area::query()
             ->with(['corporativo:id,nombre,activo']);
@@ -79,7 +80,9 @@ class AreaExportController extends Controller
 
         // Orden alineado a tu UI
         $allowedSort = ['nombre', 'activo', 'corporativo_id'];
-        if (!in_array($sort, $allowedSort, true)) $sort = 'nombre';
+        if (! in_array($sort, $allowedSort, true)) {
+            $sort = 'nombre';
+        }
 
         $query->orderBy($sort, $dir)->orderBy('id', 'desc');
 
@@ -101,10 +104,10 @@ class AreaExportController extends Controller
     {
         return [
             'Corporativo' => $request->get('corporativo_id'),
-            'Búsqueda'    => $request->get('q'),
-            'Estatus'     => $request->get('activo'),
-            'Orden'       => $request->get('sort'),
-            'Dirección'   => $request->get('dir'),
+            'Búsqueda' => $request->get('q'),
+            'Estatus' => $request->get('activo'),
+            'Orden' => $request->get('sort'),
+            'Dirección' => $request->get('dir'),
         ];
     }
 }

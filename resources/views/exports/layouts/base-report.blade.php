@@ -30,7 +30,7 @@
         <p class="title">{{ $meta['title'] ?? 'Reporte' }}</p>
         <p class="subtitle">{{ $meta['subtitle'] ?? '' }}</p>
         <div class="meta">
-            Generado: {{ $meta['generated_at'] ?? now()->format('Y-m-d H:i') }}
+            Generado: {{ $meta['generated_at'] ?? \App\Support\BusinessDate::now()->format('Y-m-d H:i') }}
             @if(!empty($meta['generated_by'])) | Por: {{ $meta['generated_by'] }} @endif
         </div>
 

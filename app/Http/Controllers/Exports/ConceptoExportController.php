@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Exports;
 
-use App\Http\Controllers\Controller;
 use App\Exports\Conceptos\ConceptosExport;
+use App\Http\Controllers\Controller;
 use App\Models\Concepto;
+use App\Services\Pdf\PdfService;
+use App\Support\BusinessDate;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Services\Pdf\PdfService;
 
 class ConceptoExportController extends Controller
 {
@@ -18,7 +19,7 @@ class ConceptoExportController extends Controller
         $meta = [
             'title' => 'Reporte de Conceptos',
             'subtitle' => 'Exportación con filtros actuales',
-            'generated_at' => now()->format('Y-m-d H:i'),
+            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
             'generated_by' => optional($request->user())->name,
             'footer_left' => 'ERP MR-Lana',
         ];
@@ -40,7 +41,7 @@ class ConceptoExportController extends Controller
         $meta = [
             'title' => 'Reporte de Conceptos',
             'subtitle' => 'Exportación con filtros actuales',
-            'generated_at' => now()->format('Y-m-d H:i'),
+            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
             'generated_by' => optional($request->user())->name,
         ];
 
@@ -53,10 +54,10 @@ class ConceptoExportController extends Controller
     {
         // Parámetros esperados desde Vue:
         // q, activo(all|1|0), sort, dir(asc|desc)
-        $q      = trim((string) $request->get('q', ''));
+        $q = trim((string) $request->get('q', ''));
         $activo = (string) $request->get('activo', 'all');
-        $sort   = (string) $request->get('sort', 'nombre');
-        $dir    = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $sort = (string) $request->get('sort', 'nombre');
+        $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         $query = Concepto::query();
 
@@ -70,7 +71,9 @@ class ConceptoExportController extends Controller
 
         // Orden permitido
         $allowedSort = ['nombre', 'activo', 'id'];
-        if (!in_array($sort, $allowedSort, true)) $sort = 'nombre';
+        if (! in_array($sort, $allowedSort, true)) {
+            $sort = 'nombre';
+        }
 
         $query->orderBy($sort, $dir)->orderBy('id', 'desc');
 
@@ -90,9 +93,9 @@ class ConceptoExportController extends Controller
     private function filtersLabel(Request $request): array
     {
         return [
-            'Búsqueda'  => $request->get('q'),
-            'Estatus'   => $request->get('activo'),
-            'Orden'     => $request->get('sort'),
+            'Búsqueda' => $request->get('q'),
+            'Estatus' => $request->get('activo'),
+            'Orden' => $request->get('sort'),
             'Dirección' => $request->get('dir'),
         ];
     }

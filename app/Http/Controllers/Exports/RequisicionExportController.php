@@ -11,21 +11,23 @@ use App\Models\Proveedor;
 use App\Models\Requisicion;
 use App\Models\Sucursal;
 use App\Services\Pdf\PdfService;
+use App\Support\BusinessDate;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
-class RequisicionExportController {
-
-    public function excel(Request $request) {
-        $rows    = $this->buildRows($request);
+class RequisicionExportController
+{
+    public function excel(Request $request)
+    {
+        $rows = $this->buildRows($request);
         $filters = $this->presentFilters($request);
 
         $meta = [
-            'title'        => 'Reporte de Requisiciones',
-            'subtitle'     => 'Exportación con filtros actuales',
-            'generated_at' => now()->format('Y-m-d H:i'),
+            'title' => 'Reporte de Requisiciones',
+            'subtitle' => 'Exportación con filtros actuales',
+            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
             'generated_by' => optional($request->user())->name,
-            'footer_left'  => 'ERP MR-Lana',
+            'footer_left' => 'ERP MR-Lana',
         ];
 
         return Excel::download(
@@ -34,22 +36,23 @@ class RequisicionExportController {
         );
     }
 
-    public function pdf(Request $request) {
-        $rows    = $this->buildRows($request);
+    public function pdf(Request $request)
+    {
+        $rows = $this->buildRows($request);
         $filters = $this->presentFilters($request);
 
         $meta = [
-            'title'        => 'Reporte de Requisiciones',
-            'subtitle'     => 'Exportación con filtros actuales',
-            'generated_at' => now()->format('Y-m-d H:i'),
+            'title' => 'Reporte de Requisiciones',
+            'subtitle' => 'Exportación con filtros actuales',
+            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
             'generated_by' => optional($request->user())->name,
-            'footer_left'  => 'ERP MR-Lana',
+            'footer_left' => 'ERP MR-Lana',
         ];
 
         return app(PdfService::class)->download('exports.requisiciones.index', [
-            'rows'    => $rows,
+            'rows' => $rows,
             'filters' => $filters,
-            'meta'    => $meta,
+            'meta' => $meta,
         ], 'requisiciones.pdf', ['paper' => 'letter', 'landscape' => true]);
     }
 
@@ -62,22 +65,23 @@ class RequisicionExportController {
      *   se agrega UNA sola fila adicional con descripción "AJUSTE".
      * - No se agregan ajustes uno por uno.
      */
-    private function buildRows(Request $request): array {
-        $q             = trim((string) $request->query('q', ''));
-        $tab           = strtoupper((string) $request->query('tab', 'ACTIVAS'));
-        $status        = (string) $request->query('status', '');
-        $corpId        = $request->query('comprador_corp_id');
-        $sucursalId    = $request->query('sucursal_id');
+    private function buildRows(Request $request): array
+    {
+        $q = trim((string) $request->query('q', ''));
+        $tab = strtoupper((string) $request->query('tab', 'ACTIVAS'));
+        $status = (string) $request->query('status', '');
+        $corpId = $request->query('comprador_corp_id');
+        $sucursalId = $request->query('sucursal_id');
         $solicitanteId = $request->query('solicitante_id');
-        $conceptoId    = $request->query('concepto_id');
-        $proveedorId   = $request->query('proveedor_id');
+        $conceptoId = $request->query('concepto_id');
+        $proveedorId = $request->query('proveedor_id');
         $registroFrom = $this->safeYmd($request->query('fecha_registro_from') ?? $request->query('fecha_from'));
-        $registroTo   = $this->safeYmd($request->query('fecha_registro_to') ?? $request->query('fecha_to'));
-        $pagoFrom     = $this->safeYmd($request->query('fecha_pago_from'));
-        $pagoTo       = $this->safeYmd($request->query('fecha_pago_to'));
-        $dir           = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $sortRaw       = (string) $request->query('sort', 'created_at');
-        $sort          = $this->normalizeSort($sortRaw);
+        $registroTo = $this->safeYmd($request->query('fecha_registro_to') ?? $request->query('fecha_to'));
+        $pagoFrom = $this->safeYmd($request->query('fecha_pago_from'));
+        $pagoTo = $this->safeYmd($request->query('fecha_pago_to'));
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $sortRaw = (string) $request->query('sort', 'created_at');
+        $sort = $this->normalizeSort($sortRaw);
 
         $user = $request->user();
         $verTodos = $user->can('requisiciones.ver_todos');
@@ -130,27 +134,43 @@ class RequisicionExportController {
             $query->where(function ($sub) use ($q) {
                 $sub->where('folio', 'like', "%{$q}%")
                     ->orWhere('observaciones', 'like', "%{$q}%")
-                    ->orWhereHas('proveedor', fn($p) => $p->where('razon_social', 'like', "%{$q}%"))
-                    ->orWhereHas('concepto', fn($c) => $c->where('nombre', 'like', "%{$q}%"))
-                    ->orWhereHas('comprador', fn($c) => $c->where('nombre', 'like', "%{$q}%"))
-                    ->orWhereHas('sucursal', fn($s) => $s->where('nombre', 'like', "%{$q}%"));
+                    ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$q}%"))
+                    ->orWhereHas('concepto', fn ($c) => $c->where('nombre', 'like', "%{$q}%"))
+                    ->orWhereHas('comprador', fn ($c) => $c->where('nombre', 'like', "%{$q}%"))
+                    ->orWhereHas('sucursal', fn ($s) => $s->where('nombre', 'like', "%{$q}%"));
             });
         }
 
-        if (!empty($corpId))        $query->where('comprador_corp_id', (int) $corpId);
-        if (!empty($sucursalId))    $query->where('sucursal_id', (int) $sucursalId);
-        if ($verTodos && !empty($solicitanteId)) {
+        if (! empty($corpId)) {
+            $query->where('comprador_corp_id', (int) $corpId);
+        }
+        if (! empty($sucursalId)) {
+            $query->where('sucursal_id', (int) $sucursalId);
+        }
+        if ($verTodos && ! empty($solicitanteId)) {
             $query->where('solicitante_id', (int) $solicitanteId);
         }
-        if (!empty($conceptoId))    $query->where('concepto_id', (int) $conceptoId);
-        if (!empty($proveedorId))   $query->where('proveedor_id', (int) $proveedorId);
-        if ($registroFrom) $query->whereDate('created_at', '>=', $registroFrom);
-        if ($registroTo)   $query->whereDate('created_at', '<=', $registroTo);
-        if ($pagoFrom)     $query->whereDate('fecha_pago', '>=', $pagoFrom);
-        if ($pagoTo)       $query->whereDate('fecha_pago', '<=', $pagoTo);
+        if (! empty($conceptoId)) {
+            $query->where('concepto_id', (int) $conceptoId);
+        }
+        if (! empty($proveedorId)) {
+            $query->where('proveedor_id', (int) $proveedorId);
+        }
+        if ($registroFrom) {
+            $query->whereDate('created_at', '>=', $registroFrom);
+        }
+        if ($registroTo) {
+            $query->whereDate('created_at', '<=', $registroTo);
+        }
+        if ($pagoFrom) {
+            $query->whereDate('fecha_pago', '>=', $pagoFrom);
+        }
+        if ($pagoTo) {
+            $query->whereDate('fecha_pago', '<=', $pagoTo);
+        }
 
         $allowed = ['folio', 'created_at', 'monto_total', 'status', 'id'];
-        if (!in_array($sort, $allowed, true)) {
+        if (! in_array($sort, $allowed, true)) {
             $sort = 'created_at';
         }
 
@@ -162,7 +182,7 @@ class RequisicionExportController {
             ->orderBy($sort, $dir)
             ->orderBy('id', 'desc');
 
-        if (!$showAll && $perPage > 0 && $page > 0) {
+        if (! $showAll && $perPage > 0 && $page > 0) {
             $itemsQuery
                 ->skip(($page - 1) * $perPage)
                 ->take($perPage);
@@ -180,120 +200,120 @@ class RequisicionExportController {
             });
 
             $subtotalReq = (float) ($req->monto_subtotal ?? 0);
-            $totalReq    = (float) ($req->monto_total ?? 0);
-            $ivaReq      = round($totalReq - $subtotalReq, 2);
+            $totalReq = (float) ($req->monto_total ?? 0);
+            $ivaReq = round($totalReq - $subtotalReq, 2);
 
             // Diferencia neta real entre total de items y total final de la requisición
             $ajusteNeto = round($totalReq - $totalItems, 2);
 
             $common = [
-                'folio'           => $req->folio,
-                'fecha_captura'   => optional($req->created_at)->format('Y-m-d H:i'),
+                'folio' => $req->folio,
+                'fecha_captura' => optional($req->created_at)->format('Y-m-d H:i'),
                 'fecha_solicitud' => $req->fecha_solicitud ? optional($req->fecha_solicitud)->format('Y-m-d') : '',
-                'fecha_pago'      => $req->fecha_pago ? optional($req->fecha_pago)->format('Y-m-d') : '',
+                'fecha_pago' => $req->fecha_pago ? optional($req->fecha_pago)->format('Y-m-d') : '',
                 'fecha_pago_esperada' => $req->fecha_pago_esperada ? $req->fecha_pago_esperada->format('Y-m-d') : '',
-                'fecha_autorizacion'  => $req->fecha_autorizacion ? $req->fecha_autorizacion->format('Y-m-d H:i') : '',
-                'tipo'            => $req->tipo,
-                'estatus'         => $req->status,
+                'fecha_autorizacion' => $req->fecha_autorizacion ? $req->fecha_autorizacion->format('Y-m-d H:i') : '',
+                'tipo' => $req->tipo,
+                'estatus' => $req->status,
 
-                'comprador'       => $req->comprador?->nombre,
-                'corporativo'     => $req->sucursal?->corporativo?->nombre ?: $req->comprador?->nombre,
-                'sucursal'        => $req->sucursal?->nombre,
+                'comprador' => $req->comprador?->nombre,
+                'corporativo' => $req->sucursal?->corporativo?->nombre ?: $req->comprador?->nombre,
+                'sucursal' => $req->sucursal?->nombre,
                 'sucursal_codigo' => $req->sucursal?->codigo,
 
-                'solicitante'     => $req->solicitante
-                    ? trim($req->solicitante->nombre . ' ' . $req->solicitante->apellido_paterno . ' ' . ($req->solicitante->apellido_materno ?? ''))
+                'solicitante' => $req->solicitante
+                    ? trim($req->solicitante->nombre.' '.$req->solicitante->apellido_paterno.' '.($req->solicitante->apellido_materno ?? ''))
                     : '',
 
-                'proveedor'       => $req->proveedor?->razon_social,
-                'proveedor_rfc'   => $req->proveedor?->rfc,
+                'proveedor' => $req->proveedor?->razon_social,
+                'proveedor_rfc' => $req->proveedor?->rfc,
 
-                'concepto'        => $req->concepto?->nombre,
-                'observaciones'   => $req->observaciones,
+                'concepto' => $req->concepto?->nombre,
+                'observaciones' => $req->observaciones,
 
-                'subtotal'        => $subtotalReq,
-                'iva'             => $ivaReq,
-                'total'           => $totalItems,
-                'ajustes_netos'   => $ajusteNeto,
-                'total_final'     => $totalReq,
+                'subtotal' => $subtotalReq,
+                'iva' => $ivaReq,
+                'total' => $totalItems,
+                'ajustes_netos' => $ajusteNeto,
+                'total_final' => $totalReq,
             ];
 
             $printedHeader = false;
 
             foreach ($detalles as $detalle) {
                 $rows[] = [
-                    'folio'             => !$printedHeader ? $common['folio'] : '',
-                    'fecha_captura'     => !$printedHeader ? $common['fecha_captura'] : '',
-                    'fecha_solicitud'   => !$printedHeader ? $common['fecha_solicitud'] : '',
-                    'fecha_pago'        => !$printedHeader ? $common['fecha_pago'] : '',
-                    'fecha_pago_esperada' => !$printedHeader ? $common['fecha_pago_esperada'] : '',
-                    'fecha_autorizacion'  => !$printedHeader ? $common['fecha_autorizacion'] : '',
-                    'tipo'              => !$printedHeader ? $common['tipo'] : '',
-                    'estatus'           => !$printedHeader ? $common['estatus'] : '',
-                    'comprador'         => !$printedHeader ? $common['comprador'] : '',
-                    'corporativo'       => !$printedHeader ? $common['corporativo'] : '',
-                    'sucursal'          => !$printedHeader ? $common['sucursal'] : '',
-                    'sucursal_codigo'   => !$printedHeader ? $common['sucursal_codigo'] : '',
-                    'solicitante'       => !$printedHeader ? $common['solicitante'] : '',
-                    'proveedor'         => !$printedHeader ? $common['proveedor'] : '',
-                    'proveedor_rfc'     => !$printedHeader ? $common['proveedor_rfc'] : '',
-                    'concepto'          => !$printedHeader ? $common['concepto'] : '',
-                    'observaciones'     => !$printedHeader ? $common['observaciones'] : '',
+                    'folio' => ! $printedHeader ? $common['folio'] : '',
+                    'fecha_captura' => ! $printedHeader ? $common['fecha_captura'] : '',
+                    'fecha_solicitud' => ! $printedHeader ? $common['fecha_solicitud'] : '',
+                    'fecha_pago' => ! $printedHeader ? $common['fecha_pago'] : '',
+                    'fecha_pago_esperada' => ! $printedHeader ? $common['fecha_pago_esperada'] : '',
+                    'fecha_autorizacion' => ! $printedHeader ? $common['fecha_autorizacion'] : '',
+                    'tipo' => ! $printedHeader ? $common['tipo'] : '',
+                    'estatus' => ! $printedHeader ? $common['estatus'] : '',
+                    'comprador' => ! $printedHeader ? $common['comprador'] : '',
+                    'corporativo' => ! $printedHeader ? $common['corporativo'] : '',
+                    'sucursal' => ! $printedHeader ? $common['sucursal'] : '',
+                    'sucursal_codigo' => ! $printedHeader ? $common['sucursal_codigo'] : '',
+                    'solicitante' => ! $printedHeader ? $common['solicitante'] : '',
+                    'proveedor' => ! $printedHeader ? $common['proveedor'] : '',
+                    'proveedor_rfc' => ! $printedHeader ? $common['proveedor_rfc'] : '',
+                    'concepto' => ! $printedHeader ? $common['concepto'] : '',
+                    'observaciones' => ! $printedHeader ? $common['observaciones'] : '',
 
-                    'cantidad'          => (float) ($detalle->cantidad ?? 0),
-                    'descripcion_item'  => (string) ($detalle->descripcion ?? ''),
-                    'precio_unitario'   => (float) ($detalle->precio_unitario ?? 0),
-                    'genera_iva'        => !empty($detalle->genera_iva) ? 'Sí' : 'No',
-                    'subtotal_item'     => (float) ($detalle->subtotal ?? 0),
-                    'iva_item'          => (float) ($detalle->iva ?? 0),
-                    'total_item'        => (float) ($detalle->total ?? 0),
+                    'cantidad' => (float) ($detalle->cantidad ?? 0),
+                    'descripcion_item' => (string) ($detalle->descripcion ?? ''),
+                    'precio_unitario' => (float) ($detalle->precio_unitario ?? 0),
+                    'genera_iva' => ! empty($detalle->genera_iva) ? 'Sí' : 'No',
+                    'subtotal_item' => (float) ($detalle->subtotal ?? 0),
+                    'iva_item' => (float) ($detalle->iva ?? 0),
+                    'total_item' => (float) ($detalle->total ?? 0),
 
-                    'subtotal'          => !$printedHeader ? $common['subtotal'] : '',
-                    'iva'               => !$printedHeader ? $common['iva'] : '',
-                    'total'             => !$printedHeader ? $common['total'] : '',
-                    'ajustes_netos'     => !$printedHeader ? $common['ajustes_netos'] : '',
-                    'total_final'       => !$printedHeader ? $common['total_final'] : '',
-                    'row_kind'          => 'ITEM',
+                    'subtotal' => ! $printedHeader ? $common['subtotal'] : '',
+                    'iva' => ! $printedHeader ? $common['iva'] : '',
+                    'total' => ! $printedHeader ? $common['total'] : '',
+                    'ajustes_netos' => ! $printedHeader ? $common['ajustes_netos'] : '',
+                    'total_final' => ! $printedHeader ? $common['total_final'] : '',
+                    'row_kind' => 'ITEM',
                 ];
 
                 $printedHeader = true;
             }
 
             // Si no hubo detalles, igual metemos una fila base vacía
-            if (!$printedHeader) {
+            if (! $printedHeader) {
                 $rows[] = [
-                    'folio'             => $common['folio'],
-                    'fecha_captura'     => $common['fecha_captura'],
-                    'fecha_solicitud'   => $common['fecha_solicitud'],
-                    'fecha_pago'        => $common['fecha_pago'],
+                    'folio' => $common['folio'],
+                    'fecha_captura' => $common['fecha_captura'],
+                    'fecha_solicitud' => $common['fecha_solicitud'],
+                    'fecha_pago' => $common['fecha_pago'],
                     'fecha_pago_esperada' => $common['fecha_pago_esperada'],
-                    'fecha_autorizacion'  => $common['fecha_autorizacion'],
-                    'tipo'              => $common['tipo'],
-                    'estatus'           => $common['estatus'],
-                    'comprador'         => $common['comprador'],
-                    'corporativo'       => $common['corporativo'],
-                    'sucursal'          => $common['sucursal'],
-                    'sucursal_codigo'   => $common['sucursal_codigo'],
-                    'solicitante'       => $common['solicitante'],
-                    'proveedor'         => $common['proveedor'],
-                    'proveedor_rfc'     => $common['proveedor_rfc'],
-                    'concepto'          => $common['concepto'],
-                    'observaciones'     => $common['observaciones'],
+                    'fecha_autorizacion' => $common['fecha_autorizacion'],
+                    'tipo' => $common['tipo'],
+                    'estatus' => $common['estatus'],
+                    'comprador' => $common['comprador'],
+                    'corporativo' => $common['corporativo'],
+                    'sucursal' => $common['sucursal'],
+                    'sucursal_codigo' => $common['sucursal_codigo'],
+                    'solicitante' => $common['solicitante'],
+                    'proveedor' => $common['proveedor'],
+                    'proveedor_rfc' => $common['proveedor_rfc'],
+                    'concepto' => $common['concepto'],
+                    'observaciones' => $common['observaciones'],
 
-                    'cantidad'          => '',
-                    'descripcion_item'  => '',
-                    'precio_unitario'   => '',
-                    'genera_iva'        => '',
-                    'subtotal_item'     => '',
-                    'iva_item'          => '',
-                    'total_item'        => '',
+                    'cantidad' => '',
+                    'descripcion_item' => '',
+                    'precio_unitario' => '',
+                    'genera_iva' => '',
+                    'subtotal_item' => '',
+                    'iva_item' => '',
+                    'total_item' => '',
 
-                    'subtotal'          => $common['subtotal'],
-                    'iva'               => $common['iva'],
-                    'total'             => $common['total'],
-                    'ajustes_netos'     => $common['ajustes_netos'],
-                    'total_final'       => $common['total_final'],
-                    'row_kind'          => 'BASE',
+                    'subtotal' => $common['subtotal'],
+                    'iva' => $common['iva'],
+                    'total' => $common['total'],
+                    'ajustes_netos' => $common['ajustes_netos'],
+                    'total_final' => $common['total_final'],
+                    'row_kind' => 'BASE',
                 ];
 
                 $printedHeader = true;
@@ -302,38 +322,38 @@ class RequisicionExportController {
             // Agrega SOLO una fila general de ajuste, si la diferencia neta existe
             if (abs($ajusteNeto) > 0.00001) {
                 $rows[] = [
-                    'folio'             => '',
-                    'fecha_captura'     => '',
-                    'fecha_solicitud'   => '',
-                    'fecha_pago'        => '',
+                    'folio' => '',
+                    'fecha_captura' => '',
+                    'fecha_solicitud' => '',
+                    'fecha_pago' => '',
                     'fecha_pago_esperada' => '',
-                    'fecha_autorizacion'  => '',
-                    'tipo'              => '',
-                    'estatus'           => '',
-                    'comprador'         => '',
-                    'corporativo'       => '',
-                    'sucursal'          => '',
-                    'sucursal_codigo'   => '',
-                    'solicitante'       => '',
-                    'proveedor'         => '',
-                    'proveedor_rfc'     => '',
-                    'concepto'          => '',
-                    'observaciones'     => '',
+                    'fecha_autorizacion' => '',
+                    'tipo' => '',
+                    'estatus' => '',
+                    'comprador' => '',
+                    'corporativo' => '',
+                    'sucursal' => '',
+                    'sucursal_codigo' => '',
+                    'solicitante' => '',
+                    'proveedor' => '',
+                    'proveedor_rfc' => '',
+                    'concepto' => '',
+                    'observaciones' => '',
 
-                    'cantidad'          => 1,
-                    'descripcion_item'  => 'AJUSTE',
-                    'precio_unitario'   => $ajusteNeto,
-                    'genera_iva'        => 'No',
-                    'subtotal_item'     => $ajusteNeto,
-                    'iva_item'          => 0,
-                    'total_item'        => $ajusteNeto,
+                    'cantidad' => 1,
+                    'descripcion_item' => 'AJUSTE',
+                    'precio_unitario' => $ajusteNeto,
+                    'genera_iva' => 'No',
+                    'subtotal_item' => $ajusteNeto,
+                    'iva_item' => 0,
+                    'total_item' => $ajusteNeto,
 
-                    'subtotal'          => '',
-                    'iva'               => '',
-                    'total'             => '',
-                    'ajustes_netos'     => '',
-                    'total_final'       => '',
-                    'row_kind'          => 'AJUSTE',
+                    'subtotal' => '',
+                    'iva' => '',
+                    'total' => '',
+                    'ajustes_netos' => '',
+                    'total_final' => '',
+                    'row_kind' => 'AJUSTE',
                 ];
             }
         }
@@ -341,28 +361,29 @@ class RequisicionExportController {
         return $rows;
     }
 
-    private function presentFilters(Request $request): array {
+    private function presentFilters(Request $request): array
+    {
         $sortRaw = (string) $request->query('sort', 'created_at');
-        $sort    = $this->normalizeSort($sortRaw);
+        $sort = $this->normalizeSort($sortRaw);
 
         $sortLabel = match ($sort) {
-            'created_at'  => 'Fecha de captura',
-            'folio'       => 'Folio',
+            'created_at' => 'Fecha de captura',
+            'folio' => 'Folio',
             'monto_total' => 'Total',
-            'status'      => 'Estatus',
-            'tipo'        => 'Tipo',
-            default       => 'Fecha de captura',
+            'status' => 'Estatus',
+            'tipo' => 'Tipo',
+            default => 'Fecha de captura',
         };
 
         $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc'
             ? 'Ascendente'
             : 'Descendente';
 
-        $corpId         = $request->query('comprador_corp_id');
-        $sucursalId     = $request->query('sucursal_id');
-        $solicitanteId  = $request->query('solicitante_id');
-        $conceptoId     = $request->query('concepto_id');
-        $proveedorId    = $request->query('proveedor_id');
+        $corpId = $request->query('comprador_corp_id');
+        $sucursalId = $request->query('sucursal_id');
+        $solicitanteId = $request->query('solicitante_id');
+        $conceptoId = $request->query('concepto_id');
+        $proveedorId = $request->query('proveedor_id');
 
         $corp = $corpId
             ? (Corporativo::select('id', 'nombre')->find((int) $corpId)?->nombre ?? "#{$corpId}")
@@ -377,7 +398,7 @@ class RequisicionExportController {
             : null;
 
         $solName = $sol
-            ? trim($sol->nombre . ' ' . $sol->apellido_paterno . ' ' . ($sol->apellido_materno ?? ''))
+            ? trim($sol->nombre.' '.$sol->apellido_paterno.' '.($sol->apellido_materno ?? ''))
             : '';
 
         $con = $conceptoId
@@ -389,42 +410,47 @@ class RequisicionExportController {
             : '';
 
         return array_filter([
-            'Búsqueda'      => trim((string) $request->query('q', '')),
-            'Tab'           => strtoupper((string) $request->query('tab', 'ACTIVAS')),
-            'Estatus'       => (string) $request->query('status', ''),
-            'Corporativo'   => $corp,
-            'Sucursal'      => $suc,
-            'Solicitante'   => $solName,
-            'Concepto'      => $con,
-            'Proveedor'     => $prov,
-            'Tipo'          => (string) $request->query('tipo', ''),
-            'Registro desde' => (string)($request->query('fecha_registro_from') ?? $request->query('fecha_from', '')),
-            'Registro hasta' => (string)($request->query('fecha_registro_to') ?? $request->query('fecha_to', '')),
-            'Pago desde'     => (string)($request->query('fecha_pago_from', '')),
-            'Pago hasta'     => (string)($request->query('fecha_pago_to', '')),
-            'Orden'         => $sortLabel,
-            'Dirección'     => $dir,
+            'Búsqueda' => trim((string) $request->query('q', '')),
+            'Tab' => strtoupper((string) $request->query('tab', 'ACTIVAS')),
+            'Estatus' => (string) $request->query('status', ''),
+            'Corporativo' => $corp,
+            'Sucursal' => $suc,
+            'Solicitante' => $solName,
+            'Concepto' => $con,
+            'Proveedor' => $prov,
+            'Tipo' => (string) $request->query('tipo', ''),
+            'Registro desde' => (string) ($request->query('fecha_registro_from') ?? $request->query('fecha_from', '')),
+            'Registro hasta' => (string) ($request->query('fecha_registro_to') ?? $request->query('fecha_to', '')),
+            'Pago desde' => (string) ($request->query('fecha_pago_from', '')),
+            'Pago hasta' => (string) ($request->query('fecha_pago_to', '')),
+            'Orden' => $sortLabel,
+            'Dirección' => $dir,
         ], fn ($v) => $v !== null && $v !== '');
     }
 
-    private function safeYmd($v): ?string {
-        if (!is_string($v) || $v === '') return null;
+    private function safeYmd($v): ?string
+    {
+        if (! is_string($v) || $v === '') {
+            return null;
+        }
+
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
     }
 
-    private function normalizeSort(string $sort): string {
+    private function normalizeSort(string $sort): string
+    {
         $map = [
             'fecha_captura' => 'created_at',
-            'createdAt'     => 'created_at',
-            'created_at'    => 'created_at',
-            'folio'         => 'folio',
-            'monto_total'   => 'monto_total',
-            'status'        => 'status',
-            'tipo'          => 'tipo',
-            'id'            => 'id',
+            'createdAt' => 'created_at',
+            'created_at' => 'created_at',
+            'folio' => 'folio',
+            'monto_total' => 'monto_total',
+            'status' => 'status',
+            'tipo' => 'tipo',
+            'id' => 'id',
         ];
         $sort = trim($sort);
+
         return $map[$sort] ?? 'created_at';
     }
-
 }
