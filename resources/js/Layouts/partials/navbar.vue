@@ -5,7 +5,7 @@
  */
 import { computed, onMounted } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
-import { ChevronDown, LifeBuoy, LogOut, Menu, Moon, Sun, UserRound, BookOpen } from 'lucide-vue-next'
+import { ChevronDown, ChevronRight, LifeBuoy, LogOut, Menu, Moon, Sun, UserRound, BookOpen } from 'lucide-vue-next'
 import { DropdownMenuItem, DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuTrigger } from 'reka-ui'
 import { DropdownMenuContent } from '@/Components/ui/dropdown-menu'
 import DownloadAppButton from '@/Components/layout/DownloadAppButton.vue'
@@ -15,6 +15,7 @@ import { usePermissions } from '@/Composables/usePermissions'
 import { useSidebar } from '@/Composables/useSidebar'
 import { useTheme } from '@/Composables/useTheme'
 import type { SharedProps } from '@/types/shared'
+import { NAVIGATION } from '@/Layouts/navigation'
 
 const page = usePage<SharedProps>()
 const SUPPORT_URL = 'https://soporte.mr-lana.com/'
@@ -32,6 +33,16 @@ const initials = computed(() => {
     return (parts.slice(0, 2).map((p) => p[0] ?? '').join('') || 'ML').toUpperCase()
 })
 
+// Sección del menú a la que pertenece la página actual (miga de pan).
+const section = computed(() => {
+    void page.url
+    try {
+        return NAVIGATION.find((g) => g.items.some((i) => route().current(i.activePattern)))?.title ?? null
+    } catch {
+        return null
+    }
+})
+
 const menuItemClass =
     'flex min-h-[40px] cursor-pointer select-none items-center gap-2.5 rounded-lg px-3 text-sm text-slate-700 outline-none ' +
     'data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900 dark:text-zinc-200 dark:data-[highlighted]:bg-white/10'
@@ -40,7 +51,7 @@ const menuItemClass =
 <template>
     <nav
         class="relative flex h-16 items-center justify-between gap-2 border-b px-3 backdrop-blur-md sm:px-6 lg:px-8
-               bg-white/85 border-slate-200/80 dark:bg-zinc-950/80 dark:border-zinc-800/60"
+               bg-white/95 border-slate-200/80 dark:bg-zinc-950/95 dark:border-zinc-800/60"
         aria-label="Barra superior"
     >
         <div class="flex min-w-0 items-center gap-2">
@@ -55,9 +66,15 @@ const menuItemClass =
             >
                 <Menu class="h-5 w-5" aria-hidden="true" />
             </button>
-            <h1 class="min-w-0 truncate text-sm font-bold text-slate-900 dark:text-zinc-100 sm:text-base">
-                <slot name="title">Dashboard</slot>
-            </h1>
+            <div class="flex min-w-0 items-center gap-2">
+                <span v-if="section" class="hidden shrink-0 items-center gap-2 text-sm font-medium text-slate-400 dark:text-zinc-500 md:inline-flex">
+                    {{ section }}
+                    <ChevronRight class="h-4 w-4" aria-hidden="true" />
+                </span>
+                <h1 class="min-w-0 truncate text-sm font-bold text-slate-900 dark:text-zinc-100 sm:text-base">
+                    <slot name="title">Dashboard</slot>
+                </h1>
+            </div>
         </div>
 
         <div class="flex shrink-0 items-center gap-1.5 sm:gap-2.5">

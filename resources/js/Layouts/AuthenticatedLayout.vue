@@ -44,7 +44,7 @@ onMounted(() => {
                 </Navbar>
             </div>
 
-            <main id="auth-main" tabindex="-1" class="min-w-0 flex-1 overflow-x-hidden pb-[calc(5.5rem+env(safe-area-inset-bottom))] focus:outline-none lg:pb-0">
+            <main id="auth-main" tabindex="-1" class="min-w-0 flex-1 overflow-x-clip pb-[calc(5.5rem+env(safe-area-inset-bottom))] focus:outline-none lg:pb-0">
                 <slot />
             </main>
         </div>

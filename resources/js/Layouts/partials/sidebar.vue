@@ -46,24 +46,26 @@ const initials = computed(() => {
 })
 
 const footerBtn =
-    'flex min-h-[42px] w-full items-center rounded-xl px-[15px] text-[13.5px] font-medium transition-colors ' +
+    'flex min-h-[42px] w-full items-center rounded-xl px-[15px] text-[13.5px] font-medium transition-colors [@media(max-height:820px)]:min-h-[34px] ' +
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40'
 </script>
 
 <template>
     <!--
-        Escritorio (lg+): rail pegado al borde. Reserva 4rem; al pasar el puntero
+        Escritorio (lg+): rail fijo a todo el alto, pegado al borde. Reserva 4rem; al pasar el puntero
         se expande encima del contenido (sin moverlo). "Fijar menú" reserva 15rem.
     -->
     <aside
         id="erp-sidebar"
-        class="sticky top-0 z-[210] hidden h-dvh shrink-0 transition-[width] duration-200 ease-out motion-reduce:transition-none lg:block"
+        class="relative z-[210] hidden shrink-0 transition-[width] duration-200 ease-out motion-reduce:transition-none lg:block"
         :class="pinned ? 'w-60' : 'w-16'"
         @mouseenter="hovering = true"
         @mouseleave="hovering = false"
+        @focusin="hovering = true"
+        @focusout="hovering = false"
     >
         <div
-            class="absolute inset-y-0 left-0 flex flex-col overflow-hidden border-r border-slate-200/80 bg-white text-slate-800
+            class="fixed inset-y-0 left-0 z-[210] flex h-dvh flex-col overflow-hidden border-r border-slate-200/80 bg-white text-slate-800
                    transition-[width,box-shadow] duration-200 ease-out motion-reduce:transition-none
                    dark:border-zinc-800/60 dark:bg-zinc-950 dark:text-zinc-100"
             :class="[expanded ? 'w-60' : 'w-16', expanded && !pinned ? 'shadow-[8px_0_32px_-12px_rgba(0,0,0,0.25)]' : '']"
@@ -87,13 +89,13 @@ const footerBtn =
                 </span>
             </Link>
 
-            <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 [scrollbar-width:none] hover:[scrollbar-width:thin]">
+            <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-2.5 [@media(max-height:820px)]:py-1 [scrollbar-width:none] hover:[scrollbar-width:thin]">
                 <SidebarNav :expanded="expanded" />
             </div>
 
             <div class="space-y-0.5 border-t border-slate-200/80 p-2 dark:border-zinc-800/60">
-                <DownloadAppButton variant="menu" class="!px-[15px]">
-                    <span class="overflow-hidden whitespace-nowrap transition-opacity" :class="expanded ? 'opacity-100' : 'opacity-0'">Descargar aplicación</span>
+                <DownloadAppButton v-slot="{ label }" variant="menu" class="!px-[15px] [@media(max-height:820px)]:!min-h-[34px]">
+                    <span class="overflow-hidden whitespace-nowrap transition-opacity" :class="expanded ? 'opacity-100' : 'opacity-0'">{{ label }}</span>
                 </DownloadAppButton>
 
                 <button

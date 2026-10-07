@@ -16,8 +16,9 @@
   --erp-border-mid:  rgba(148,163,184,0.50);
   --erp-text:        #0f172a;
   --erp-muted:       #64748b;
-  --erp-accent:      #3b82f6;
-  --erp-accent-soft: rgba(59,130,246,0.12);
+  /* Acento ligado a la marca configurable (Configuración). */
+  --erp-accent:      rgb(var(--brand-accent));
+  --erp-accent-soft: rgb(var(--brand-accent) / 0.14);
   --erp-radius-sm:   0.75rem;   /* rounded-xl */
   --erp-radius-md:   1rem;      /* rounded-2xl */
   --erp-radius-lg:   1.5rem;    /* rounded-3xl */
@@ -33,8 +34,8 @@
   --erp-border-mid:  rgba(255,255,255,0.14);
   --erp-text:        #f4f4f5;
   --erp-muted:       #a1a1aa;
-  --erp-accent:      #60a5fa;
-  --erp-accent-soft: rgba(96,165,250,0.14);
+  --erp-accent:      rgb(var(--brand-accent));
+  --erp-accent-soft: rgb(var(--brand-accent) / 0.18);
   --erp-shadow-sm:   0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.18);
   --erp-shadow-md:   0 4px 12px rgba(0,0,0,0.30), 0 1px 3px rgba(0,0,0,0.22);
   --erp-shadow-lg:   0 10px 30px rgba(0,0,0,0.35), 0 4px 8px rgba(0,0,0,0.25);
@@ -48,7 +49,7 @@
   min-width: 0;
   max-width: 100%;
   padding: 1.25rem 1rem;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 @media (min-width: 640px) {
@@ -104,7 +105,7 @@
 }
 
 .erp-kpi-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   box-shadow: var(--erp-shadow-lg);
   border-color: var(--erp-border-mid);
 }
@@ -263,12 +264,11 @@
 }
 
 .erp-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--erp-shadow-md);
+  box-shadow: var(--erp-shadow-sm);
 }
 
 .erp-button:active {
-  transform: translateY(0);
+  transform: scale(0.98);
   box-shadow: none;
 }
 
@@ -283,20 +283,12 @@
 
 /* Primary */
 .erp-button-primary {
-  background: #0f172a;
-  color: #f1f5f9;
-  border-color: #0f172a;
+  background: rgb(var(--brand-button));
+  color: rgb(var(--brand-button-fg));
+  border-color: rgb(var(--brand-button));
 }
 .erp-button-primary:hover {
-  background: #1e293b;
-}
-.dark .erp-button-primary {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #f1f5f9;
-}
-.dark .erp-button-primary:hover {
-  background: #e2e8f0;
+  background: rgb(var(--brand-button) / 0.9);
 }
 
 /* Secondary */
@@ -316,22 +308,13 @@
 
 /* Danger */
 .erp-button-danger {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: rgba(220,38,38,0.25);
+  background: rgb(var(--brand-danger) / 0.08);
+  color: rgb(var(--brand-danger));
+  border-color: rgb(var(--brand-danger) / 0.25);
 }
 .erp-button-danger:hover {
-  background: #fee2e2;
-  border-color: rgba(220,38,38,0.45);
-}
-.dark .erp-button-danger {
-  background: rgba(220,38,38,0.12);
-  color: #fca5a5;
-  border-color: rgba(220,38,38,0.25);
-}
-.dark .erp-button-danger:hover {
-  background: rgba(220,38,38,0.28);
-  border-color: rgba(220,38,38,0.45);
+  background: rgb(var(--brand-danger) / 0.16);
+  border-color: rgb(var(--brand-danger) / 0.45);
 }
 
 /* Icon Button */
@@ -354,8 +337,6 @@
   color: var(--erp-text);
   border-color: var(--erp-border-mid);
   background: rgba(148,163,184,0.14);
-  transform: translateY(-1px);
-  box-shadow: var(--erp-shadow-sm);
 }
 .dark .erp-icon-button:hover {
   background: rgba(255,255,255,0.10);
@@ -386,6 +367,11 @@
 
 .erp-table th {
   padding: 0.75rem 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--erp-surface);
+  box-shadow: inset 0 -1px 0 var(--erp-border);
   text-align: left;
   font-size: 0.6875rem;
   font-weight: 800;

@@ -128,8 +128,12 @@
 }
 
 @layer base {
+  /*
+   * clip (no hidden): evita el scroll horizontal sin convertir a body en un
+   * contenedor de desplazamiento, lo que rompía position: sticky (barra superior).
+   */
   html, body {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   * {

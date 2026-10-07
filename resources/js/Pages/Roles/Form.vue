@@ -147,7 +147,7 @@ const title = computed(() => (isEdit.value ? (readOnly.value ? `Rol: ${props.rol
 
             <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
                 <!-- Datos y notificaciones -->
-                <div class="space-y-5">
+                <div class="space-y-5 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-6rem)] xl:self-start xl:overflow-y-auto xl:pb-1">
                     <fieldset :disabled="readOnly || form.processing" class="ui-card space-y-4 p-4 sm:p-5">
                         <legend class="sr-only">Datos del rol</legend>
                         <div>
