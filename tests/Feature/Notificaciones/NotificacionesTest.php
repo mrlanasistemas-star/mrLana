@@ -134,6 +134,27 @@ class NotificacionesTest extends TestCase
         $this->assertSame('requisicion.enviada', $contador->notifications()->first()?->type);
     }
 
+    public function test_quien_tiene_el_tema_activo_recibe_avisos_de_todos_incluso_los_propios(): void
+    {
+        $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN);
+        $colaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
+
+        // Lo envía otra persona.
+        $this->actingAs($colaborador)
+            ->post(route('requisiciones.storeCaptured'), $this->requisicionPayload($colaborador))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(1, $admin->notifications()->where('type', 'requisicion.enviada')->count());
+
+        // Lo envía el propio administrador (antes no le llegaba nada).
+        $this->actingAs($admin)
+            ->post(route('requisiciones.storeCaptured'), $this->requisicionPayload($admin))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(2, $admin->notifications()->where('type', 'requisicion.enviada')->count());
+
+        // El colaborador no tiene el tema activo en su rol.
+        $this->assertSame(0, $colaborador->notifications()->where('type', 'requisicion.enviada')->count());
+    }
+
     public function test_aviso_de_comprobantes_en_el_sistema_llega_a_contabilidad(): void
     {
         $colaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);

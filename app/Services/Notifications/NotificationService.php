@@ -17,8 +17,12 @@ use Throwable;
  * Destinatarios = (usuarios activos cuyos roles reciben el tema o "todas",
  * y que pueden ver notificaciones) ∪ destinatarios directos activos
  * (p. ej. el solicitante de una requisición). Cada usuario recibe una sola
- * notificación por evento aunque tenga varios roles. Quien realiza la acción
- * no se notifica a sí mismo.
+ * notificación por evento aunque tenga varios roles.
+ *
+ * Si el rol de una persona tiene activo el tema, recibe el aviso sin importar
+ * quién hizo la acción, incluso si fue ella misma (así un administrador ve en
+ * su campana las requisiciones que envía). A los destinatarios directos no se
+ * les avisa de sus propias acciones.
  */
 class NotificationService
 {
@@ -36,22 +40,15 @@ class NotificationService
         ?User $actor = null,
         bool $includeSubscribers = true,
     ): Collection {
-        $recipients = collect();
-
-        if ($includeSubscribers) {
-            $recipients = $recipients->merge($this->subscribersFor($topic));
-        }
+        $recipients = $includeSubscribers ? $this->subscribersFor($topic) : collect();
 
         foreach ($direct as $user) {
-            if ($user instanceof User && $user->activo) {
+            if ($user instanceof User && $user->activo && ! ($actor && $user->is($actor))) {
                 $recipients->push($user);
             }
         }
 
-        $recipients = $recipients
-            ->unique('id')
-            ->reject(fn (User $u) => $actor && (int) $u->id === (int) $actor->id)
-            ->values();
+        $recipients = $recipients->unique('id')->values();
 
         if ($recipients->isNotEmpty()) {
             Notification::send(
