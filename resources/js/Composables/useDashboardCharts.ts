@@ -319,6 +319,8 @@ export function useDashboardCharts() {
         },
       },
       xaxis: {
+        // En barras horizontales ApexCharts toma las categorías del eje x.
+        categories,
         labels: {
           style: { colors: textColor.value, fontSize: '11px' },
           formatter: isCurrency ? fmtMXN : fmtInt,
@@ -327,10 +329,9 @@ export function useDashboardCharts() {
         axisTicks: { show: false },
       },
       yaxis: {
-        categories,
         labels: {
           style: { colors: textColor.value, fontSize: '11px' },
-          maxWidth: 160,
+          maxWidth: 180,
         },
       },
       grid: {

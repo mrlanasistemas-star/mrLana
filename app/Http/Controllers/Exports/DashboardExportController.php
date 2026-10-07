@@ -24,7 +24,7 @@ class DashboardExportController extends Controller
     public function pdf(Request $request, string $role, PdfService $pdf)
     {
         $profile = $this->resolveProfile($request, $role);
-        $data = $this->service->build($profile, $request->user());
+        $data = $this->service->build($profile, $request->user(), $request->query());
         $palette = AppSetting::resolved()['chart_palette'];
 
         $charts = [
@@ -48,7 +48,7 @@ class DashboardExportController extends Controller
     public function excel(Request $request, string $role)
     {
         $profile = $this->resolveProfile($request, $role);
-        $data = $this->service->build($profile, $request->user());
+        $data = $this->service->build($profile, $request->user(), $request->query());
 
         $data['activityDaily'] = array_map(fn ($p) => ['date' => $p['name'], 'value' => $p['value']], $data['activityDaily']);
         $data['amountsDaily'] = array_map(fn ($p) => ['date' => $p['name'], 'value' => $p['value']], $data['amountsDaily']);

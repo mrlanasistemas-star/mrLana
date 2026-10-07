@@ -18,7 +18,7 @@ class DashboardController extends Controller
         $user = $request->user();
 
         if ($user->can('dashboard.ver')) {
-            return redirect()->route(DashboardProfile::forUser($user)->routeName());
+            return redirect()->route(DashboardProfile::forUser($user)->routeName(), $request->query());
         }
 
         if ($user->canAny(['requisiciones.ver_todos', 'requisiciones.ver_propios'])) {
