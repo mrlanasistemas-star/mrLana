@@ -108,8 +108,8 @@ watch(openPassword, (v) => localStorage.setItem(LS_OPEN_PASSWORD, v ? '1' : '0')
       </h2>
     </template>
 
-    <div class="py-4">
-      <div class="w-full space-y-6">
+    <div class="px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+      <div class="mx-auto w-full max-w-4xl space-y-6">
 
         <!-- PANEL 1: INFO PERFIL -->
         <section :class="cardClass">

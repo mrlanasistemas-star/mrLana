@@ -5,7 +5,7 @@
  */
 import { computed, onMounted } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
-import { ChevronDown, ChevronRight, LifeBuoy, LogOut, Menu, Moon, Sun, UserRound, BookOpen } from 'lucide-vue-next'
+import { ChevronDown, ChevronRight, LogOut, Menu, Moon, Sun, UserRound, BookOpen } from 'lucide-vue-next'
 import { DropdownMenuItem, DropdownMenuRoot, DropdownMenuSeparator, DropdownMenuTrigger } from 'reka-ui'
 import { DropdownMenuContent } from '@/Components/ui/dropdown-menu'
 import DownloadAppButton from '@/Components/layout/DownloadAppButton.vue'
@@ -18,7 +18,6 @@ import type { SharedProps } from '@/types/shared'
 import { NAVIGATION } from '@/Layouts/navigation'
 
 const page = usePage<SharedProps>()
-const SUPPORT_URL = 'https://soporte.mr-lana.com/'
 
 const { isDark, toggle, init } = useTheme()
 onMounted(() => init())
@@ -137,11 +136,6 @@ const menuItemClass =
                         <Link :href="route('ayuda.guia')" :class="menuItemClass">
                             <BookOpen class="h-4 w-4" aria-hidden="true" /> Guía del sistema
                         </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem as-child>
-                        <a :href="SUPPORT_URL" target="_blank" rel="noopener noreferrer" :class="menuItemClass">
-                            <LifeBuoy class="h-4 w-4" aria-hidden="true" /> Soporte (tickets)
-                        </a>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator class="my-1 h-px bg-slate-100 dark:bg-white/10" />
                     <DropdownMenuItem

@@ -10,10 +10,10 @@ import { initPwa } from './Composables/usePwaInstall';
 // Aplicación instalable: captura el aviso de instalación y registra el service worker.
 initPwa();
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const appName = 'MR-Lana ERP';
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => (title ? `${title} · ${appName}` : appName),
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,

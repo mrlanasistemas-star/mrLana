@@ -1,2 +1,10 @@
+# MR-Lana ERP: solo el acceso y la guía son públicos; el resto requiere sesión.
 User-agent: *
-Disallow:
+Allow: /login
+Allow: /ayuda/
+Allow: /og-image.png
+Disallow: /exports/
+Disallow: /storage/
+Disallow: /notificaciones
+
+Sitemap: https://erp.mr-lana.com/sitemap.xml

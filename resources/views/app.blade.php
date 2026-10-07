@@ -5,7 +5,33 @@
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title inertia>{{ config('app.name', 'MrLana') }}</title>
+        @php
+            $seoTitle = 'MR-Lana ERP · Control de gastos y requisiciones';
+            $seoDescription = 'ERP de gastos de Mr. Lana: requisiciones, autorización de pagos, comprobaciones, proveedores y reportes en un solo lugar, desde la web, escritorio o Android.';
+            $seoImage = url('og-image.png');
+            $seoUrl = url()->current();
+        @endphp
+        <title inertia>{{ $seoTitle }}</title>
+        <meta name="description" content="{{ $seoDescription }}">
+        {{-- Las pantallas internas requieren sesión: no se indexan. Acceso y guía sí. --}}
+        <meta name="robots" content="{{ auth()->check() ? 'noindex, nofollow' : 'index, follow' }}">
+        <link rel="canonical" href="{{ $seoUrl }}">
+
+        {{-- Vista previa al compartir el enlace (WhatsApp, Facebook, LinkedIn, X, Teams) --}}
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="MR-Lana ERP">
+        <meta property="og:locale" content="es_MX">
+        <meta property="og:title" content="{{ $seoTitle }}">
+        <meta property="og:description" content="{{ $seoDescription }}">
+        <meta property="og:url" content="{{ $seoUrl }}">
+        <meta property="og:image" content="{{ $seoImage }}">
+        <meta property="og:image:width" content="1200">
+        <meta property="og:image:height" content="630">
+        <meta property="og:image:alt" content="Mr. Lana · ERP de gastos">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="{{ $seoTitle }}">
+        <meta name="twitter:description" content="{{ $seoDescription }}">
+        <meta name="twitter:image" content="{{ $seoImage }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -15,7 +41,6 @@
 
         {{-- Aplicación instalable (PWA): escritorio con Chrome/Edge y Android --}}
         <link rel="manifest" href="{{ url('manifest.webmanifest') }}">
-        <link rel="icon" type="image/png" sizes="32x32" href="{{ url('icons/favicon-32.png') }}">
         <link rel="apple-touch-icon" href="{{ url('icons/apple-touch-icon.png') }}">
         <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
         <meta name="theme-color" content="#09090B" media="(prefers-color-scheme: dark)">
