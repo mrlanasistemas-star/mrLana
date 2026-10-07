@@ -28,6 +28,10 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <env name="ERP_PDF_DRIVER" value="dompdf"/>
+        <env name="ERP_BUSINESS_TIMEZONE" value="America/Mexico_City"/>
+        <env name="REQUISICION_NOTIFY_TO" value=""/>
+        <env name="ERP_ALLOW_REGISTRATION" value="false"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
