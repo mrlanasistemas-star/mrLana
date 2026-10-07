@@ -1,17 +1,16 @@
 <?php
 
+use App\Support\Database\SafeMigration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/** Notificaciones internas (campana). InnoDB explícito; idempotente ante un intento fallido. */
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('notifications', function (Blueprint $table) {
+        SafeMigration::createTable('notifications', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('type');
             $table->morphs('notifiable');
@@ -21,11 +20,10 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
+        SafeMigration::assertCanDiscard(['notifications' => null], 'notificaciones de los usuarios');
+
         Schema::dropIfExists('notifications');
     }
 };

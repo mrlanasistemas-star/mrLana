@@ -5,6 +5,8 @@ return [
     'erp_url' => env('ERP_URL', 'https://erp.mr-lana.com'),
     'support_url' => env('ERP_SUPPORT_URL', 'https://soporte.mr-lana.com'),
 
+    'allow_registration' => (bool) env('ERP_ALLOW_REGISTRATION', false),
+
     /*
     |--------------------------------------------------------------------------
     | Zona horaria de negocio
@@ -12,8 +14,6 @@ return [
     | Se usa para determinar "hoy" en validaciones de negocio (p. ej. la fecha
     | de solicitud de una requisición), sin depender del reloj del navegador.
     */
-    'allow_registration' => (bool) env('ERP_ALLOW_REGISTRATION', false),
-
     'business_timezone' => env('ERP_BUSINESS_TIMEZONE', 'America/Mexico_City'),
 
     /*
@@ -53,4 +53,15 @@ return [
         'no_sandbox' => (bool) env('BROWSERSHOT_NO_SANDBOX', true),
         'timeout' => (int) env('BROWSERSHOT_TIMEOUT', 60),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reversión de migraciones
+    |--------------------------------------------------------------------------
+    | Por seguridad, revertir una migración que borraría información real
+    | (roles personalizados, notificaciones, ajustes auditados…) se detiene.
+    | El plan de reversión es restaurar el respaldo (ver docs/despliegue.md).
+    | Solo activa esto de forma temporal y con un respaldo verificado.
+    */
+    'allow_destructive_rollback' => (bool) env('ERP_ALLOW_DESTRUCTIVE_ROLLBACK', false),
 ];

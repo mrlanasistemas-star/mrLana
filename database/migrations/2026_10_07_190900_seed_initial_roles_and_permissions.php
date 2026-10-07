@@ -2,12 +2,12 @@
 
 use App\Support\Permissions\RoleSynchronizer;
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Migración de datos (idempotente): crea el catálogo de permisos, los roles
  * Administrador / Contabilidad / Colaborador y asigna a cada usuario existente
- * el rol equivalente a su valor legado de users.rol.
+ * el rol equivalente a su valor legado de users.rol (ADMIN → Administrador,
+ * CONTADOR → Contabilidad, cualquier otro → Colaborador).
  *
  * users.rol se conserva como campo legado de compatibilidad; ya no es la
  * fuente de autorización.
@@ -19,16 +19,13 @@ return new class extends Migration
         app(RoleSynchronizer::class)->sync();
     }
 
+    /**
+     * No borra nada: los roles pudieron personalizarse desde la interfaz y las
+     * asignaciones son información real. Las tablas se eliminan (con su propia
+     * protección) al revertir la migración que las creó.
+     */
     public function down(): void
     {
-        $tables = config('permission.table_names');
-
-        DB::table($tables['model_has_roles'])->delete();
-        DB::table($tables['role_has_permissions'])->delete();
-        DB::table('role_notification_preferences')->delete();
-        DB::table($tables['roles'])->delete();
-        DB::table($tables['permissions'])->delete();
-
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        //
     }
 };
