@@ -51,7 +51,8 @@ const kpis = computed<KPI[]>(() => {
     ]
 })
 
-const kpiAccents  = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']
+// Paleta de gráficas configurada en Configuración.
+const kpiAccents  = charts.palette
 const kpiIconList = [Clock, AlertCircle, DollarSign, CheckCircle, FileText, TrendingUp]
 
 // ── Placeholders ─────────────────────────────────────────────────────────────
@@ -84,7 +85,7 @@ const activitySeries = computed(() => [{
 const activityChartOptions = computed(() =>
     charts.areaOptions({
         categories: activityDaily.value.map(p => p.name),
-        color: '#3b82f6',
+        color: charts.seriesColor(0),
         isCurrency: false,
         seriesName: 'Eventos',
     }).value
@@ -99,7 +100,7 @@ const amountsSeries = computed(() => [{
 const amountsChartOptions = computed(() =>
     charts.areaOptions({
         categories: amountsDaily.value.map(p => p.name),
-        color: '#10b981',
+        color: charts.seriesColor(1),
         isCurrency: true,
         seriesName: 'Monto',
     }).value

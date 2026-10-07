@@ -53,7 +53,8 @@ const kpis = computed<KPI[]>(() => {
     ]
 })
 
-const kpiAccents  = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']
+// Paleta de gráficas configurada en Configuración.
+const kpiAccents  = charts.palette
 const kpiIconList = [TrendingUp, CheckCircle, AlertCircle, DollarSign, FileText, Clock]
 
 // ── Placeholders ─────────────────────────────────────────────────────────────
@@ -119,7 +120,7 @@ const activitySeries = computed(() => [{
 const activityChartOptions = computed(() =>
     charts.areaOptions({
         categories: activityDaily.value.map(p => p.name),
-        color: '#3b82f6',
+        color: charts.seriesColor(0),
         isCurrency: false,
         seriesName: 'Requisiciones',
     }).value
@@ -134,14 +135,13 @@ const amountsSeries = computed(() => [{
 const amountsChartOptions = computed(() =>
     charts.areaOptions({
         categories: amountsDaily.value.map(p => p.name),
-        color: '#10b981',
+        color: charts.seriesColor(1),
         isCurrency: true,
         seriesName: 'Monto',
     }).value
 )
 
 // ── Chart: Estatus (donut) ────────────────────────────────────────────────────
-const statusColors  = ['#94a3b8', '#0ea5e9', '#f59e0b', '#10b981', '#8b5cf6', '#14b8a6', '#d946ef', '#6b7280']
 const statusLabels  = computed(() => statusMix.value.map(p => charts.statusLabel(p.name)))
 const statusSeries  = computed(() => statusMix.value.map(p => p.value))
 const statusTotal   = computed(() => statusSeries.value.reduce((a, b) => a + b, 0))
@@ -149,14 +149,13 @@ const statusTotal   = computed(() => statusSeries.value.reduce((a, b) => a + b, 
 const statusChartOptions = computed(() =>
     charts.donutOptions({
         labels: statusLabels.value,
-        colors: statusColors.slice(0, statusSeries.value.length),
+        colors: charts.palette.value.slice(0, statusSeries.value.length),
         total:  statusTotal.value,
         totalLabel: 'Total',
     }).value
 )
 
 // ── Chart: Comprobantes (donut) ───────────────────────────────────────────────
-const compColors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']
 const compLabels  = computed(() => comprobantesMix.value.map(p => p.name))
 const compSeries  = computed(() => comprobantesMix.value.map(p => p.value))
 const compTotal   = computed(() => compSeries.value.reduce((a, b) => a + b, 0))
@@ -164,7 +163,7 @@ const compTotal   = computed(() => compSeries.value.reduce((a, b) => a + b, 0))
 const compChartOptions = computed(() =>
     charts.donutOptions({
         labels: compLabels.value,
-        colors: compColors.slice(0, compSeries.value.length),
+        colors: charts.palette.value.slice(0, compSeries.value.length),
         total:  compTotal.value,
         totalLabel: 'Total',
     }).value

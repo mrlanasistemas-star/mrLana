@@ -67,6 +67,8 @@ const hexError = (k: ColorKey) => (form[k] && !HEX_RE.test(form[k]) ? 'Usa 6 dí
 
 /* Contraste: los colores se ajustan solos si no se leen bien sobre el fondo. */
 const contrastNote = (k: ColorKey) => {
+    // Los predeterminados ya tienen variantes diseñadas para claro y oscuro.
+    if (!isCustom(k)) return null
     const hex = effective(k)
     const light = contrastRatio(hex, LIGHT_BG) < 3
     const dark = contrastRatio(hex, DARK_BG) < 3
@@ -101,6 +103,8 @@ const paletteIsDefault = computed(() =>
 const previewStyle = computed(() => {
     const style: Record<string, string> = {}
     for (const [k, name] of BRAND_VARS) {
+        // Igual que useBranding: sin personalizar se heredan los colores base del tema.
+        if (!isCustom(k)) continue
         const adjusted = ensureContrast(effective(k), isDark.value ? DARK_BG : LIGHT_BG)
         style[`--${name}`] = rgbTriplet(adjusted)
         style[`--${name}-fg`] = rgbTriplet(readableOn(adjusted))

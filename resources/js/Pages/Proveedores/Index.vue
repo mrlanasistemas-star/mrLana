@@ -341,10 +341,10 @@ const { can } = usePermissions()
             </div>
 
             <!-- CARDS (mobile/tablet) -->
-            <div class="lg:hidden grid gap-3">
-                <transition-group name="list" tag="div" class="grid gap-3">
+            <div class="lg:hidden grid min-w-0 grid-cols-1 gap-3">
+                <transition-group name="list" tag="div" class="grid min-w-0 grid-cols-1 gap-3">
                     <div v-for="row in rows" :key="row.id"
-                    class="rounded-3xl border border-slate-200/70 dark:border-white/10
+                    class="min-w-0 rounded-3xl border border-slate-200/70 dark:border-white/10
                     bg-white/90 dark:bg-neutral-900/80 backdrop-blur shadow-sm p-4">
                         <div class="flex items-start justify-between gap-3">
                             <div class="flex items-start gap-3 min-w-0">
