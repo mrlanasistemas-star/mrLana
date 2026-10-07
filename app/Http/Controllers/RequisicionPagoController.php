@@ -15,11 +15,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
-class RequisicionPagoController extends Controller {
-
+class RequisicionPagoController extends Controller
+{
     public function __construct(private NotificationService $notifications) {}
 
-    public function create(Request $request, Requisicion $requisicion) {
+    public function create(Request $request, Requisicion $requisicion)
+    {
         $this->authorize('viewPayments', $requisicion);
         $user = $request->user();
 
@@ -37,9 +38,10 @@ class RequisicionPagoController extends Controller {
         $benef = $this->buildBeneficiario($requisicion);
         $pagosShape = $pagos->map(function ($p) use ($benef) {
             $url = null;
-            if (!empty($p->archivo_path)) {
+            if (! empty($p->archivo_path)) {
                 $url = Storage::disk('public')->url($p->archivo_path);
             }
+
             return [
                 'id' => (int) $p->id,
                 'fecha_pago' => optional($p->fecha_pago)->format('Y-m-d'),
@@ -59,6 +61,7 @@ class RequisicionPagoController extends Controller {
                 ],
             ];
         })->values();
+
         return Inertia::render('Requisiciones/Pagar', [
             'requisicion' => [
                 'data' => [
@@ -73,8 +76,8 @@ class RequisicionPagoController extends Controller {
                     'fecha_pago_esperada' => optional($requisicion->fecha_pago_esperada)->format('Y-m-d'),
                     'fecha_autorizacion' => optional($requisicion->fecha_autorizacion)->format('Y-m-d'),
                     'fecha_pago_programada' => optional($requisicion->fecha_pago)->format('Y-m-d'),
-                    'cantidad_pagos'                    => $cantidadPagos,
-                    'puede_definir_fecha_pago_general'  => $puedeDefinirFechaGeneral,
+                    'cantidad_pagos' => $cantidadPagos,
+                    'puede_definir_fecha_pago_general' => $puedeDefinirFechaGeneral,
                 ],
             ],
             'pagos' => [
@@ -98,7 +101,8 @@ class RequisicionPagoController extends Controller {
         ]);
     }
 
-    public function authorizePago(Request $request, Requisicion $requisicion) {
+    public function authorizePago(Request $request, Requisicion $requisicion)
+    {
         $this->authorize('authorizePayment', $requisicion);
         $data = $request->validate([
             'fecha_pago' => ['required', 'date_format:Y-m-d'],
@@ -113,8 +117,8 @@ class RequisicionPagoController extends Controller {
             ->where('status', 'CAPTURADA')
             ->update([
                 'fecha_autorizacion' => now(),
-                'fecha_pago'         => $data['fecha_pago'], // fecha programada
-                'status'             => 'PAGO_AUTORIZADO',
+                'fecha_pago' => $data['fecha_pago'], // fecha programada
+                'status' => 'PAGO_AUTORIZADO',
             ]) === 1);
 
         if (! $autorizada) {
@@ -141,14 +145,15 @@ class RequisicionPagoController extends Controller {
         return back()->with('success', 'Pago autorizado correctamente.');
     }
 
-    public function store(StorePagoRequest $request, Requisicion $requisicion) {
+    public function store(StorePagoRequest $request, Requisicion $requisicion)
+    {
         $this->authorize('registerPayment', $requisicion);
         $requisicion->load(['proveedor', 'solicitante.user', 'creadaPor']);
 
         $resultado = DB::transaction(function () use ($request, $requisicion) {
             $pagadoActual = (float) $requisicion->pagos()->sum('monto');
-            $montoTotal   = (float) $requisicion->monto_total;
-            $pendiente    = max(0, $montoTotal - $pagadoActual);
+            $montoTotal = (float) $requisicion->monto_total;
+            $pendiente = max(0, $montoTotal - $pagadoActual);
             $monto = round((float) $request->input('monto'), 2);
             if ($pendiente > 0 && $monto > ($pendiente + 0.00001)) {
                 return back()->withErrors([
@@ -157,27 +162,27 @@ class RequisicionPagoController extends Controller {
             }
             if ($pendiente <= 0 && abs($monto) > 0.00001) {
                 return back()->withErrors([
-                    'monto' => "Pendiente en 0. Solo se permite monto 0.00.",
+                    'monto' => 'Pendiente en 0. Solo se permite monto 0.00.',
                 ]);
             }
-            $file   = $request->file('archivo');
+            $file = $request->file('archivo');
             $folder = "requisiciones/{$requisicion->id}/pagos";
             $stored = null;
             try {
                 $stored = $file->storePublicly($folder, 'public');
                 $benef = $this->buildBeneficiario($requisicion);
-                (new Pago())->forceFill([
-                    'requisicion_id'      => $requisicion->id,
+                (new Pago)->forceFill([
+                    'requisicion_id' => $requisicion->id,
                     'beneficiario_nombre' => $benef['nombre'] ?? '—',
-                    'tipo_pago'           => $request->input('tipo_pago'),
-                    'monto'               => $monto,
-                    'fecha_pago'          => $request->input('fecha_pago'), // fecha real del pago
-                    'archivo_path'        => $stored,
-                    'archivo_original'    => $file->getClientOriginalName(),
-                    'mime'                => $file->getClientMimeType(),
-                    'size'                => $file->getSize(),
-                    'referencia'          => $request->input('referencia'),
-                    'user_carga_id'       => (int) auth()->id(),
+                    'tipo_pago' => $request->input('tipo_pago'),
+                    'monto' => $monto,
+                    'fecha_pago' => $request->input('fecha_pago'), // fecha real del pago
+                    'archivo_path' => $stored,
+                    'archivo_original' => $file->getClientOriginalName(),
+                    'mime' => $file->getClientMimeType(),
+                    'size' => $file->getSize(),
+                    'referencia' => $request->input('referencia'),
+                    'user_carga_id' => (int) auth()->id(),
                 ])->save();
                 $pendienteDespues = max(0, $pendiente - $monto);
                 $nuevoStatus = ($pendienteDespues <= 0.00001) ? 'PAGADA' : 'PAGO_AUTORIZADO';
@@ -220,7 +225,8 @@ class RequisicionPagoController extends Controller {
         return back()->with('success', 'Pago registrado correctamente.');
     }
 
-    public function updateFechaPagoGeneral(Request $request, Requisicion $requisicion) {
+    public function updateFechaPagoGeneral(Request $request, Requisicion $requisicion)
+    {
         $this->authorize('registerPayment', $requisicion);
 
         $data = $request->validate([
@@ -228,9 +234,9 @@ class RequisicionPagoController extends Controller {
         ]);
 
         $cantidadPagos = $requisicion->pagos()->count();
-        $totalPagado   = (float) $requisicion->pagos()->sum('monto');
-        $montoReq      = (float) $requisicion->monto_total;
-        $pendiente     = max(0, $montoReq - $totalPagado);
+        $totalPagado = (float) $requisicion->pagos()->sum('monto');
+        $montoReq = (float) $requisicion->monto_total;
+        $pendiente = max(0, $montoReq - $totalPagado);
 
         if ($cantidadPagos === 0 || $totalPagado + 0.00001 < $montoReq || $pendiente > 0.00001) {
             return back()->withErrors([
@@ -243,20 +249,29 @@ class RequisicionPagoController extends Controller {
         return back()->with('success', 'Fecha de pago de la requisición guardada correctamente.');
     }
 
-    private function safeNombre($model): string {
-        if (!$model) return '—';
+    private function safeNombre($model): string
+    {
+        if (! $model) {
+            return '—';
+        }
         foreach (['nombre_completo', 'nombreCompleto', 'name', 'nombre'] as $k) {
-            if (!empty($model->{$k})) return (string) $model->{$k};
+            if (! empty($model->{$k})) {
+                return (string) $model->{$k};
+            }
         }
         $parts = [];
         foreach (['nombre', 'nombres', 'apellido_paterno', 'apellido_materno', 'apellidoPaterno', 'apellidoMaterno'] as $k) {
-            if (!empty($model->{$k})) $parts[] = $model->{$k};
+            if (! empty($model->{$k})) {
+                $parts[] = $model->{$k};
+            }
         }
         $txt = trim(implode(' ', $parts));
+
         return $txt !== '' ? $txt : '—';
     }
 
-    private function buildBeneficiario(Requisicion $requisicion): array {
+    private function buildBeneficiario(Requisicion $requisicion): array
+    {
         // Nota: si hay proveedor, pagamos a proveedor. Si no, es reembolso al solicitante.
         if ($requisicion->proveedor) {
             return [
@@ -268,6 +283,7 @@ class RequisicionPagoController extends Controller {
         }
 
         $s = $requisicion->solicitante;
+
         return [
             'nombre' => $this->safeNombre($s),
             'rfc' => $s->rfc ?? null,

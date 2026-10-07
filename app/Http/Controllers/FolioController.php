@@ -6,9 +6,10 @@ use App\Models\Folio;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
-class FolioController extends Controller {
-
-    public function index(Request $request) {
+class FolioController extends Controller
+{
+    public function index(Request $request)
+    {
         $q = trim((string) $request->query('q', ''));
         $limit = (int) $request->query('limit', 200);
         $limit = max(1, min($limit, 500));
@@ -19,6 +20,7 @@ class FolioController extends Controller {
             ->orderByDesc('id')
             ->limit($limit)
             ->get(['id', 'folio', 'monto_total']);
+
         return response()->json($folios);
     }
 
@@ -26,10 +28,11 @@ class FolioController extends Controller {
      * Crear folio
      * POST /folios  -> folios.store
      */
-    public function store(Request $request) {
+    public function store(Request $request)
+    {
         $data = $request->validate([
-            'folio' => ['required','string','max:100','unique:folios,folio'],
-            'monto_total' => ['nullable','numeric','min:0'],
+            'folio' => ['required', 'string', 'max:100', 'unique:folios,folio'],
+            'monto_total' => ['nullable', 'numeric', 'min:0'],
         ]);
         $folio = Folio::create([
             'folio' => $data['folio'],
@@ -43,11 +46,12 @@ class FolioController extends Controller {
                 'folio_created_id' => $folio->id,
             ]);
         }
+
         // Si NO es Inertia (API/axios): sí puedes devolver JSON
         return response()->json([
             'ok' => true,
             'message' => 'Folio creado.',
-            'data' => $folio->only(['id','folio','monto_total']),
+            'data' => $folio->only(['id', 'folio', 'monto_total']),
         ], 201);
     }
 
@@ -58,7 +62,8 @@ class FolioController extends Controller {
     /**
      * Requiere el permiso "Editar folios de factura" (middleware de la ruta).
      */
-    public function update(Request $request, Folio $folio) {
+    public function update(Request $request, Folio $folio)
+    {
         $data = $request->validate([
             'folio' => [
                 'required',
@@ -79,6 +84,7 @@ class FolioController extends Controller {
                 'folio_updated_id' => $folio->id,
             ]);
         }
+
         // Si NO es Inertia (API): JSON
         return response()->json([
             'ok' => true,
@@ -86,5 +92,4 @@ class FolioController extends Controller {
             'data' => $folio->only(['id', 'folio', 'monto_total']),
         ]);
     }
-
 }

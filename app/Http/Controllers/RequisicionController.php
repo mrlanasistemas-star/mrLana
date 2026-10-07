@@ -34,8 +34,8 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class RequisicionController extends Controller {
-
+class RequisicionController extends Controller
+{
     /** Valor predeterminado de "por página" (alineado con el frontend). */
     public const DEFAULT_PER_PAGE = 20;
 
@@ -44,7 +44,8 @@ class RequisicionController extends Controller {
 
     public function __construct(private NotificationService $notifications) {}
 
-    public function index(RequisicionIndexRequest $request): Response {
+    public function index(RequisicionIndexRequest $request): Response
+    {
         $user = $request->user();
         $verTodos = $user->can('requisiciones.ver_todos');
 
@@ -53,26 +54,26 @@ class RequisicionController extends Controller {
 
         [$perPage, $showAll] = self::resolvePerPage($raw['perPage'] ?? null);
 
-        $dir = strtolower((string)($raw['dir'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
-        $sort = $this->normalizeSort((string)($raw['sort'] ?? 'created_at'));
+        $dir = strtolower((string) ($raw['dir'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+        $sort = $this->normalizeSort((string) ($raw['sort'] ?? 'created_at'));
 
-        $tab = strtoupper((string)($raw['tab'] ?? 'ACTIVAS'));
-        $q   = trim((string)($raw['q'] ?? ''));
+        $tab = strtoupper((string) ($raw['tab'] ?? 'ACTIVAS'));
+        $q = trim((string) ($raw['q'] ?? ''));
 
-        $status          = (string)($raw['status'] ?? '');
+        $status = (string) ($raw['status'] ?? '');
         $compradorCorpId = $raw['comprador_corp_id'] ?? null;
-        $sucursalId      = $raw['sucursal_id'] ?? null;
-        $solicitanteId   = $raw['solicitante_id'] ?? null;
-        $conceptoId      = $raw['concepto_id'] ?? null;
-        $proveedorId     = $raw['proveedor_id'] ?? null;
-        $tipo            = (string)($raw['tipo'] ?? '');
+        $sucursalId = $raw['sucursal_id'] ?? null;
+        $solicitanteId = $raw['solicitante_id'] ?? null;
+        $conceptoId = $raw['concepto_id'] ?? null;
+        $proveedorId = $raw['proveedor_id'] ?? null;
+        $tipo = (string) ($raw['tipo'] ?? '');
 
         // Fecha de registro (created_at) — usa nuevo nombre o alias
         $fechaRegistroFrom = $this->safeYmd($raw['fecha_registro_from'] ?? $raw['fecha_from'] ?? null);
-        $fechaRegistroTo   = $this->safeYmd($raw['fecha_registro_to'] ?? $raw['fecha_to'] ?? null);
+        $fechaRegistroTo = $this->safeYmd($raw['fecha_registro_to'] ?? $raw['fecha_to'] ?? null);
         // Fecha de pago general (requisicions.fecha_pago)
-        $fechaPagoFrom     = $this->safeYmd($raw['fecha_pago_from'] ?? null);
-        $fechaPagoTo       = $this->safeYmd($raw['fecha_pago_to'] ?? null);
+        $fechaPagoFrom = $this->safeYmd($raw['fecha_pago_from'] ?? null);
+        $fechaPagoTo = $this->safeYmd($raw['fecha_pago_to'] ?? null);
 
         $query = Requisicion::query()
             ->visibleTo($user)
@@ -123,32 +124,50 @@ class RequisicionController extends Controller {
             $query->where(function ($sub) use ($q) {
                 $sub->where('folio', 'like', "%{$q}%")
                     ->orWhere('observaciones', 'like', "%{$q}%")
-                    ->orWhereHas('proveedor', fn($p) => $p->where('razon_social', 'like', "%{$q}%"))
-                    ->orWhereHas('concepto', fn($c) => $c->where('nombre', 'like', "%{$q}%"))
-                    ->orWhereHas('comprador', fn($c) => $c->where('nombre', 'like', "%{$q}%"))
-                    ->orWhereHas('sucursal', fn($s) => $s
+                    ->orWhereHas('proveedor', fn ($p) => $p->where('razon_social', 'like', "%{$q}%"))
+                    ->orWhereHas('concepto', fn ($c) => $c->where('nombre', 'like', "%{$q}%"))
+                    ->orWhereHas('comprador', fn ($c) => $c->where('nombre', 'like', "%{$q}%"))
+                    ->orWhereHas('sucursal', fn ($s) => $s
                         ->where('nombre', 'like', "%{$q}%")
                         ->orWhere('codigo', 'like', "%{$q}%")
                     )
-                    ->orWhereHas('sucursal.corporativo', fn($c) => $c->where('nombre', 'like', "%{$q}%"));
+                    ->orWhereHas('sucursal.corporativo', fn ($c) => $c->where('nombre', 'like', "%{$q}%"));
             });
         }
 
-        if (!empty($compradorCorpId)) $query->where('comprador_corp_id', (int)$compradorCorpId);
-        if (!empty($sucursalId))      $query->where('sucursal_id', (int)$sucursalId);
-
-        if ($verTodos && !empty($solicitanteId)) {
-            $query->where('solicitante_id', (int)$solicitanteId);
+        if (! empty($compradorCorpId)) {
+            $query->where('comprador_corp_id', (int) $compradorCorpId);
+        }
+        if (! empty($sucursalId)) {
+            $query->where('sucursal_id', (int) $sucursalId);
         }
 
-        if (!empty($conceptoId))  $query->where('concepto_id', (int)$conceptoId);
-        if (!empty($proveedorId)) $query->where('proveedor_id', (int)$proveedorId);
-        if ($tipo !== '' && Schema::hasColumn('requisicions', 'tipo')) $query->where('tipo', $tipo);
+        if ($verTodos && ! empty($solicitanteId)) {
+            $query->where('solicitante_id', (int) $solicitanteId);
+        }
 
-        if ($fechaRegistroFrom) $query->whereDate('created_at', '>=', $fechaRegistroFrom);
-        if ($fechaRegistroTo)   $query->whereDate('created_at', '<=', $fechaRegistroTo);
-        if ($fechaPagoFrom)     $query->whereDate('fecha_pago', '>=', $fechaPagoFrom);
-        if ($fechaPagoTo)       $query->whereDate('fecha_pago', '<=', $fechaPagoTo);
+        if (! empty($conceptoId)) {
+            $query->where('concepto_id', (int) $conceptoId);
+        }
+        if (! empty($proveedorId)) {
+            $query->where('proveedor_id', (int) $proveedorId);
+        }
+        if ($tipo !== '' && Schema::hasColumn('requisicions', 'tipo')) {
+            $query->where('tipo', $tipo);
+        }
+
+        if ($fechaRegistroFrom) {
+            $query->whereDate('created_at', '>=', $fechaRegistroFrom);
+        }
+        if ($fechaRegistroTo) {
+            $query->whereDate('created_at', '<=', $fechaRegistroTo);
+        }
+        if ($fechaPagoFrom) {
+            $query->whereDate('fecha_pago', '>=', $fechaPagoFrom);
+        }
+        if ($fechaPagoTo) {
+            $query->whereDate('fecha_pago', '<=', $fechaPagoTo);
+        }
 
         $total = $showAll ? (clone $query)->count() : null;
 
@@ -176,12 +195,12 @@ class RequisicionController extends Controller {
                 'proveedor_id' => $proveedorId ?? '',
                 'tipo' => $tipo,
                 'fecha_registro_from' => $fechaRegistroFrom ?? '',
-                'fecha_registro_to'   => $fechaRegistroTo ?? '',
-                'fecha_pago_from'     => $fechaPagoFrom ?? '',
-                'fecha_pago_to'       => $fechaPagoTo ?? '',
+                'fecha_registro_to' => $fechaRegistroTo ?? '',
+                'fecha_pago_from' => $fechaPagoFrom ?? '',
+                'fecha_pago_to' => $fechaPagoTo ?? '',
                 // Mantén los aliases originales para backward compat
                 'fecha_from' => $fechaRegistroFrom ?? '',
-                'fecha_to'   => $fechaRegistroTo ?? '',
+                'fecha_to' => $fechaRegistroTo ?? '',
                 'perPage' => $showAll ? 'all' : $perPage,
                 'sort' => $sort,
                 'dir' => $dir,
@@ -234,11 +253,11 @@ class RequisicionController extends Controller {
         ]);
 
         $detalles = collect($requisicion->detalles ?? [])->map(function ($d) {
-            $cantidad = (float)($d->cantidad ?? 0);
-            $precio   = (float)($d->precio_unitario ?? 0);
-            $subtotal = (float)($d->subtotal ?? ($cantidad * $precio));
-            $iva      = (float)($d->iva ?? 0);
-            $total    = (float)($d->total ?? ($subtotal + $iva));
+            $cantidad = (float) ($d->cantidad ?? 0);
+            $precio = (float) ($d->precio_unitario ?? 0);
+            $subtotal = (float) ($d->subtotal ?? ($cantidad * $precio));
+            $iva = (float) ($d->iva ?? 0);
+            $total = (float) ($d->total ?? ($subtotal + $iva));
 
             return [
                 'id' => $d->id,
@@ -248,9 +267,9 @@ class RequisicionController extends Controller {
                     'codigo' => $d->sucursal->codigo,
                 ] : null,
                 'cantidad' => $cantidad,
-                'descripcion' => (string)($d->descripcion ?? ''),
+                'descripcion' => (string) ($d->descripcion ?? ''),
                 'precio_unitario' => $precio,
-                'genera_iva' => (bool)($d->genera_iva ?? false),
+                'genera_iva' => (bool) ($d->genera_iva ?? false),
                 'subtotal' => $subtotal,
                 'iva' => $iva,
                 'total' => $total,
@@ -265,22 +284,22 @@ class RequisicionController extends Controller {
         $comprobantes = collect($requisicion->comprobantes ?? [])
             ->map(function ($c) use ($usersById) {
                 $u = $usersById->get($c->user_carga_id);
-                $url = !empty($c->archivo_path) ? Storage::disk('public')->url($c->archivo_path) : null;
+                $url = ! empty($c->archivo_path) ? Storage::disk('public')->url($c->archivo_path) : null;
 
                 return [
                     'id' => $c->id,
-                    'tipo_doc' => (string)($c->tipo_doc ?? 'OTRO'),
+                    'tipo_doc' => (string) ($c->tipo_doc ?? 'OTRO'),
                     'fecha_emision' => $c->fecha_emision,
-                    'monto' => (float)($c->monto ?? 0),
-                    'total' => (float)($c->monto ?? 0),
-                    'estatus' => (string)($c->estatus ?? 'PENDIENTE'),
+                    'monto' => (float) ($c->monto ?? 0),
+                    'total' => (float) ($c->monto ?? 0),
+                    'estatus' => (string) ($c->estatus ?? 'PENDIENTE'),
                     'user_carga' => $c->user_carga_id ? [
-                        'id' => (int)$c->user_carga_id,
-                        'name' => (string)($u?->name ?? ('Usuario #' . (int)$c->user_carga_id)),
+                        'id' => (int) $c->user_carga_id,
+                        'name' => (string) ($u?->name ?? ('Usuario #'.(int) $c->user_carga_id)),
                     ] : null,
                     'created_at' => optional($c->created_at)->toISOString(),
                     'archivo' => $url ? [
-                        'label' => $c->archivo_original ?: ('Comprobante #' . $c->id),
+                        'label' => $c->archivo_original ?: ('Comprobante #'.$c->id),
                         'url' => $url,
                     ] : null,
                 ];
@@ -289,8 +308,8 @@ class RequisicionController extends Controller {
 
         $ajustes = $requisicion->ajustes->sortByDesc('id')->map(fn (Ajuste $a) => self::ajusteToArray($a))->values();
 
-        $totalItemsOriginal = (float)$detalles->sum('total');
-        $totalFinal = (float)$requisicion->monto_total;
+        $totalItemsOriginal = (float) $detalles->sum('total');
+        $totalFinal = (float) $requisicion->monto_total;
 
         $auditoria = [
             'total_items_original' => $totalItemsOriginal,
@@ -300,9 +319,9 @@ class RequisicionController extends Controller {
         ];
 
         $pagosFiles = collect($requisicion->pagos ?? [])
-            ->filter(fn ($p) => !empty($p->archivo_path))
+            ->filter(fn ($p) => ! empty($p->archivo_path))
             ->map(fn ($p) => [
-                'label' => $p->archivo_original ?: ('Pago #' . $p->id),
+                'label' => $p->archivo_original ?: ('Pago #'.$p->id),
                 'url' => Storage::disk('public')->url($p->archivo_path),
             ])
             ->values()
@@ -335,7 +354,7 @@ class RequisicionController extends Controller {
             'pdf' => [
                 'can_print' => true,
                 'print_url' => route('requisiciones.print', $requisicion->id),
-                'filename' => ($requisicion->folio ?? 'requisicion') . '.pdf',
+                'filename' => ($requisicion->folio ?? 'requisicion').'.pdf',
                 'files' => $pagosFiles,
             ],
         ]);
@@ -361,8 +380,8 @@ class RequisicionController extends Controller {
             'comprobantes:id,requisicion_id,tipo_doc,fecha_emision,monto,archivo_path,archivo_original,estatus,user_carga_id,created_at',
         ]);
 
-        $totalItemsOriginal = (float) collect($requisicion->detalles ?? [])->sum(fn ($d) => (float)($d->total ?? 0));
-        $totalFinalAuditado = (float)$requisicion->monto_total;
+        $totalItemsOriginal = (float) collect($requisicion->detalles ?? [])->sum(fn ($d) => (float) ($d->total ?? 0));
+        $totalFinalAuditado = (float) $requisicion->monto_total;
 
         return $pdf->inline('pdfs.requisicion', [
             'requisicion' => $requisicion,
@@ -370,7 +389,7 @@ class RequisicionController extends Controller {
             'totalAjustesAplicados' => round($totalFinalAuditado - $totalItemsOriginal, 2),
             'totalFinalAuditado' => $totalFinalAuditado,
             'generatedBy' => $request->user()?->name,
-        ], ($requisicion->folio ?? 'requisicion') . '.pdf', ['paper' => 'letter']);
+        ], ($requisicion->folio ?? 'requisicion').'.pdf', ['paper' => 'letter']);
     }
 
     public function create(Request $request): Response
@@ -453,10 +472,10 @@ class RequisicionController extends Controller {
 
         // Sin "ver todas", el solicitante siempre es el colaborador vinculado a la cuenta.
         if (! $user->can('requisiciones.ver_todos')) {
-            if (!$user->empleado_id) {
+            if (! $user->empleado_id) {
                 return back()->withErrors(['solicitante_id' => 'Tu usuario no está vinculado a un colaborador. Pide a un administrador que lo vincule.']);
             }
-            $data['solicitante_id'] = (int)$user->empleado_id;
+            $data['solicitante_id'] = (int) $user->empleado_id;
         }
 
         $data = $this->assertCatalogosActivos($data);
@@ -464,23 +483,24 @@ class RequisicionController extends Controller {
         $detalles = $data['detalles'];
         unset($data['detalles']);
 
-        $data['fecha_solicitud'] = Carbon::createFromFormat('!Y-m-d', (string)$data['fecha_solicitud']);
-        $data['fecha_pago_esperada'] = !empty($data['fecha_pago_esperada'])
-            ? Carbon::createFromFormat('!Y-m-d', (string)$data['fecha_pago_esperada'])
+        $data['fecha_solicitud'] = Carbon::createFromFormat('!Y-m-d', (string) $data['fecha_solicitud']);
+        $data['fecha_pago_esperada'] = ! empty($data['fecha_pago_esperada'])
+            ? Carbon::createFromFormat('!Y-m-d', (string) $data['fecha_pago_esperada'])
             : null;
 
-        $data['creada_por_user_id'] = (int)$user->id;
+        $data['creada_por_user_id'] = (int) $user->id;
         $data['status'] = ($accion === 'ENVIAR') ? 'CAPTURADA' : 'BORRADOR';
         $data['folio'] = $this->makeFolio();
 
         [$cleanDetalles, $montoSubtotal, $montoTotal] = $this->sanitizeDetalles($detalles);
 
         $data['monto_subtotal'] = $montoSubtotal;
-        $data['monto_total']    = $montoTotal;
+        $data['monto_total'] = $montoTotal;
 
         $requisicion = DB::transaction(function () use ($data, $cleanDetalles) {
             $req = Requisicion::create($data);
             $req->detalles()->createMany($cleanDetalles);
+
             return $req;
         });
 
@@ -511,9 +531,9 @@ class RequisicionController extends Controller {
         $detalles = $data['detalles'];
         unset($data['detalles']);
 
-        $data['fecha_solicitud'] = Carbon::createFromFormat('!Y-m-d', (string)$data['fecha_solicitud']);
-        $data['fecha_pago_esperada'] = !empty($data['fecha_pago_esperada'])
-            ? Carbon::createFromFormat('!Y-m-d', (string)$data['fecha_pago_esperada'])
+        $data['fecha_solicitud'] = Carbon::createFromFormat('!Y-m-d', (string) $data['fecha_solicitud']);
+        $data['fecha_pago_esperada'] = ! empty($data['fecha_pago_esperada'])
+            ? Carbon::createFromFormat('!Y-m-d', (string) $data['fecha_pago_esperada'])
             : null;
 
         [$cleanDetalles, $montoSubtotal, $montoTotal] = $this->sanitizeDetalles($detalles);
@@ -561,7 +581,7 @@ class RequisicionController extends Controller {
         $user = $request->user();
 
         $requisicion->load([
-            'ajustes' => fn($q) => $q->orderByDesc('id'),
+            'ajustes' => fn ($q) => $q->orderByDesc('id'),
             'ajustes.solicitadoPor:id,name',
             'ajustes.resueltoPor:id,name',
             'ajustes.aplicadoPor:id,name',
@@ -575,7 +595,7 @@ class RequisicionController extends Controller {
                 'id' => $requisicion->id,
                 'folio' => $requisicion->folio,
                 'status' => $requisicion->status,
-                'monto_total' => (float)$requisicion->monto_total,
+                'monto_total' => (float) $requisicion->monto_total,
                 'concepto' => $requisicion->concepto?->nombre,
                 'proveedor' => $requisicion->proveedor?->razon_social,
                 'solicitante' => $requisicion->solicitante
@@ -601,13 +621,13 @@ class RequisicionController extends Controller {
     public static function ajusteToArray(Ajuste $a): array
     {
         return [
-            'id' => (int)$a->id,
-            'tipo' => (string)$a->tipo,
-            'sentido' => (string)($a->sentido ?? ''),
-            'monto' => (float)($a->monto ?? 0),
-            'monto_anterior' => (float)($a->monto_anterior ?? 0),
-            'monto_nuevo' => (float)($a->monto_nuevo ?? 0),
-            'estatus' => (string)($a->estatus ?? Ajuste::ESTATUS_PENDIENTE),
+            'id' => (int) $a->id,
+            'tipo' => (string) $a->tipo,
+            'sentido' => (string) ($a->sentido ?? ''),
+            'monto' => (float) ($a->monto ?? 0),
+            'monto_anterior' => (float) ($a->monto_anterior ?? 0),
+            'monto_nuevo' => (float) ($a->monto_nuevo ?? 0),
+            'estatus' => (string) ($a->estatus ?? Ajuste::ESTATUS_PENDIENTE),
             'motivo' => $a->motivo,
             'notas' => $a->notas,
             'comentario_revision' => $a->comentario_revision,
@@ -678,27 +698,27 @@ class RequisicionController extends Controller {
      */
     private function assertCatalogosActivos(array $data): array
     {
-        $corpId     = (int)($data['comprador_corp_id'] ?? 0);
-        $sucursalId = (int)($data['sucursal_id'] ?? 0);
+        $corpId = (int) ($data['comprador_corp_id'] ?? 0);
+        $sucursalId = (int) ($data['sucursal_id'] ?? 0);
 
         $corporativo = Corporativo::select('id', 'activo')->find($corpId);
-        if (!$corporativo || $corporativo->activo === false) {
+        if (! $corporativo || $corporativo->activo === false) {
             throw ValidationException::withMessages(['comprador_corp_id' => 'El corporativo seleccionado no está activo o no existe.']);
         }
 
         $sucursal = Sucursal::select('id', 'corporativo_id', 'activo')->find($sucursalId);
-        if (!$sucursal || $sucursal->activo === false) {
+        if (! $sucursal || $sucursal->activo === false) {
             throw ValidationException::withMessages(['sucursal_id' => 'La sucursal seleccionada no está activa o no existe.']);
         }
 
-        if ((int)$sucursal->corporativo_id !== $corpId) {
+        if ((int) $sucursal->corporativo_id !== $corpId) {
             throw ValidationException::withMessages(['sucursal_id' => 'La sucursal no pertenece al corporativo seleccionado.']);
         }
 
-        $data['comprador_corp_id'] = (int)$sucursal->corporativo_id;
+        $data['comprador_corp_id'] = (int) $sucursal->corporativo_id;
 
-        $concepto = Concepto::select('id', 'activo')->find((int)($data['concepto_id'] ?? 0));
-        if (!$concepto || $concepto->activo === false) {
+        $concepto = Concepto::select('id', 'activo')->find((int) ($data['concepto_id'] ?? 0));
+        if (! $concepto || $concepto->activo === false) {
             throw ValidationException::withMessages(['concepto_id' => 'El concepto seleccionado no está activo o no existe.']);
         }
 
@@ -739,19 +759,19 @@ class RequisicionController extends Controller {
             $empleadosQ->where('id', (int) $user->empleado_id);
         }
 
-        $empleados = $empleadosQ->get()->map(fn($e) => [
+        $empleados = $empleadosQ->get()->map(fn ($e) => [
             'id' => $e->id,
-            'nombre' => trim($e->nombre . ' ' . $e->apellido_paterno . ' ' . ($e->apellido_materno ?? '')),
+            'nombre' => trim($e->nombre.' '.$e->apellido_paterno.' '.($e->apellido_materno ?? '')),
             'sucursal_id' => $e->sucursal_id,
             'activo' => $e->activo,
         ]);
 
         return [
             'corporativos' => $corporativos,
-            'sucursales'   => $sucursales,
-            'empleados'    => $empleados,
-            'conceptos'    => $conceptos,
-            'proveedores'  => $proveedores,
+            'sucursales' => $sucursales,
+            'empleados' => $empleados,
+            'conceptos' => $conceptos,
+            'proveedores' => $proveedores,
             'solicitante_fijo' => ! $verTodos,
         ];
     }
@@ -761,7 +781,7 @@ class RequisicionController extends Controller {
         $prefix = 'REQ';
 
         do {
-            $folio = $prefix . '-' . strtoupper(Str::random(5));
+            $folio = $prefix.'-'.strtoupper(Str::random(5));
         } while (Requisicion::where('folio', $folio)->exists());
 
         return $folio;
@@ -771,15 +791,15 @@ class RequisicionController extends Controller {
     {
         $ivaRate = 0.16;
         $montoSubtotal = 0.0;
-        $montoTotal    = 0.0;
+        $montoTotal = 0.0;
         $clean = [];
 
         $hasGeneraIvaColumn = Schema::hasColumn('detalles', 'genera_iva');
 
         foreach ($detalles as $i => $d) {
-            $cantidad = (float)($d['cantidad'] ?? 0);
-            $precio   = (float)($d['precio_unitario'] ?? 0);
-            $desc     = trim((string)($d['descripcion'] ?? ''));
+            $cantidad = (float) ($d['cantidad'] ?? 0);
+            $precio = (float) ($d['precio_unitario'] ?? 0);
+            $desc = trim((string) ($d['descripcion'] ?? ''));
 
             if ($cantidad <= 0 || $desc === '') {
                 throw ValidationException::withMessages([
@@ -787,16 +807,16 @@ class RequisicionController extends Controller {
                 ]);
             }
 
-            $generaIva = (bool)($d['genera_iva'] ?? true);
+            $generaIva = (bool) ($d['genera_iva'] ?? true);
             $subtotal = round($cantidad * $precio, 2);
-            $iva      = $generaIva ? round($subtotal * $ivaRate, 2) : 0.00;
-            $total    = round($subtotal + $iva, 2);
+            $iva = $generaIva ? round($subtotal * $ivaRate, 2) : 0.00;
+            $total = round($subtotal + $iva, 2);
 
             $montoSubtotal += $subtotal;
-            $montoTotal    += $total;
+            $montoTotal += $total;
 
             $row = [
-                'sucursal_id' => !empty($d['sucursal_id']) ? (int)$d['sucursal_id'] : null,
+                'sucursal_id' => ! empty($d['sucursal_id']) ? (int) $d['sucursal_id'] : null,
                 'cantidad' => $cantidad,
                 'descripcion' => $desc,
                 'precio_unitario' => $precio,
@@ -817,7 +837,10 @@ class RequisicionController extends Controller {
 
     private function safeYmd($v): ?string
     {
-        if (!is_string($v) || $v === '') return null;
+        if (! is_string($v) || $v === '') {
+            return null;
+        }
+
         return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
     }
 
@@ -835,5 +858,4 @@ class RequisicionController extends Controller {
 
         return $map[trim($sort)] ?? 'created_at';
     }
-
 }

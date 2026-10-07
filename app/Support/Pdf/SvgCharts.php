@@ -13,7 +13,9 @@ namespace App\Support\Pdf;
 final class SvgCharts
 {
     private const FONT = "Inter, 'Segoe UI', Helvetica, Arial, sans-serif";
+
     private const GRID = '#E4E4E7';
+
     private const AXIS = '#71717A';
 
     /**

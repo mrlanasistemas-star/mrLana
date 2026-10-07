@@ -3,10 +3,10 @@
 namespace App\Exports\Dashboard\Sheets;
 
 use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithTitle;
 
-class ResumenSheet implements FromArray, WithTitle, ShouldAutoSize
+class ResumenSheet implements FromArray, ShouldAutoSize, WithTitle
 {
     public function __construct(
         private string $role,

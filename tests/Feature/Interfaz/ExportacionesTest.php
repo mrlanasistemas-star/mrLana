@@ -6,6 +6,8 @@ use App\Models\Area;
 use App\Support\Permissions\PermissionCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
+use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Tests\Concerns\CreatesErpData;
 use Tests\TestCase;
 
@@ -24,27 +26,42 @@ class ExportacionesTest extends TestCase
         $this->setUpCatalogos();
     }
 
-    public function test_todas_las_exportaciones_descargan_archivos_validos(): void
+    /** @return array<string, array{string, array<string, string>, string}> */
+    public static function exportaciones(): array
+    {
+        $cases = [];
+        foreach (['corporativos', 'sucursales', 'areas', 'conceptos', 'proveedores', 'colaboradores', 'requisiciones'] as $m) {
+            $cases["{$m} pdf"] = ["{$m}.export.pdf", [], 'pdf'];
+            $cases["{$m} excel"] = ["{$m}.export.excel", [], 'xlsx'];
+        }
+        foreach (['admin', 'contador', 'colaborador'] as $perfil) {
+            $cases["dashboard {$perfil} pdf"] = ['dashboard.export.pdf', ['role' => $perfil], 'pdf'];
+            $cases["dashboard {$perfil} excel"] = ['dashboard.export.excel', ['role' => $perfil], 'xlsx'];
+        }
+
+        return $cases;
+    }
+
+    #[DataProvider('exportaciones')]
+    public function test_la_exportacion_descarga_un_archivo_valido(string $route, array $params, string $type): void
     {
         $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN);
-        $colaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
         Area::create(['corporativo_id' => $this->corporativo->id, 'nombre' => 'Compras', 'activo' => true]);
-        $req = $this->makeRequisicion($colaborador, [
+        $this->makeRequisicion($this->makeUser(PermissionCatalog::ROLE_COLABORADOR), [
             'observaciones' => str_repeat('Texto largo sin espacios_', 40),
         ]);
 
-        $modulos = ['corporativos', 'sucursales', 'areas', 'conceptos', 'proveedores', 'colaboradores', 'requisiciones'];
-        foreach ($modulos as $m) {
-            $this->assertPdf($this->actingAs($admin)->get(route("{$m}.export.pdf")), "{$m} PDF");
-            $this->assertXlsx($this->actingAs($admin)->get(route("{$m}.export.excel")), "{$m} Excel");
-        }
+        $response = $this->actingAs($admin)->get(route($route, $params));
 
-        foreach (['admin', 'contador', 'colaborador'] as $perfil) {
-            $this->assertPdf($this->actingAs($admin)->get(route('dashboard.export.pdf', $perfil)), "Dashboard {$perfil} PDF");
-            $this->assertXlsx($this->actingAs($admin)->get(route('dashboard.export.excel', $perfil)), "Dashboard {$perfil} Excel");
-        }
+        $type === 'pdf' ? $this->assertPdf($response) : $this->assertXlsx($response);
+    }
 
-        $this->assertPdf($this->actingAs($colaborador)->get(route('requisiciones.print', $req)), 'Requisición individual');
+    public function test_pdf_de_una_requisicion_individual(): void
+    {
+        $colaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
+        $req = $this->makeRequisicion($colaborador);
+
+        $this->assertPdf($this->actingAs($colaborador)->get(route('requisiciones.print', $req)));
     }
 
     public function test_exportar_sin_permiso_responde_403(): void
@@ -57,25 +74,25 @@ class ExportacionesTest extends TestCase
         }
     }
 
-    private function assertPdf(TestResponse $response, string $label): void
+    private function assertPdf(TestResponse $response): void
     {
         $response->assertOk();
-        $this->assertStringContainsString('application/pdf', (string) $response->headers->get('Content-Type'), $label);
-        $this->assertStringStartsWith('%PDF-', $this->body($response), "{$label}: no es un PDF válido");
+        $this->assertStringContainsString('application/pdf', (string) $response->headers->get('Content-Type'));
+        $this->assertStringStartsWith('%PDF-', $this->body($response), 'No es un PDF válido');
     }
 
-    private function assertXlsx(TestResponse $response, string $label): void
+    private function assertXlsx(TestResponse $response): void
     {
         $response->assertOk();
         // Un .xlsx es un ZIP: empieza con la firma "PK".
-        $this->assertStringStartsWith('PK', $this->body($response), "{$label}: no es un Excel válido");
+        $this->assertStringStartsWith('PK', $this->body($response), 'No es un Excel válido');
     }
 
     private function body(TestResponse $response): string
     {
         $base = $response->baseResponse;
 
-        return $base instanceof \Symfony\Component\HttpFoundation\BinaryFileResponse
+        return $base instanceof BinaryFileResponse
             ? (string) file_get_contents($base->getFile()->getPathname())
             : (string) $response->getContent();
     }

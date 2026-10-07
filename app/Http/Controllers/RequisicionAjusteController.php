@@ -23,14 +23,15 @@ use Illuminate\Support\Facades\DB;
  * transacción con bloqueo de fila: una segunda petición concurrente sobre un
  * ajuste ya procesado recibe un mensaje controlado y no modifica el total.
  */
-class RequisicionAjusteController extends Controller {
-
+class RequisicionAjusteController extends Controller
+{
     public function __construct(private NotificationService $notifications) {}
 
     /**
      * Solicita un ajuste (queda PENDIENTE) y notifica a los roles suscritos a "Ajustes".
      */
-    public function store(AjusteStoreRequest $request, Requisicion $requisicion): RedirectResponse {
+    public function store(AjusteStoreRequest $request, Requisicion $requisicion): RedirectResponse
+    {
         $data = $request->validated();
         $user = $request->user();
 
@@ -46,15 +47,15 @@ class RequisicionAjusteController extends Controller {
         $nuevo = $anterior + (($sentido === 'A_FAVOR_EMPRESA') ? -1 : 1) * $delta;
 
         $ajuste = DB::transaction(fn () => Ajuste::create([
-            'requisicion_id'   => $requisicion->id,
-            'tipo'             => $tipo,
-            'sentido'          => $sentido,
-            'monto'            => $delta,
-            'monto_anterior'   => $anterior,
-            'monto_nuevo'      => max(0, $nuevo),
-            'estatus'          => Ajuste::ESTATUS_PENDIENTE,
-            'motivo'           => $data['motivo'],
-            'fecha_registro'   => ! empty($data['fecha']) ? Carbon::createFromFormat('!Y-m-d', $data['fecha']) : now(),
+            'requisicion_id' => $requisicion->id,
+            'tipo' => $tipo,
+            'sentido' => $sentido,
+            'monto' => $delta,
+            'monto_anterior' => $anterior,
+            'monto_nuevo' => max(0, $nuevo),
+            'estatus' => Ajuste::ESTATUS_PENDIENTE,
+            'motivo' => $data['motivo'],
+            'fecha_registro' => ! empty($data['fecha']) ? Carbon::createFromFormat('!Y-m-d', $data['fecha']) : now(),
             'user_registro_id' => $user->id,
         ]));
 
@@ -84,7 +85,8 @@ class RequisicionAjusteController extends Controller {
     /**
      * Aprueba o rechaza un ajuste PENDIENTE.
      */
-    public function review(AjusteReviewRequest $request, Ajuste $ajuste): RedirectResponse {
+    public function review(AjusteReviewRequest $request, Ajuste $ajuste): RedirectResponse
+    {
         $data = $request->validated();
         $user = $request->user();
         abort_unless($user->can('view', $ajuste->requisicion), 403);
@@ -129,7 +131,8 @@ class RequisicionAjusteController extends Controller {
     /**
      * Aplica un ajuste APROBADO al monto total de la requisición (una sola vez).
      */
-    public function apply(Request $request, Ajuste $ajuste): RedirectResponse {
+    public function apply(Request $request, Ajuste $ajuste): RedirectResponse
+    {
         $user = $request->user();
         abort_unless($user->can('view', $ajuste->requisicion), 403);
 
@@ -195,7 +198,8 @@ class RequisicionAjusteController extends Controller {
     /**
      * Cancela un ajuste PENDIENTE (quien lo solicitó o quien puede revisarlo).
      */
-    public function cancel(Request $request, Ajuste $ajuste): RedirectResponse {
+    public function cancel(Request $request, Ajuste $ajuste): RedirectResponse
+    {
         $user = $request->user();
         $isOwner = (int) $ajuste->user_registro_id === (int) $user->id;
         abort_unless($isOwner || $user->can('ajustes.revisar'), 403);
@@ -254,7 +258,8 @@ class RequisicionAjusteController extends Controller {
         );
     }
 
-    private function tipoLabel(string $tipo): string {
+    private function tipoLabel(string $tipo): string
+    {
         return match ($tipo) {
             'DEVOLUCION' => 'devolución',
             'FALTANTE' => 'faltante',
@@ -263,8 +268,9 @@ class RequisicionAjusteController extends Controller {
         };
     }
 
-    private function syncComprobacionStatus(Requisicion $req): void {
-        if (!in_array($req->status, ['POR_COMPROBAR', 'COMPROBACION_ACEPTADA', 'COMPROBACION_RECHAZADA'], true)) {
+    private function syncComprobacionStatus(Requisicion $req): void
+    {
+        if (! in_array($req->status, ['POR_COMPROBAR', 'COMPROBACION_ACEPTADA', 'COMPROBACION_RECHAZADA'], true)) {
             return;
         }
         $aprobados = (float) $req->comprobantes()
@@ -273,5 +279,4 @@ class RequisicionAjusteController extends Controller {
         $req->status = ($aprobados >= (float) $req->monto_total) ? 'COMPROBACION_ACEPTADA' : 'POR_COMPROBAR';
         $req->save();
     }
-
 }

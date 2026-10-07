@@ -7,13 +7,14 @@ use App\Services\Dashboard\DashboardProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
-class DashboardController extends Controller {
-
+class DashboardController extends Controller
+{
     /**
      * Redirige al panel que corresponde a los permisos del usuario.
      * Sin permiso de dashboard, lleva al primer módulo disponible.
      */
-    public function index(Request $request): RedirectResponse {
+    public function index(Request $request): RedirectResponse
+    {
         $user = $request->user();
 
         if ($user->can('dashboard.ver')) {
@@ -26,5 +27,4 @@ class DashboardController extends Controller {
 
         return redirect()->route('profile.edit');
     }
-
 }

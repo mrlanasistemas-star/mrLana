@@ -5,23 +5,27 @@ namespace App\Http\Requests\Plantilla;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class PlantillaStoreRequest extends FormRequest {
-
-    public function authorize(): bool {
+class PlantillaStoreRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
         return (bool) $this->user()?->can('plantillas.registrar');
     }
 
-    protected function prepareForValidation(): void {
-        if ($this->has('corporativo_id') && !$this->has('comprador_corp_id')) {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('corporativo_id') && ! $this->has('comprador_corp_id')) {
             $this->merge([
                 'comprador_corp_id' => $this->input('corporativo_id'),
             ]);
         }
     }
 
-    public function rules(): array {
+    public function rules(): array
+    {
         // Sin "ver todas las requisiciones" el solicitante se asigna automáticamente.
         $solicitanteFijo = ! $this->user()?->can('requisiciones.ver_todos');
+
         return [
             'nombre' => ['required', 'string', 'max:100'],
             'solicitante_id' => [
@@ -31,14 +35,14 @@ class PlantillaStoreRequest extends FormRequest {
                 'exists:empleados,id',
             ],
             // En la UI lo tratas como requerido -> aquí también
-            'sucursal_id'       => ['required', 'integer', 'exists:sucursals,id'],
+            'sucursal_id' => ['required', 'integer', 'exists:sucursals,id'],
             'comprador_corp_id' => ['nullable', 'integer', 'exists:corporativos,id'],
             'proveedor_id' => ['required', 'integer', 'exists:proveedors,id'],
-            'concepto_id'  => ['required', 'integer', 'exists:conceptos,id'],
+            'concepto_id' => ['required', 'integer', 'exists:conceptos,id'],
             // Si estos montos se calculan sí o sí en frontend/composable, déjalos requeridos
             'monto_subtotal' => ['required', 'numeric', 'min:0'],
-            'monto_total'    => ['required', 'numeric', 'min:0'],
-            'fecha_solicitud'    => ['required', 'date'],
+            'monto_total' => ['required', 'numeric', 'min:0'],
+            'fecha_solicitud' => ['required', 'date'],
             'fecha_pago_esperada' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:fecha_solicitud'],
             'fecha_autorizacion' => ['nullable', 'date'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
@@ -52,15 +56,16 @@ class PlantillaStoreRequest extends FormRequest {
             'detalles.*.precio_unitario' => ['required', 'numeric', 'min:0'],
             // Si tu frontend ya calcula estos, los validas; si quieres que el server los calcule, ponlos nullable
             'detalles.*.subtotal' => ['required', 'numeric', 'min:0'],
-            'detalles.*.iva'      => ['required', 'numeric', 'min:0'],
-            'detalles.*.total'    => ['required', 'numeric', 'min:0'],
+            'detalles.*.iva' => ['required', 'numeric', 'min:0'],
+            'detalles.*.total' => ['required', 'numeric', 'min:0'],
         ];
     }
 
     /**
      * Nombres “bonitos” para que los mensajes salgan pro y no con keys técnicas.
      */
-    public function attributes(): array {
+    public function attributes(): array
+    {
         return [
             'nombre' => 'nombre de la plantilla',
             'solicitante_id' => 'solicitante',
@@ -88,7 +93,8 @@ class PlantillaStoreRequest extends FormRequest {
     /**
      * Mensajes personalizados
      */
-    public function messages(): array {
+    public function messages(): array
+    {
         return [
             // Generales
             'nombre.required' => 'Escribe el :attribute.',
@@ -138,5 +144,4 @@ class PlantillaStoreRequest extends FormRequest {
             'detalles.*.total.min' => 'El :attribute no puede ser negativo.',
         ];
     }
-
 }

@@ -7,12 +7,13 @@ use App\Exports\Core\BaseReportExport;
 class RequisicionesDataSheet extends BaseReportExport
 {
     protected array $rows;
+
     protected array $filters;
 
     public function __construct(array $rows, array $filters, array $meta)
     {
         parent::__construct($rows, $filters, $meta);
-        $this->rows    = $rows;
+        $this->rows = $rows;
         $this->filters = $filters;
     }
 
@@ -88,6 +89,7 @@ class RequisicionesDataSheet extends BaseReportExport
     {
         // S=subtotal_item, T=iva_item, U=total_item, V=subtotal_req, W=iva_req, X=total_items_req, Y=ajuste, Z=total_final
         $currency = '"$"#,##0.00';
+
         return [
             'Q' => '#,##0.00',  // P. unitario
             'S' => $currency,   // Subtotal ítem
@@ -104,34 +106,34 @@ class RequisicionesDataSheet extends BaseReportExport
     protected function mapRow(array $r): array
     {
         return [
-            $r['folio']             ?? '',
-            $r['estatus']           ?? '',
-            $r['tipo']              ?? '',
-            $r['corporativo']       ?? '',
-            $r['sucursal']          ?? '',
-            $r['sucursal_codigo']   ?? '',
-            $r['solicitante']       ?? '',
-            $r['proveedor']         ?? '',
-            $r['proveedor_rfc']     ?? '',
-            $r['concepto']          ?? '',
-            $r['observaciones']     ?? '',
-            $r['fecha_captura']     ?? '',
-            $r['fecha_solicitud']   ?? '',
-            $r['fecha_pago']        ?? '',
-            $r['descripcion_item']  ?? '',
-            $r['cantidad']          ?? '',
-            $r['precio_unitario']   ?? '',
-            $r['genera_iva']        ?? '',
-            $r['subtotal_item']     ?? '',
-            $r['iva_item']          ?? '',
-            $r['total_item']        ?? '',
-            $r['subtotal']          ?? '',
-            $r['iva']               ?? '',
-            $r['total']             ?? '',
-            $r['ajustes_netos']     ?? '',
-            $r['total_final']       ?? '',
+            $r['folio'] ?? '',
+            $r['estatus'] ?? '',
+            $r['tipo'] ?? '',
+            $r['corporativo'] ?? '',
+            $r['sucursal'] ?? '',
+            $r['sucursal_codigo'] ?? '',
+            $r['solicitante'] ?? '',
+            $r['proveedor'] ?? '',
+            $r['proveedor_rfc'] ?? '',
+            $r['concepto'] ?? '',
+            $r['observaciones'] ?? '',
+            $r['fecha_captura'] ?? '',
+            $r['fecha_solicitud'] ?? '',
+            $r['fecha_pago'] ?? '',
+            $r['descripcion_item'] ?? '',
+            $r['cantidad'] ?? '',
+            $r['precio_unitario'] ?? '',
+            $r['genera_iva'] ?? '',
+            $r['subtotal_item'] ?? '',
+            $r['iva_item'] ?? '',
+            $r['total_item'] ?? '',
+            $r['subtotal'] ?? '',
+            $r['iva'] ?? '',
+            $r['total'] ?? '',
+            $r['ajustes_netos'] ?? '',
+            $r['total_final'] ?? '',
             $r['fecha_pago_esperada'] ?? '',
-            $r['fecha_autorizacion']  ?? '',
+            $r['fecha_autorizacion'] ?? '',
         ];
     }
 }

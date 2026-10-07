@@ -10,33 +10,38 @@ use App\Models\Empleado;
 use App\Models\Plantilla;
 use App\Models\Proveedor;
 use App\Models\Sucursal;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class PlantillaController extends Controller {
-
+class PlantillaController extends Controller
+{
     /**
      * Listado de plantillas.
      * COLABORADOR: sólo las suyas. ADMIN/CONTADOR: todas.
      */
-    public function index(Request $request): Response {
+    public function index(Request $request): Response
+    {
         $user = $request->user();
 
         $filters = [
-            'q'       => trim((string)$request->input('q', '')),
-            'status'  => trim((string)$request->input('status', '')),
-            'perPage' => (int)$request->input('perPage', 20),
-            'sort'    => trim((string)$request->input('sort', 'nombre')),
-            'dir'     => strtolower((string)$request->input('dir', 'asc')) === 'desc' ? 'desc' : 'asc',
+            'q' => trim((string) $request->input('q', '')),
+            'status' => trim((string) $request->input('status', '')),
+            'perPage' => (int) $request->input('perPage', 20),
+            'sort' => trim((string) $request->input('sort', 'nombre')),
+            'dir' => strtolower((string) $request->input('dir', 'asc')) === 'desc' ? 'desc' : 'asc',
         ];
 
-        if ($filters['perPage'] <= 0) $filters['perPage'] = 20;
-        if ($filters['perPage'] > 100) $filters['perPage'] = 100;
+        if ($filters['perPage'] <= 0) {
+            $filters['perPage'] = 20;
+        }
+        if ($filters['perPage'] > 100) {
+            $filters['perPage'] = 100;
+        }
 
         $allowedSort = ['nombre', 'status', 'monto_total', 'created_at', 'updated_at'];
-        if (!in_array($filters['sort'], $allowedSort, true)) {
+        if (! in_array($filters['sort'], $allowedSort, true)) {
             $filters['sort'] = 'nombre';
         }
 
@@ -55,7 +60,7 @@ class PlantillaController extends Controller {
                         ->orWhere('observaciones', 'like', "%{$q}%");
                 });
             })
-            ->when($filters['status'] !== '', fn($qq) => $qq->where('status', $filters['status']))
+            ->when($filters['status'] !== '', fn ($qq) => $qq->where('status', $filters['status']))
             ->orderBy($filters['sort'], $filters['dir']);
 
         $paginator = $query->paginate($filters['perPage'])->withQueryString();
@@ -66,11 +71,11 @@ class PlantillaController extends Controller {
                 'id' => $p->id,
                 'nombre' => $p->nombre,
                 'status' => $p->status,
-                'monto_subtotal' => (string)$p->monto_subtotal,
-                'monto_total' => (string)$p->monto_total,
-                'fecha_solicitud' => $p->fecha_solicitud ? (string)$p->fecha_solicitud : null,
+                'monto_subtotal' => (string) $p->monto_subtotal,
+                'monto_total' => (string) $p->monto_total,
+                'fecha_solicitud' => $p->fecha_solicitud ? (string) $p->fecha_solicitud : null,
                 'fecha_pago_esperada' => $p->fecha_pago_esperada?->format('Y-m-d'),
-                'fecha_autorizacion' => $p->fecha_autorizacion ? (string)$p->fecha_autorizacion : null,
+                'fecha_autorizacion' => $p->fecha_autorizacion ? (string) $p->fecha_autorizacion : null,
 
                 'sucursal' => $p->sucursal ? [
                     'id' => $p->sucursal->id,
@@ -81,20 +86,20 @@ class PlantillaController extends Controller {
                 'solicitante' => $p->solicitante ? [
                     'id' => $p->solicitante->id,
                     'nombre' => trim(
-                        $p->solicitante->nombre . ' ' .
-                        ($p->solicitante->apellido_paterno ?? '') . ' ' .
+                        $p->solicitante->nombre.' '.
+                        ($p->solicitante->apellido_paterno ?? '').' '.
                         ($p->solicitante->apellido_materno ?? '')
                     ),
                 ] : null,
 
                 'proveedor' => $p->proveedor ? [
                     'id' => $p->proveedor->id,
-                    'nombre' => (string)$p->proveedor->razon_social,
+                    'nombre' => (string) $p->proveedor->razon_social,
                 ] : null,
 
                 'concepto' => $p->concepto ? [
                     'id' => $p->concepto->id,
-                    'nombre' => (string)$p->concepto->nombre,
+                    'nombre' => (string) $p->concepto->nombre,
                 ] : null,
 
                 'observaciones' => $p->observaciones,
@@ -104,7 +109,7 @@ class PlantillaController extends Controller {
         // links (del paginator)
         $linksRaw = $paginator->toArray()['links'] ?? [];
         $links = collect($linksRaw)->map(function ($l) {
-            $label = (string)($l['label'] ?? '');
+            $label = (string) ($l['label'] ?? '');
             $clean = trim(strip_tags(html_entity_decode($label)));
 
             // opcional: español sin cambiar locale global
@@ -120,7 +125,7 @@ class PlantillaController extends Controller {
             return [
                 'url' => $l['url'] ?? null,
                 'label' => $label,
-                'active' => (bool)($l['active'] ?? false),
+                'active' => (bool) ($l['active'] ?? false),
                 'cleanLabel' => $clean,
             ];
         })->values()->all();
@@ -173,7 +178,7 @@ class PlantillaController extends Controller {
         unset($data['detalles']);
 
         // Deducir comprador_corp_id desde sucursal si no viene
-        if (!empty($data['sucursal_id']) && empty($data['comprador_corp_id'])) {
+        if (! empty($data['sucursal_id']) && empty($data['comprador_corp_id'])) {
             $sucursal = Sucursal::select('id', 'corporativo_id')->find($data['sucursal_id']);
             $data['comprador_corp_id'] = $sucursal?->corporativo_id;
         }
@@ -184,11 +189,11 @@ class PlantillaController extends Controller {
         }
 
         $data['user_id'] = $user->id;
-        $data['status']  = 'BORRADOR';
+        $data['status'] = 'BORRADOR';
 
         $plantilla = Plantilla::create($data);
 
-        if (!empty($detalles)) {
+        if (! empty($detalles)) {
             $plantilla->detalles()->createMany($detalles);
         }
 
@@ -210,7 +215,7 @@ class PlantillaController extends Controller {
             'plantilla' => $this->formatPlantillaForForm($plantilla),
             'catalogos' => $this->catalogos(),
             'routes' => [
-                'index'  => route('plantillas.index'),
+                'index' => route('plantillas.index'),
                 'update' => route('plantillas.update', $plantilla),
             ],
             'ui' => ['solicitante_fijo' => ! $request->user()->can('requisiciones.ver_todos')],
@@ -228,7 +233,7 @@ class PlantillaController extends Controller {
         $detalles = $data['detalles'] ?? [];
         unset($data['detalles']);
 
-        if (!empty($data['sucursal_id']) && empty($data['comprador_corp_id'])) {
+        if (! empty($data['sucursal_id']) && empty($data['comprador_corp_id'])) {
             $sucursal = Sucursal::select('id', 'corporativo_id')->find($data['sucursal_id']);
             $data['comprador_corp_id'] = $sucursal?->corporativo_id;
         }
@@ -237,7 +242,7 @@ class PlantillaController extends Controller {
 
         // Estrategia simple: reemplazo total de detalles
         $plantilla->detalles()->delete();
-        if (!empty($detalles)) {
+        if (! empty($detalles)) {
             $plantilla->detalles()->createMany($detalles);
         }
 
@@ -248,9 +253,11 @@ class PlantillaController extends Controller {
     /**
      * Soft delete (status).
      */
-    public function destroy(Request $request, Plantilla $plantilla): RedirectResponse {
+    public function destroy(Request $request, Plantilla $plantilla): RedirectResponse
+    {
         $this->authorize('delete', $plantilla);
         $plantilla->update(['status' => 'ELIMINADA']);
+
         return redirect()->route('plantillas.index')
             ->with('success', 'Plantilla eliminada.');
     }
@@ -259,40 +266,45 @@ class PlantillaController extends Controller {
      * JSON show para precargar (uso futuro en requisiciones).
      * Mandamos la misma estructura "plana" que edit().
      */
-    public function show(Request $request, Plantilla $plantilla) {
+    public function show(Request $request, Plantilla $plantilla)
+    {
         $this->authorize('view', $plantilla);
         $plantilla->load(['detalles', 'sucursal', 'solicitante', 'proveedor', 'concepto']);
+
         return response()->json([
             'plantilla' => $this->formatPlantillaForForm($plantilla),
         ]);
     }
 
-    public function reactivate(Request $request, Plantilla $plantilla): RedirectResponse {
+    public function reactivate(Request $request, Plantilla $plantilla): RedirectResponse
+    {
         $this->authorize('delete', $plantilla);
         $plantilla->update(['status' => 'BORRADOR']);
+
         return redirect()->route('plantillas.index')
             ->with('success', 'Plantilla reactivada.');
     }
 
     // Catálogos para Create/Edit.
-    private function catalogos(): array {
+    private function catalogos(): array
+    {
         $user = auth()->user();
 
         // Catálogos generales
-        $corporativos = Corporativo::select('id','nombre','activo')
+        $corporativos = Corporativo::select('id', 'nombre', 'activo')
             ->orderBy('nombre')
             ->get();
 
-        $sucursales = Sucursal::select('id','nombre','codigo','corporativo_id','activo')
+        $sucursales = Sucursal::select('id', 'nombre', 'codigo', 'corporativo_id', 'activo')
             ->orderBy('nombre')
             ->get();
 
-        $conceptos = Concepto::select('id','nombre','activo')
+        $conceptos = Concepto::select('id', 'nombre', 'activo')
             ->orderBy('nombre')
             ->get();
 
         // Filtrar proveedores: administradores y contadores ven todos; colaboradores ven sólo los propios.
-        $proveedoresQuery = Proveedor::select('id','razon_social')
+        $proveedoresQuery = Proveedor::select('id', 'razon_social')
             ->orderBy('razon_social');
 
         if (! $user->can('proveedores.ver_todos')) {
@@ -305,24 +317,24 @@ class PlantillaController extends Controller {
             ->map(fn ($p) => ['id' => $p->id, 'nombre' => $p->razon_social])
             ->values();
 
-        $empleados = Empleado::select('id','nombre','apellido_paterno','apellido_materno','sucursal_id','puesto','activo')
+        $empleados = Empleado::select('id', 'nombre', 'apellido_paterno', 'apellido_materno', 'sucursal_id', 'puesto', 'activo')
             ->orderBy('nombre')
             ->get()
             ->map(fn ($e) => [
-                'id'          => $e->id,
-                'nombre'      => trim($e->nombre . ' ' . $e->apellido_paterno . ' ' . ($e->apellido_materno ?? '')),
+                'id' => $e->id,
+                'nombre' => trim($e->nombre.' '.$e->apellido_paterno.' '.($e->apellido_materno ?? '')),
                 'sucursal_id' => $e->sucursal_id,
-                'puesto'      => $e->puesto,
-                'activo'      => $e->activo,
+                'puesto' => $e->puesto,
+                'activo' => $e->activo,
             ])
             ->values();
 
         return [
             'corporativos' => $corporativos,
-            'sucursales'   => $sucursales,
-            'empleados'    => $empleados,
-            'conceptos'    => $conceptos,
-            'proveedores'  => $proveedores,
+            'sucursales' => $sucursales,
+            'empleados' => $empleados,
+            'conceptos' => $conceptos,
+            'proveedores' => $proveedores,
         ];
     }
 
@@ -342,24 +354,24 @@ class PlantillaController extends Controller {
             : '';
 
         $detalles = collect($plantilla->detalles ?? [])
-            ->map(fn($d) => [
+            ->map(fn ($d) => [
                 'id' => $d->id ?? null,
                 'sucursal_id' => $d->sucursal_id ?? null,
-                'cantidad' => (float)($d->cantidad ?? 1),
-                'descripcion' => (string)($d->descripcion ?? ''),
-                'precio_unitario' => (float)($d->precio_unitario ?? 0),
-                'genera_iva' => (bool)($d->genera_iva ?? true),
-                'subtotal' => (float)($d->subtotal ?? 0),
-                'iva' => (float)($d->iva ?? 0),
-                'total' => (float)($d->total ?? 0),
+                'cantidad' => (float) ($d->cantidad ?? 1),
+                'descripcion' => (string) ($d->descripcion ?? ''),
+                'precio_unitario' => (float) ($d->precio_unitario ?? 0),
+                'genera_iva' => (bool) ($d->genera_iva ?? true),
+                'subtotal' => (float) ($d->subtotal ?? 0),
+                'iva' => (float) ($d->iva ?? 0),
+                'total' => (float) ($d->total ?? 0),
             ])
             ->values()
             ->all();
 
         return [
             'id' => $plantilla->id,
-            'nombre' => (string)$plantilla->nombre,
-            'status' => (string)$plantilla->status,
+            'nombre' => (string) $plantilla->nombre,
+            'status' => (string) $plantilla->status,
 
             // ids directos para precargar selects
             'sucursal_id' => $plantilla->sucursal_id,
@@ -368,8 +380,8 @@ class PlantillaController extends Controller {
             'proveedor_id' => $plantilla->proveedor_id,
             'concepto_id' => $plantilla->concepto_id,
 
-            'monto_subtotal' => (float)($plantilla->monto_subtotal ?? 0),
-            'monto_total' => (float)($plantilla->monto_total ?? 0),
+            'monto_subtotal' => (float) ($plantilla->monto_subtotal ?? 0),
+            'monto_total' => (float) ($plantilla->monto_total ?? 0),
 
             'fecha_solicitud' => $fechaSolicitud,
             'fecha_pago_esperada' => $plantilla->fecha_pago_esperada?->format('Y-m-d') ?? '',

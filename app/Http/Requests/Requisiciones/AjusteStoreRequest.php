@@ -5,22 +5,25 @@ namespace App\Http\Requests\Requisiciones;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class AjusteStoreRequest extends FormRequest {
-
-    public function authorize(): bool {
+class AjusteStoreRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
         $requisicion = $this->route('requisicion');
 
         return $requisicion !== null && (bool) $this->user()?->can('requestAdjustment', $requisicion);
     }
 
-    protected function prepareForValidation(): void {
+    protected function prepareForValidation(): void
+    {
         // Compatibilidad: la interfaz anterior enviaba "descripcion" en lugar de "motivo".
         if (! $this->filled('motivo') && $this->filled('descripcion')) {
             $this->merge(['motivo' => $this->input('descripcion')]);
         }
     }
 
-    public function rules(): array {
+    public function rules(): array
+    {
         return [
             'tipo' => ['required', Rule::in(['DEVOLUCION', 'FALTANTE', 'INCREMENTO_AUTORIZADO'])],
             'sentido' => ['nullable', Rule::in(['A_FAVOR_EMPRESA', 'A_FAVOR_SOLICITANTE'])],
@@ -30,7 +33,8 @@ class AjusteStoreRequest extends FormRequest {
         ];
     }
 
-    public function messages(): array {
+    public function messages(): array
+    {
         return [
             'tipo.required' => 'Selecciona el tipo de ajuste.',
             'tipo.in' => 'El tipo de ajuste no es válido.',
@@ -43,5 +47,4 @@ class AjusteStoreRequest extends FormRequest {
             'fecha.date_format' => 'La fecha debe tener formato AAAA-MM-DD.',
         ];
     }
-
 }

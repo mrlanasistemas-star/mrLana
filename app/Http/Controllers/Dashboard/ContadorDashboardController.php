@@ -35,7 +35,7 @@ class ContadorDashboardController extends Controller
 
         // Activity/Amounts 14 días por fecha_solicitud
         $activityRows = DB::table('requisicions')
-            ->selectRaw("DATE(fecha_solicitud) as d, COUNT(*) as qty")
+            ->selectRaw('DATE(fecha_solicitud) as d, COUNT(*) as qty')
             ->where('fecha_solicitud', '>=', $start14)
             ->groupBy('d')
             ->orderBy('d')
@@ -43,7 +43,7 @@ class ContadorDashboardController extends Controller
             ->keyBy('d');
 
         $amountRows = DB::table('requisicions')
-            ->selectRaw("DATE(fecha_solicitud) as d, SUM(monto_total) as monto")
+            ->selectRaw('DATE(fecha_solicitud) as d, SUM(monto_total) as monto')
             ->where('fecha_solicitud', '>=', $start14)
             ->groupBy('d')
             ->orderBy('d')
@@ -56,15 +56,15 @@ class ContadorDashboardController extends Controller
             $day = $start14->copy()->addDays($i)->toDateString();
             $label = Carbon::parse($day, $tz)->format('d M');
 
-            $activityDaily[] = ['name' => $label, 'value' => (int)($activityRows[$day]->qty ?? 0)];
-            $amountsDaily[]  = ['name' => $label, 'value' => (float)($amountRows[$day]->monto ?? 0)];
+            $activityDaily[] = ['name' => $label, 'value' => (int) ($activityRows[$day]->qty ?? 0)];
+            $amountsDaily[] = ['name' => $label, 'value' => (float) ($amountRows[$day]->monto ?? 0)];
         }
 
         $kpis = [
             ['label' => 'Capturadas',          'value' => number_format($capturadas),  'hint' => 'Pendientes de autorización'],
             ['label' => 'Autorizadas',         'value' => number_format($autorizadas), 'hint' => 'Pendientes de pago'],
-            ['label' => 'Por comprobar',       'value' => number_format($porComprobar),'hint' => 'Pendientes de evidencia'],
-            ['label' => 'Pagado (mes)',        'value' => '$ ' . number_format($montoPagadoMes, 2), 'hint' => 'Por fecha de pago'],
+            ['label' => 'Por comprobar',       'value' => number_format($porComprobar), 'hint' => 'Pendientes de evidencia'],
+            ['label' => 'Pagado (mes)',        'value' => '$ '.number_format($montoPagadoMes, 2), 'hint' => 'Por fecha de pago'],
         ];
 
         return Inertia::render('Dashboard/ContadorDashboard', [

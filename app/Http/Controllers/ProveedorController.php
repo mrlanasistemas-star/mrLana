@@ -9,15 +9,16 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-class ProveedorController extends Controller {
-
+class ProveedorController extends Controller
+{
     /**
      * LISTADO
      * Yo dejo multi-tenant simple:
      * - ADMIN/CONTADOR puede ver todo y filtrar por dueño
      * - demás solo lo propio (y por defecto ACTIVO)
      */
-    public function index(Request $request): Response {
+    public function index(Request $request): Response
+    {
         $user = $request->user();
 
         $q = trim((string) $request->get('q', ''));
@@ -32,17 +33,17 @@ class ProveedorController extends Controller {
         $isAdminLike = $user->can('proveedores.ver_todos');
 
         $query = Proveedor::query()
-            ->select(['id','user_duenio_id','razon_social','rfc','clabe','banco','status','created_at','updated_at']);
+            ->select(['id', 'user_duenio_id', 'razon_social', 'rfc', 'clabe', 'banco', 'status', 'created_at', 'updated_at']);
 
         // Multi-tenant (yo lo mantengo para que no vean proveedores ajenos por URL)
-        if (!$isAdminLike) {
+        if (! $isAdminLike) {
             $query->where('user_duenio_id', $user->id);
             // si no eres admin/contador, yo fuerzo ACTIVO siempre
             $query->where('status', 'ACTIVO');
         }
 
         // Filtro por dueño (solo si admin/contador)
-        if ($isAdminLike && !empty($ownerId)) {
+        if ($isAdminLike && ! empty($ownerId)) {
             $query->where('user_duenio_id', (int) $ownerId);
         }
 
@@ -62,7 +63,9 @@ class ProveedorController extends Controller {
         }
         // Orden seguro
         $allowedSort = ['created_at', 'razon_social', 'status'];
-        if (!in_array($sort, $allowedSort, true)) $sort = 'created_at';
+        if (! in_array($sort, $allowedSort, true)) {
+            $sort = 'created_at';
+        }
 
         $rows = $query
             ->orderBy($sort, $dir)
@@ -73,7 +76,7 @@ class ProveedorController extends Controller {
         $owners = [];
         if ($isAdminLike) {
             $owners = User::query()
-                ->select(['id','name','email'])
+                ->select(['id', 'name', 'email'])
                 ->orderBy('name')
                 ->get()
                 ->map(fn ($u) => [
@@ -84,6 +87,7 @@ class ProveedorController extends Controller {
                 ->values()
                 ->all();
         }
+
         return Inertia::render('Proveedores/Index', [
             'filters' => [
                 'q' => $q,
@@ -102,7 +106,7 @@ class ProveedorController extends Controller {
                 'reactivar' => $user->can('proveedores.reactivar'),
                 'exportar' => $user->can('proveedores.exportar'),
             ],
-            'canDelete' => $user->can('proveedores.desactivar')
+            'canDelete' => $user->can('proveedores.desactivar'),
         ]);
     }
 
@@ -113,14 +117,15 @@ class ProveedorController extends Controller {
      * - status = ACTIVO
      * - clabe solo dígitos
      */
-    public function store(Request $request): RedirectResponse {
+    public function store(Request $request): RedirectResponse
+    {
         $user = $request->user();
 
         $data = $request->validate([
-            'razon_social' => ['required','string','max:200'],
-            'rfc' => ['required','string','max:20'],
-            'clabe' => ['required','string','max:30'],
-            'banco' => ['required','string','max:120'],
+            'razon_social' => ['required', 'string', 'max:200'],
+            'rfc' => ['required', 'string', 'max:20'],
+            'clabe' => ['required', 'string', 'max:30'],
+            'banco' => ['required', 'string', 'max:120'],
         ]);
 
         $data['rfc'] = strtoupper(preg_replace('/\s+/', '', (string) $data['rfc']));
@@ -140,13 +145,13 @@ class ProveedorController extends Controller {
      */
     public function update(Request $request, Proveedor $proveedore): RedirectResponse
     {
-        $this->authorize("update", $proveedore);
+        $this->authorize('update', $proveedore);
 
         $data = $request->validate([
-            'razon_social' => ['required','string','max:200'],
-            'rfc' => ['required','string','max:20'],
-            'clabe' => ['required','string','max:30'],
-            'banco' => ['required','string','max:120'],
+            'razon_social' => ['required', 'string', 'max:200'],
+            'rfc' => ['required', 'string', 'max:20'],
+            'clabe' => ['required', 'string', 'max:30'],
+            'banco' => ['required', 'string', 'max:120'],
         ]);
 
         $data['rfc'] = strtoupper(preg_replace('/\s+/', '', (string) $data['rfc']));
@@ -162,8 +167,9 @@ class ProveedorController extends Controller {
      * ELIMINAR (lógico)
      * En UI es “Eliminar”, pero yo solo marco INACTIVO.
      */
-    public function destroy(Request $request, Proveedor $proveedore): RedirectResponse {
-        $this->authorize("delete", $proveedore);
+    public function destroy(Request $request, Proveedor $proveedore): RedirectResponse
+    {
+        $this->authorize('delete', $proveedore);
 
         if (strtoupper((string) $proveedore->status) === 'INACTIVO') {
             // Yo no hago “doble eliminación”
@@ -180,9 +186,10 @@ class ProveedorController extends Controller {
      * ELIMINAR SELECCIONADOS (lógico)
      * Yo solo actualizo ACTIVO -> INACTIVO.
      */
-    public function bulkDestroy(Request $request): RedirectResponse {
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
         $data = $request->validate([
-            'ids' => ['required','array','min:1'],
+            'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer'],
         ]);
 
@@ -196,13 +203,13 @@ class ProveedorController extends Controller {
     }
 
     // PATCH /proveedores/{proveedor}/activate
-    public function activate(Request $request, Proveedor $proveedor): RedirectResponse {
-        $this->authorize("restore", $proveedor);
+    public function activate(Request $request, Proveedor $proveedor): RedirectResponse
+    {
+        $this->authorize('restore', $proveedor);
 
         $proveedor->status = 'ACTIVO';
         $proveedor->save();
 
         return back()->with('success', 'Proveedor reactivado.');
     }
-
 }

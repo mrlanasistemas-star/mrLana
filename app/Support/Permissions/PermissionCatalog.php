@@ -15,7 +15,9 @@ namespace App\Support\Permissions;
 final class PermissionCatalog
 {
     public const ROLE_ADMIN = 'Administrador';
+
     public const ROLE_CONTABILIDAD = 'Contabilidad';
+
     public const ROLE_COLABORADOR = 'Colaborador';
 
     /** Valor legado de users.rol → rol inicial. */

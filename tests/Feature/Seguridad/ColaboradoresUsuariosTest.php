@@ -128,7 +128,7 @@ class ColaboradoresUsuariosTest extends TestCase
         $conUsuario = $this->makeEmpleado(['nombre' => 'Con']);
         User::factory()->colaborador()->create(['empleado_id' => $conUsuario->id]);
 
-        $counts = ColaboradorQuery::counts(ColaboradorQuery::filters(new Request()));
+        $counts = ColaboradorQuery::counts(ColaboradorQuery::filters(new Request));
         $this->assertSame(['total' => 5, 'con_usuario' => 2, 'sin_usuario' => 3], $counts);
 
         $activos = ColaboradorQuery::counts(ColaboradorQuery::filters(new Request(['activo' => '1'])));

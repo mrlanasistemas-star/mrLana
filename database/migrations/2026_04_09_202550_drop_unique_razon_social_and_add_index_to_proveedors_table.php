@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\Schema;
  * o donde una ejecución previa falló a la mitad (MySQL no revierte DDL), cada
  * paso se aplica solo si hace falta.
  */
-return new class extends Migration {
+return new class extends Migration
+{
     private const SIMPLE_INDEX = 'proveedors_user_duenio_id_index';
+
     private const UNIQUE_INDEX = 'proveedors_user_razon_unique';
 
     public function up(): void

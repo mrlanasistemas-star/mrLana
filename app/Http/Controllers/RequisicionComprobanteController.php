@@ -15,11 +15,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
-class RequisicionComprobanteController extends Controller {
-
+class RequisicionComprobanteController extends Controller
+{
     public function __construct(private NotificationService $notifications) {}
 
-    public function create(Request $request, Requisicion $requisicion) {
+    public function create(Request $request, Requisicion $requisicion)
+    {
         $this->authorize('viewComprobaciones', $requisicion);
         $user = $request->user();
 
@@ -43,7 +44,7 @@ class RequisicionComprobanteController extends Controller {
                     'concepto' => $conceptoNombre ?: '—',
                     'monto_total' => (float) $requisicion->monto_total,
                     'solicitante_nombre' => $solicitante
-                        ? trim(($solicitante->nombre ?? '') . ' ' . ($solicitante->apellido_paterno ?? '') . ' ' . ($solicitante->apellido_materno ?? ''))
+                        ? trim(($solicitante->nombre ?? '').' '.($solicitante->apellido_paterno ?? '').' '.($solicitante->apellido_materno ?? ''))
                         : '—',
                     'status' => (string) ($requisicion->status ?? ''),
                     // Datos de facturación del corporativo comprador
@@ -62,7 +63,7 @@ class RequisicionComprobanteController extends Controller {
 
             'comprobantes' => [
                 'data' => collect($comprobantes)->map(function ($c) {
-                    $url = !empty($c->archivo_path) ? Storage::disk('public')->url($c->archivo_path) : null;
+                    $url = ! empty($c->archivo_path) ? Storage::disk('public')->url($c->archivo_path) : null;
 
                     return [
                         'id' => (int) $c->id,
@@ -102,7 +103,8 @@ class RequisicionComprobanteController extends Controller {
         ]);
     }
 
-    public function store(Request $request, Requisicion $requisicion) {
+    public function store(Request $request, Requisicion $requisicion)
+    {
         $this->authorize('uploadComprobante', $requisicion);
 
         $data = $request->validate([
@@ -141,7 +143,7 @@ class RequisicionComprobanteController extends Controller {
             $file = $request->file('archivo');
             $stored = $file->storePublicly("requisiciones/{$requisicion->id}/comprobantes", 'public');
 
-            (new Comprobante())->forceFill([
+            (new Comprobante)->forceFill([
                 'requisicion_id' => $requisicion->id,
                 'tipo_doc' => $data['tipo_doc'],
                 'fecha_emision' => $data['fecha_emision'],
@@ -159,7 +161,8 @@ class RequisicionComprobanteController extends Controller {
         });
     }
 
-    public function destroy(Request $request, Comprobante $comprobante) {
+    public function destroy(Request $request, Comprobante $comprobante)
+    {
         $requisicion = $comprobante->requisicion()->first();
         abort_unless($requisicion && $request->user()->can('view', $requisicion), 403);
 
@@ -179,7 +182,7 @@ class RequisicionComprobanteController extends Controller {
                 ]);
             }
 
-            if (!empty($path)) {
+            if (! empty($path)) {
                 DB::afterCommit(fn () => Storage::disk('public')->delete($path));
             }
         });
@@ -187,7 +190,8 @@ class RequisicionComprobanteController extends Controller {
         return back()->with('success', 'Comprobante eliminado.');
     }
 
-    public function review(Request $request, Comprobante $comprobante) {
+    public function review(Request $request, Comprobante $comprobante)
+    {
         $requisicion = $comprobante->requisicion()->first();
         abort_unless($requisicion && $request->user()->can('view', $requisicion), 403);
 
@@ -269,7 +273,8 @@ class RequisicionComprobanteController extends Controller {
         return back()->with('success', 'Revisión aplicada.');
     }
 
-    public function notify(Request $request, Requisicion $requisicion) {
+    public function notify(Request $request, Requisicion $requisicion)
+    {
         $this->authorize('uploadComprobante', $requisicion);
 
         // canal "sistema": solo campana de Contabilidad; "correo": solo correo (comportamiento original).
@@ -292,7 +297,7 @@ class RequisicionComprobanteController extends Controller {
         }
 
         // Cambiar estatus solo cuando el usuario ya decidió notificar
-        if (!in_array((string) $requisicion->status, ['ELIMINADA', 'COMPROBACION_ACEPTADA'], true)) {
+        if (! in_array((string) $requisicion->status, ['ELIMINADA', 'COMPROBACION_ACEPTADA'], true)) {
             $requisicion->update(['status' => 'POR_COMPROBAR']);
             $requisicion->refresh();
         }
@@ -340,5 +345,4 @@ class RequisicionComprobanteController extends Controller {
             ? 'Correo enviado a Contabilidad.'
             : 'No se pudo enviar el correo. Intenta de nuevo o usa el aviso en el sistema.');
     }
-
 }

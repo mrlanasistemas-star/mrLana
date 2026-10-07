@@ -31,7 +31,9 @@ class ColaboradorDashboardController extends Controller
         $scope = DB::table('requisicions')
             ->where(function ($q) use ($userId, $empleadoId) {
                 $q->where('creada_por_user_id', $userId);
-                if ($empleadoId) $q->orWhere('solicitante_id', $empleadoId);
+                if ($empleadoId) {
+                    $q->orWhere('solicitante_id', $empleadoId);
+                }
             });
 
         $totalMias = (clone $scope)->count();
@@ -51,7 +53,7 @@ class ColaboradorDashboardController extends Controller
 
         // Activity/Amounts (14 días) por fecha_solicitud
         $activityRows = (clone $scope)
-            ->selectRaw("DATE(fecha_solicitud) as d, COUNT(*) as qty")
+            ->selectRaw('DATE(fecha_solicitud) as d, COUNT(*) as qty')
             ->where('fecha_solicitud', '>=', $start14)
             ->groupBy('d')
             ->orderBy('d')
@@ -59,7 +61,7 @@ class ColaboradorDashboardController extends Controller
             ->keyBy('d');
 
         $amountRows = (clone $scope)
-            ->selectRaw("DATE(fecha_solicitud) as d, SUM(monto_total) as monto")
+            ->selectRaw('DATE(fecha_solicitud) as d, SUM(monto_total) as monto')
             ->where('fecha_solicitud', '>=', $start14)
             ->groupBy('d')
             ->orderBy('d')
@@ -72,15 +74,15 @@ class ColaboradorDashboardController extends Controller
             $day = $start14->copy()->addDays($i)->toDateString();
             $label = Carbon::parse($day, $tz)->format('d M');
 
-            $activityDaily[] = ['name' => $label, 'value' => (int)($activityRows[$day]->qty ?? 0)];
-            $amountsDaily[]  = ['name' => $label, 'value' => (float)($amountRows[$day]->monto ?? 0)];
+            $activityDaily[] = ['name' => $label, 'value' => (int) ($activityRows[$day]->qty ?? 0)];
+            $amountsDaily[] = ['name' => $label, 'value' => (float) ($amountRows[$day]->monto ?? 0)];
         }
 
         $kpis = [
             ['label' => 'Mis requisiciones', 'value' => number_format($totalMias), 'hint' => 'Creadas por mí o solicitante'],
             ['label' => 'Pendientes',        'value' => number_format($pendientes), 'hint' => 'CAPTURADA / AUTORIZADA / POR COMPROBAR'],
             ['label' => 'Pagadas (mes)',     'value' => number_format($pagadasMes), 'hint' => 'Por fecha de pago'],
-            ['label' => 'Monto (mes)',       'value' => '$ ' . number_format($montoMes, 2), 'hint' => 'Por fecha de solicitud'],
+            ['label' => 'Monto (mes)',       'value' => '$ '.number_format($montoMes, 2), 'hint' => 'Por fecha de solicitud'],
         ];
 
         return Inertia::render('Dashboard/ColaboradorDashboard', [

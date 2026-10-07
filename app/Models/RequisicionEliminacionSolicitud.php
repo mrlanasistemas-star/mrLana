@@ -12,8 +12,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class RequisicionEliminacionSolicitud extends Model
 {
     public const PENDIENTE = 'PENDIENTE';
+
     public const APROBADA = 'APROBADA';
+
     public const RECHAZADA = 'RECHAZADA';
+
     public const CANCELADA = 'CANCELADA';
 
     protected $table = 'requisicion_eliminacion_solicitudes';
