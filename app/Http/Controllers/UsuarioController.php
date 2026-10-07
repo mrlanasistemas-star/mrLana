@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -123,8 +124,14 @@ class UsuarioController extends Controller
         if ($roleChanges) {
             $this->guard->assertCanChangeRole($user, $role);
         }
+        // Cambiar el estado desde el formulario exige el mismo permiso que el botón dedicado.
         if ($user->activo && ! $data['activo']) {
+            abort_unless($request->user()->can('usuarios.desactivar'), 403, 'No tienes permiso para desactivar cuentas.');
+            $this->assertNotSelf($request, $user, 'activo');
             $this->guard->assertCanDeactivate($user);
+        }
+        if (! $user->activo && $data['activo']) {
+            abort_unless($request->user()->can('usuarios.reactivar'), 403, 'No tienes permiso para reactivar cuentas.');
         }
 
         DB::transaction(function () use ($user, $data, $role) {
@@ -152,6 +159,7 @@ class UsuarioController extends Controller
             return back()->with('success', 'La cuenta ya estaba desactivada.');
         }
 
+        $this->assertNotSelf($request, $user, 'user');
         $this->guard->assertCanDeactivate($user, 'user');
 
         $user->forceFill(['activo' => false])->save();
@@ -264,6 +272,14 @@ class UsuarioController extends Controller
             ] : null,
             'created_at' => optional($u->created_at)->toISOString(),
         ];
+    }
+
+    /** Nadie puede desactivar su propia cuenta (evita bloqueos accidentales). */
+    private function assertNotSelf(Request $request, User $user, string $field): void
+    {
+        if ($user->is($request->user())) {
+            throw ValidationException::withMessages([$field => 'No puedes desactivar tu propia cuenta.']);
+        }
     }
 
     private function temporaryPassword(): string

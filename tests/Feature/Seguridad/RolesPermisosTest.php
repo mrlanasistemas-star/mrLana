@@ -190,6 +190,48 @@ class RolesPermisosTest extends TestCase
         $this->assertFalse($otro->fresh()->activo);
     }
 
+    public function test_nadie_puede_desactivar_su_propia_cuenta_aunque_haya_otros_administradores(): void
+    {
+        $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN);
+        $this->makeUser(PermissionCatalog::ROLE_ADMIN);
+
+        $this->actingAs($admin)->patch(route('usuarios.deactivate', $admin))->assertSessionHasErrors('user');
+        $this->actingAs($admin)->put(route('usuarios.update', $admin), [
+            'name' => $admin->name,
+            'email' => $admin->email,
+            'role_id' => $this->roleNamed(PermissionCatalog::ROLE_ADMIN)->id,
+            'activo' => false,
+        ])->assertSessionHasErrors('activo');
+
+        $this->assertTrue($admin->fresh()->activo);
+    }
+
+    public function test_editar_no_permite_cambiar_estado_sin_el_permiso_correspondiente(): void
+    {
+        $editor = Role::create(['name' => 'Editor de cuentas', 'guard_name' => 'web']);
+        $editor->syncPermissions(['usuarios.ver', 'usuarios.editar']);
+        $actor = $this->makeUser('Editor de cuentas');
+        $target = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
+        $payload = fn (bool $activo) => [
+            'name' => $target->name,
+            'email' => $target->email,
+            'role_id' => $this->roleNamed(PermissionCatalog::ROLE_COLABORADOR)->id,
+            'activo' => $activo,
+        ];
+
+        $this->actingAs($actor)->put(route('usuarios.update', $target), $payload(false))->assertForbidden();
+        $this->assertTrue($target->fresh()->activo);
+
+        $target->forceFill(['activo' => false])->save();
+        $this->actingAs($actor)->put(route('usuarios.update', $target), $payload(true))->assertForbidden();
+        $this->assertFalse($target->fresh()->activo);
+
+        // Sin cambiar el estado, la edición procede.
+        $this->actingAs($actor)->put(route('usuarios.update', $target), ['name' => 'Nombre nuevo'] + $payload(false))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('Nombre nuevo', $target->fresh()->name);
+    }
+
     public function test_no_se_eliminan_roles_iniciales_ni_roles_con_usuarios(): void
     {
         $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN);
