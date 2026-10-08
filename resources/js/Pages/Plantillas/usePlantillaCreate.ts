@@ -1,4 +1,5 @@
 import { reactive, computed, watch, ref } from 'vue'
+import type { CapturaInfo } from '@/Pages/Requisiciones/Requisiciones.types'
 import { router, usePage } from '@inertiajs/vue3'
 import { swalOk, swalErr, swalLoading, swalClose } from '@/lib/swal'
 import { usePermissions } from '@/Composables/usePermissions'
@@ -13,6 +14,7 @@ type Catalogos = {
   conceptos:    { id: number; nombre: string; activo?: boolean }[]
   proveedores:  { id: number; nombre?: string; razon_social?: string }[]
   solicitante_fijo?: boolean
+  captura?: CapturaInfo
 }
 
 type Plantilla = any | null
@@ -41,7 +43,8 @@ export function usePlantillaCreate(catalogos: Catalogos, plantilla: Plantilla = 
   const page = usePage<any>()
   const { can } = usePermissions()
   /** Sin "ver todas las requisiciones", el solicitante es el colaborador de la cuenta. */
-  const solicitanteFijo = computed(() => !can('requisiciones.ver_todos'))
+  // Sin "Elegir solicitante" el solicitante es el colaborador de la cuenta (el servidor lo vuelve a aplicar).
+  const solicitanteFijo = computed(() => catalogos.captura?.solicitante_fijo ?? !can('requisiciones.elegir_solicitante'))
   const empleadoId = page.props?.auth?.user?.empleado_id ?? null
 
   const saving = ref(false)

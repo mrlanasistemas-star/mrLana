@@ -39,7 +39,8 @@ export function usePlantillaEdit(catalogos: Catalogos, plantilla: any, routes?: 
   const page = usePage<any>()
   const { can } = usePermissions()
   /** Sin "ver todas las requisiciones", el solicitante es el colaborador de la cuenta. */
-  const solicitanteFijo = computed(() => !can('requisiciones.ver_todos'))
+  // Sin "Elegir solicitante" el solicitante queda fijo (el servidor lo vuelve a aplicar).
+  const solicitanteFijo = computed(() => !can('requisiciones.elegir_solicitante'))
   const empleadoId = page.props?.auth?.user?.empleado_id ?? null
 
   const saving = ref(false)

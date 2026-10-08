@@ -27,7 +27,7 @@ const props = defineProps<{
     prefill: { empleado_id: number; name: string; email: string | null; role_id: number | null } | null
     effectivePermissions: { label: string; permissions: string[] }[]
     isSelf: boolean
-    can: { editar: boolean; restablecer: boolean; desactivar: boolean; reactivar: boolean }
+    can: { editar: boolean; cambiar_rol?: boolean; restablecer: boolean; desactivar: boolean; reactivar: boolean; ver_vinculo?: boolean }
 }>()
 
 useFlashSuccess()
@@ -178,7 +178,7 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
 
                         <div class="sm:col-span-2">
                             <label for="usr-role" class="ui-label">Rol *</label>
-                            <select id="usr-role" v-model="form.role_id" class="ui-input" :aria-invalid="form.errors.role_id ? 'true' : undefined" required>
+                            <select id="usr-role" v-model="form.role_id" class="ui-input" :disabled="can.cambiar_rol === false" :title="can.cambiar_rol === false ? 'No tienes permiso para cambiar el rol de esta cuenta.' : undefined" :aria-invalid="form.errors.role_id ? 'true' : undefined" required>
                                 <option :value="null" disabled>Selecciona un rol…</option>
                                 <option v-for="r in roles" :key="r.id" :value="r.id">{{ r.name }}</option>
                             </select>

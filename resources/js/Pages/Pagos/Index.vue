@@ -140,7 +140,7 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
                 </div>
             </div>
 
-            <section class="ui-card space-y-3 p-4 sm:p-5" aria-label="Filtros">
+            <section data-tour="pagos-filtros" class="ui-card space-y-3 p-4 sm:p-5" aria-label="Filtros">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-12">
                     <div class="sm:col-span-2 xl:col-span-4">
                         <label for="pag-q" class="ui-label">Buscar</label>
@@ -174,7 +174,7 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
                 <button v-if="hayFiltros" type="button" class="ui-btn-secondary" @click="limpiar">Limpiar filtros</button>
             </div>
 
-            <ul v-else class="grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" :class="loading ? 'opacity-60' : ''">
+            <ul data-tour="pagos-lista" v-else class="grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4" :class="loading ? 'opacity-60' : ''">
                 <li v-for="(p, i) in pagos.data" :key="p.id" class="ui-card group flex min-w-0 flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transform-none">
                     <FileThumb :kind="p.kind" :url="p.preview_url" :name="p.archivo_original" :ext="p.ext" @open="previewIndex = i">
                         <span class="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-slate-700 shadow-sm dark:bg-zinc-900/90 dark:text-zinc-200">

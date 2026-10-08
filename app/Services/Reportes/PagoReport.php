@@ -39,7 +39,7 @@ class PagoReport
     public function query(User $user, array $f): Builder
     {
         return Pago::query()
-            ->whereIn('requisicion_id', Requisicion::query()->visibleTo($user)->select('id'))
+            ->whereIn('requisicion_id', Requisicion::query()->visibleTo($user, 'pagos')->select('id'))
             ->when($f['requisicion_id'], fn ($q, $id) => $q->where('requisicion_id', $id))
             ->when($f['tipo_pago'], fn ($q, $v) => $q->where('tipo_pago', $v))
             ->when($f['user_carga_id'], fn ($q, $v) => $q->where('user_carga_id', $v))
@@ -102,8 +102,9 @@ class PagoReport
             'archivo_original' => $p->archivo_original ?: ($p->archivo_path ? basename($p->archivo_path) : null),
             'kind' => in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true) ? 'image' : ($ext === 'pdf' ? 'pdf' : ($p->archivo_path ? 'file' : 'none')),
             'ext' => $ext,
-            'preview_url' => $p->archivo_path ? route('pagos.archivo', $p) : null,
-            'download_url' => $p->archivo_path ? route('pagos.archivo', [$p, 'descargar' => 1]) : null,
+            // Sin "Descargar comprobantes de pago" no se exponen enlaces al archivo.
+            'preview_url' => $p->archivo_path && auth()->user()?->can('pagos.descargar') ? route('pagos.archivo', $p) : null,
+            'download_url' => $p->archivo_path && auth()->user()?->can('pagos.descargar') ? route('pagos.archivo', [$p, 'descargar' => 1]) : null,
             'user_carga' => $p->userCarga?->name,
             'created_at' => optional($p->created_at)->toISOString(),
             'requisicion' => $r ? [
@@ -123,7 +124,7 @@ class PagoReport
     /** @return array<string, mixed> */
     public function options(User $user): array
     {
-        $reqs = Requisicion::query()->visibleTo($user);
+        $reqs = Requisicion::query()->visibleTo($user, 'pagos');
 
         return [
             'tipos' => collect(self::TIPOS)->map(fn ($nombre, $id) => compact('id', 'nombre'))->values(),
@@ -131,7 +132,7 @@ class PagoReport
                 ->orderBy('nombre')->get(['id', DB::raw(self::fullName().' as nombre')]),
             'registraron' => User::query()->whereIn('id', Pago::query()->whereIn('requisicion_id', (clone $reqs)->select('id'))->select('user_carga_id'))->orderBy('name')->get(['id', 'name as nombre']),
             'autorizaron' => User::query()->whereIn('id', (clone $reqs)->whereNotNull('pago_autorizado_por_id')->select('pago_autorizado_por_id'))->orderBy('name')->get(['id', 'name as nombre']),
-            'corporativos' => DB::table('corporativos')->where('activo', 1)->orderBy('nombre')->get(['id', 'nombre']),
+            'corporativos' => DB::table('corporativos')->whereIn('id', (clone $reqs)->select('comprador_corp_id'))->orderBy('nombre')->get(['id', 'nombre']),
         ];
     }
 

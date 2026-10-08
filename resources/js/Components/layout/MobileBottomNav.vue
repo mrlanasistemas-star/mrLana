@@ -12,7 +12,7 @@ import type { SharedProps } from '@/types/shared'
  * Muestra solo destinos permitidos; "Más" abre el menú completo.
  */
 const page = usePage<SharedProps>()
-const { can, canAny } = usePermissions()
+const { can, canView } = usePermissions()
 const { openMobile, mobileOpen } = useSidebar()
 const { unread } = useNotifications()
 
@@ -30,17 +30,17 @@ const tabs = computed<Tab[]>(() => {
     // Dependencia reactiva: recalcula al navegar.
     void page.url
     const list: Tab[] = []
-    if (can('dashboard.ver')) {
+    if (canView('dashboard')) {
         list.push({ key: 'inicio', label: 'Inicio', href: route('dashboard'), icon: LayoutDashboard, active: !!current('dashboard*') })
     }
-    if (canAny(['requisiciones.ver_todos', 'requisiciones.ver_propios'])) {
+    if (canView('requisiciones')) {
         list.push({
             key: 'req', label: 'Requisiciones', href: route('requisiciones.index'), icon: FileText,
             active: !!current('requisiciones.*') && !current('requisiciones.create') && !current('requisiciones.registrar'),
         })
     }
-    if (can('notificaciones.ver')) {
-        list.push({ key: 'avisos', label: 'Avisos', href: route('notificaciones.index'), icon: Bell, active: !!current('notificaciones.*'), badge: unread.value })
+    if (canView('notificaciones')) {
+        list.push({ key: 'avisos', label: 'Avisos', href: route('notificaciones.index'), icon: Bell, active: !!current('notificaciones.index'), badge: unread.value })
     }
     return list
 })

@@ -4,6 +4,7 @@ namespace App\Services\Dashboard;
 
 use App\Models\User;
 use App\Support\BusinessDate;
+use App\Support\Permissions\AccessScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -49,7 +50,7 @@ class DashboardDataService
     /**
      * @param  array<string, mixed>  $input  Parámetros de la petición (query string).
      */
-    public function build(DashboardProfile $profile, User $user, array $input = []): array
+    public function build(DashboardView $view, User $user, array $input = []): array
     {
         $f = $this->normalize($input);
         [$from, $to] = [$f['from'], $f['to']];
@@ -57,7 +58,7 @@ class DashboardDataService
         [$prevFrom, $prevTo] = [$from->subDays($days), $from->subSecond()];
 
         // Alcance base: perfil + filtros (sin periodo).
-        $scope = fn (bool $withStatus = true): Builder => $this->scope($profile, $user, $f, $withStatus);
+        $scope = fn (bool $withStatus = true): Builder => $this->scope($view, $user, $f, $withStatus);
         $inPeriod = fn (Builder $q, CarbonImmutable $a, CarbonImmutable $b): Builder => $q->whereBetween('r.fecha_solicitud', [$a, $b]);
 
         $cur = $this->totals($inPeriod($scope(), $from, $to));
@@ -75,13 +76,9 @@ class DashboardDataService
         $trend = $this->trend($inPeriod($scope(), $from, $to), $from, $to);
 
         return [
-            'profile' => $profile->value,
-            'headline' => $profile->label(),
-            'subheadline' => match ($profile) {
-                DashboardProfile::Ejecutivo => 'Visión global del gasto y la operación.',
-                DashboardProfile::Financiero => 'Autorización, pago y control de comprobación.',
-                DashboardProfile::Personal => 'Tu actividad y pendientes.',
-            },
+            'profile' => $view->value,
+            'headline' => $view->headline(),
+            'subheadline' => $view->description(),
             'userName' => $user->name,
             'userRole' => $user->getRoleNames()->implode(', '),
             'filters' => [
@@ -108,11 +105,11 @@ class DashboardDataService
             'amountsDaily' => array_map(fn ($p) => ['name' => $p['name'], 'value' => $p['monto']], $trend['points']),
             'statusMix' => $this->statusMix($inPeriod($scope(false), $from, $to)),
             'byConcepto' => $this->top($inPeriod($scope(), $from, $to), 'conceptos', 'concepto_id', 'nombre'),
-            'bySucursal' => $profile === DashboardProfile::Personal ? [] : $this->top($inPeriod($scope(), $from, $to), 'sucursals', 'sucursal_id', 'nombre'),
+            'bySucursal' => in_array($view, [DashboardView::Personal, DashboardView::Sucursal], true) ? [] : $this->top($inPeriod($scope(), $from, $to), 'sucursals', 'sucursal_id', 'nombre'),
             'byProveedor' => $this->top($inPeriod($scope(), $from, $to), 'proveedors', 'proveedor_id', 'razon_social'),
             'monthly' => $this->monthly($scope(), $to),
             'comprobantesMix' => $this->comprobantes($scope(), $from, $to),
-            'options' => $this->options(),
+            'options' => $this->options($view, $user),
         ];
     }
 
@@ -161,18 +158,26 @@ class DashboardDataService
         ];
     }
 
-    private function scope(DashboardProfile $profile, User $user, array $f, bool $withStatus): Builder
+    /**
+     * Alcance estricto de la vista: personal = propias; sucursal = la sucursal
+     * del colaborador; corporativo = sus sucursales; general = todo. Los
+     * filtros solo pueden acotar dentro de ese alcance, nunca ampliarlo.
+     */
+    private function scope(DashboardView $view, User $user, array $f, bool $withStatus): Builder
     {
         $q = DB::table('requisicions as r');
 
-        if ($profile === DashboardProfile::Personal) {
-            $q->where(function ($w) use ($user) {
+        match ($view) {
+            DashboardView::Personal => $q->where(function ($w) use ($user) {
                 $w->where('r.creada_por_user_id', $user->id);
                 if ($user->empleado_id) {
                     $w->orWhere('r.solicitante_id', $user->empleado_id);
                 }
-            });
-        }
+            }),
+            DashboardView::Sucursal => $q->where('r.sucursal_id', AccessScope::sucursalId($user) ?? 0),
+            DashboardView::Corporativo => $q->whereIn('r.sucursal_id', AccessScope::sucursalesOf(AccessScope::corporativoId($user) ?? 0)->toBase()),
+            DashboardView::General => null,
+        };
 
         $q->when($f['corporativo_id'], fn ($w, $id) => $w->where('r.comprador_corp_id', $id))
             ->when($f['sucursal_id'], fn ($w, $id) => $w->where('r.sucursal_id', $id))
@@ -328,13 +333,22 @@ class DashboardDataService
         return $out;
     }
 
-    private function options(): array
+    /** Opciones de filtro limitadas a la vista: no se envían catálogos que no se pueden usar. */
+    private function options(DashboardView $view, User $user): array
     {
+        $corpId = AccessScope::corporativoId($user);
+
         return [
             'presets' => collect(self::PRESETS)->map(fn ($label, $value) => compact('value', 'label'))->values(),
             'estatus' => collect(self::STATUS_LABELS)->map(fn ($nombre, $id) => compact('id', 'nombre'))->values(),
-            'corporativos' => DB::table('corporativos')->where('activo', 1)->orderBy('nombre')->get(['id', 'nombre']),
-            'sucursales' => DB::table('sucursals')->where('activo', 1)->orderBy('nombre')->get(['id', 'nombre', 'corporativo_id']),
+            'corporativos' => $view === DashboardView::General
+                ? DB::table('corporativos')->where('activo', 1)->orderBy('nombre')->get(['id', 'nombre'])
+                : collect(),
+            'sucursales' => match ($view) {
+                DashboardView::General => DB::table('sucursals')->where('activo', 1)->orderBy('nombre')->get(['id', 'nombre', 'corporativo_id']),
+                DashboardView::Corporativo => DB::table('sucursals')->where('activo', 1)->where('corporativo_id', $corpId ?? 0)->orderBy('nombre')->get(['id', 'nombre', 'corporativo_id']),
+                default => collect(),
+            },
             'conceptos' => DB::table('conceptos')->where('activo', 1)->orderBy('nombre')->get(['id', 'nombre']),
         ];
     }

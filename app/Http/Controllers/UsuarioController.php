@@ -10,7 +10,9 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\Notifications\NotificationService;
 use App\Services\Users\AdministratorGuard;
+use App\Support\Permissions\AccessScope;
 use App\Support\Permissions\PermissionCatalog;
+use App\Support\Permissions\Scope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +40,10 @@ class UsuarioController extends Controller
         $estado = in_array($request->query('estado'), ['activos', 'inactivos'], true) ? $request->query('estado') : 'todos';
         $roleId = $request->integer('role_id') ?: null;
 
-        $users = User::query()
+        $actor = $request->user();
+        $base = fn () => User::query()->visibleTo($actor);
+
+        $users = $base()
             ->with(['roles:id,name', 'empleado:id,nombre,apellido_paterno,apellido_materno,puesto'])
             ->when($q !== '', fn ($qq) => $qq->where(fn ($w) => $w
                 ->where('name', 'like', "%{$q}%")
@@ -51,16 +56,22 @@ class UsuarioController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $users->getCollection()->transform(fn (User $u) => $this->present($u));
+        $users->getCollection()->transform(fn (User $u) => $this->present($u, $actor) + [
+            'can' => [
+                'editar' => $actor->can('update', $u),
+                'desactivar' => $actor->can('delete', $u) && ! $u->is($actor),
+                'reactivar' => $actor->can('restore', $u),
+            ],
+        ]);
 
         return Inertia::render('Usuarios/Index', [
             'users' => $users,
             'roles' => Role::query()->where('guard_name', 'web')->orderBy('name')->get(['id', 'name']),
             'filters' => ['q' => $q, 'estado' => $estado, 'role_id' => $roleId],
             'counts' => [
-                'total' => User::count(),
-                'activos' => User::where('activo', true)->count(),
-                'inactivos' => User::where('activo', false)->count(),
+                'total' => $base()->count(),
+                'activos' => $base()->where('activo', true)->count(),
+                'inactivos' => $base()->where('activo', false)->count(),
             ],
             'can' => [
                 'registrar' => $request->user()->can('usuarios.registrar'),
@@ -78,13 +89,17 @@ class UsuarioController extends Controller
 
     public function edit(Request $request, User $user): Response
     {
+        $this->authorize('view', $user);
+
         return Inertia::render('Usuarios/Form', $this->formProps($request, $user));
     }
 
     public function store(UsuarioRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        $role = Role::findOrFail($data['role_id']);
+        $role = Role::with('permissions:id,name')->findOrFail($data['role_id']);
+        $this->assertRoleAssignable($request->user(), $role);
+        $this->assertEmpleadoPermitido($request->user(), $data['empleado_id'] ?? null);
         $plainPassword = $this->temporaryPassword();
 
         $user = DB::transaction(function () use ($data, $role, $plainPassword) {
@@ -102,7 +117,7 @@ class UsuarioController extends Controller
             return $user;
         });
 
-        $this->notifySecurity($request, "Se creó la cuenta de {$user->name} con el rol «{$role->name}».");
+        $this->notifySecurity($request, "Se creó la cuenta de {$user->name} con el rol «{$role->name}».", [], $user);
 
         // Correo fuera de la transacción: si falla, la cuenta queda creada sin datos inconsistentes.
         $mailed = $this->notifications->mail($user->email, new EmpleadoAccesoCreadoMail($user, $plainPassword));
@@ -117,21 +132,27 @@ class UsuarioController extends Controller
 
     public function update(UsuarioRequest $request, User $user): RedirectResponse
     {
+        $this->authorize('update', $user);
         $data = $request->validated();
         $role = Role::with('permissions:id,name')->findOrFail($data['role_id']);
 
         $roleChanges = ! $user->roles->contains('id', $role->id) || $user->roles->count() !== 1;
         if ($roleChanges) {
+            abort_unless($request->user()->can('changeRole', $user), 403, 'No tienes permiso para cambiar el rol de esta cuenta.');
+            $this->assertRoleAssignable($request->user(), $role);
             $this->guard->assertCanChangeRole($user, $role);
+        }
+        if ((int) ($data['empleado_id'] ?? 0) !== (int) $user->empleado_id) {
+            $this->assertEmpleadoPermitido($request->user(), $data['empleado_id'] ?? null);
         }
         // Cambiar el estado desde el formulario exige el mismo permiso que el botón dedicado.
         if ($user->activo && ! $data['activo']) {
-            abort_unless($request->user()->can('usuarios.desactivar'), 403, 'No tienes permiso para desactivar cuentas.');
+            abort_unless($request->user()->can('delete', $user), 403, 'No tienes permiso para desactivar cuentas.');
             $this->assertNotSelf($request, $user, 'activo');
             $this->guard->assertCanDeactivate($user);
         }
         if (! $user->activo && $data['activo']) {
-            abort_unless($request->user()->can('usuarios.reactivar'), 403, 'No tienes permiso para reactivar cuentas.');
+            abort_unless($request->user()->can('restore', $user), 403, 'No tienes permiso para reactivar cuentas.');
         }
 
         DB::transaction(function () use ($user, $data, $role) {
@@ -147,7 +168,7 @@ class UsuarioController extends Controller
         });
 
         if ($roleChanges) {
-            $this->notifySecurity($request, "El rol de {$user->name} cambió a «{$role->name}».", [$user]);
+            $this->notifySecurity($request, "El rol de {$user->name} cambió a «{$role->name}».", [$user], $user);
         }
 
         return redirect()->route('usuarios.index')->with('success', 'Usuario actualizado.');
@@ -155,6 +176,7 @@ class UsuarioController extends Controller
 
     public function deactivate(Request $request, User $user): RedirectResponse
     {
+        $this->authorize('delete', $user);
         if (! $user->activo) {
             return back()->with('success', 'La cuenta ya estaba desactivada.');
         }
@@ -163,15 +185,16 @@ class UsuarioController extends Controller
         $this->guard->assertCanDeactivate($user, 'user');
 
         $user->forceFill(['activo' => false])->save();
-        $this->notifySecurity($request, "Se desactivó la cuenta de {$user->name}.");
+        $this->notifySecurity($request, "Se desactivó la cuenta de {$user->name}.", [], $user);
 
         return back()->with('success', 'Cuenta desactivada. La persona ya no podrá iniciar sesión.');
     }
 
     public function activate(Request $request, User $user): RedirectResponse
     {
+        $this->authorize('restore', $user);
         $user->forceFill(['activo' => true])->save();
-        $this->notifySecurity($request, "Se reactivó la cuenta de {$user->name}.");
+        $this->notifySecurity($request, "Se reactivó la cuenta de {$user->name}.", [], $user);
 
         return back()->with('success', 'Cuenta reactivada.');
     }
@@ -182,6 +205,7 @@ class UsuarioController extends Controller
      */
     public function resetPassword(Request $request, User $user): RedirectResponse
     {
+        $this->authorize('resetPassword', $user);
         $plainPassword = $this->temporaryPassword();
 
         if (! $this->notifications->mail($user->email, new EmpleadoAccesoCreadoMail($user, $plainPassword))) {
@@ -193,7 +217,7 @@ class UsuarioController extends Controller
             'remember_token' => Str::random(60),
         ])->save();
 
-        $this->notifySecurity($request, "Se restableció la contraseña de {$user->name}.", [$user]);
+        $this->notifySecurity($request, "Se restableció la contraseña de {$user->name}.", [$user], $user);
 
         return back()->with('success', 'Se envió una contraseña temporal al correo del usuario.');
     }
@@ -202,7 +226,9 @@ class UsuarioController extends Controller
     {
         $user?->load(['roles:id,name', 'empleado']);
 
-        $colaboradores = Empleado::query()
+        $actor = $request->user();
+        // Solo colaboradores dentro del alcance de Usuarios de quien edita.
+        $colaboradores = $this->empleadosPermitidos($actor)
             ->where(fn ($q) => $q->doesntHave('user')->when($user?->empleado_id, fn ($qq, $id) => $qq->orWhere('id', $id)))
             ->orderBy('apellido_paterno')
             ->orderBy('nombre')
@@ -225,17 +251,23 @@ class UsuarioController extends Controller
             ->values();
 
         return [
-            'user' => $user ? $this->present($user) + ['role_id' => $user->roles->first()?->id] : null,
-            'roles' => Role::query()->where('guard_name', 'web')->orderBy('name')->get(['id', 'name', 'descripcion']),
+            'user' => $user ? $this->present($user, $actor) + ['role_id' => $user->roles->first()?->id] : null,
+            // Solo roles cuyos permisos también tiene quien asigna (evita escalar privilegios).
+            'roles' => Role::query()->where('guard_name', 'web')->with('permissions:id,name')->orderBy('name')->get(['id', 'name', 'descripcion'])
+                ->filter(fn (Role $r) => $this->canAssign($actor, $r) || $user?->roles->contains('id', $r->id))
+                ->map(fn (Role $r) => ['id' => $r->id, 'name' => $r->name, 'descripcion' => $r->descripcion])
+                ->values(),
             'colaboradores' => $colaboradores,
             'prefill' => $user ? null : $this->prefill($request),
             'effectivePermissions' => $grouped,
             'isSelf' => $user && $user->is($request->user()),
             'can' => [
-                'editar' => $request->user()->can($user ? 'usuarios.editar' : 'usuarios.registrar'),
-                'restablecer' => $user && $request->user()->can('usuarios.restablecer_contrasena'),
-                'desactivar' => $request->user()->can('usuarios.desactivar'),
-                'reactivar' => $request->user()->can('usuarios.reactivar'),
+                'editar' => $user ? $actor->can('update', $user) : $actor->can('usuarios.registrar'),
+                'cambiar_rol' => $user ? $actor->can('changeRole', $user) : $actor->can('usuarios.registrar'),
+                'restablecer' => $user && $actor->can('resetPassword', $user),
+                'desactivar' => $user ? $actor->can('delete', $user) : $actor->can('usuarios.desactivar'),
+                'reactivar' => $user ? $actor->can('restore', $user) : $actor->can('usuarios.reactivar'),
+                'ver_vinculo' => $actor->can('usuarios.ver_vinculo'),
             ],
         ];
     }
@@ -256,8 +288,11 @@ class UsuarioController extends Controller
         ];
     }
 
-    private function present(User $u): array
+    private function present(User $u, ?User $actor = null): array
     {
+        // La relación usuario–colaborador solo se muestra con su permiso.
+        $vinculo = $actor === null || $actor->can('usuarios.ver_vinculo');
+
         return [
             'id' => $u->id,
             'name' => $u->name,
@@ -265,13 +300,64 @@ class UsuarioController extends Controller
             'activo' => (bool) $u->activo,
             'roles' => $u->roles->pluck('name')->values(),
             'empleado_id' => $u->empleado_id,
-            'colaborador' => $u->empleado ? [
+            'colaborador' => $vinculo && $u->empleado ? [
                 'id' => $u->empleado->id,
                 'nombre' => trim("{$u->empleado->nombre} {$u->empleado->apellido_paterno} ".($u->empleado->apellido_materno ?? '')),
                 'puesto' => $u->empleado->puesto,
             ] : null,
             'created_at' => optional($u->created_at)->toISOString(),
         ];
+    }
+
+    /**
+     * Colaboradores que se pueden vincular a una cuenta: los del alcance de
+     * Usuarios (mi sucursal, mi corporativo o todos).
+     */
+    private function empleadosPermitidos(User $actor)
+    {
+        $q = Empleado::query();
+
+        return match (AccessScope::for($actor, 'usuarios')) {
+            Scope::Global => $q,
+            Scope::Corporativo => $q->whereIn('sucursal_id', AccessScope::sucursalesOf(AccessScope::corporativoId($actor) ?? 0)),
+            Scope::Sucursal => $q->where('sucursal_id', AccessScope::sucursalId($actor) ?? 0),
+            default => $q->whereRaw('1 = 0'),
+        };
+    }
+
+    private function assertEmpleadoPermitido(User $actor, mixed $empleadoId): void
+    {
+        if ($empleadoId === null || $empleadoId === '') {
+            // Sin colaborador la cuenta solo es visible con alcance global.
+            if (AccessScope::for($actor, 'usuarios') !== Scope::Global) {
+                throw ValidationException::withMessages(['empleado_id' => 'Selecciona un colaborador de tu alcance para la cuenta.']);
+            }
+
+            return;
+        }
+
+        if (! $this->empleadosPermitidos($actor)->whereKey((int) $empleadoId)->exists()) {
+            throw ValidationException::withMessages(['empleado_id' => 'El colaborador está fuera de tu alcance de usuarios.']);
+        }
+    }
+
+    /** Solo se asignan roles cuyos permisos también tiene quien asigna. */
+    private function canAssign(User $actor, Role $role): bool
+    {
+        $mine = collect($actor->permissionNames());
+
+        // Los permisos legados (ocultos) no cuentan: ya no autorizan nada.
+        return $role->permissions->pluck('name')
+            ->intersect(PermissionCatalog::all())
+            ->diff($mine)
+            ->isEmpty();
+    }
+
+    private function assertRoleAssignable(User $actor, Role $role): void
+    {
+        if (! $this->canAssign($actor, $role)) {
+            throw ValidationException::withMessages(['role_id' => 'No puedes asignar un rol con permisos que tú no tienes.']);
+        }
     }
 
     /** Nadie puede desactivar su propia cuenta (evita bloqueos accidentales). */
@@ -288,7 +374,7 @@ class UsuarioController extends Controller
     }
 
     /** @param  list<User>  $direct */
-    private function notifySecurity(Request $request, string $message, array $direct = []): void
+    private function notifySecurity(Request $request, string $message, array $direct = [], ?User $subject = null): void
     {
         $this->notifications->notify(
             topic: NotificationTopic::Seguridad,
@@ -299,6 +385,7 @@ class UsuarioController extends Controller
             url: route('usuarios.index', [], false),
             direct: $direct,
             actor: $request->user(),
+            canSee: fn (User $u) => $subject ? $u->can('view', $subject) : AccessScope::for($u, 'usuarios') === Scope::Global,
         );
     }
 }

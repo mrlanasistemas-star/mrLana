@@ -60,7 +60,9 @@ class SucursalExportController extends Controller
         $sort = (string) $request->get('sort', 'nombre');
         $dir = strtolower((string) $request->get('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
+        // Mismo alcance que el listado: nunca exporta más de lo que se puede ver.
         $query = Sucursal::query()
+            ->visibleTo($request->user())
             ->with(['corporativo:id,nombre,activo']);
 
         if ($corporativoId) {

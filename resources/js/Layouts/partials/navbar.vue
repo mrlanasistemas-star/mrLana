@@ -24,7 +24,7 @@ onMounted(() => init())
 
 const { openMobile, mobileOpen } = useSidebar()
 const { confirmLogout } = useLogout()
-const { can, roles } = usePermissions()
+const { can, canView, roles } = usePermissions()
 
 const user = computed(() => page.props.auth?.user)
 const initials = computed(() => {
@@ -80,7 +80,10 @@ const menuItemClass =
             <DownloadAppButton class="hidden xl:inline-flex" variant="full" />
             <DownloadAppButton class="xl:hidden" variant="compact" />
 
-            <NotificationBell v-if="can('notificaciones.ver')" />
+            <!-- Envoltura con caja propia: ancla estable del recorrido -->
+            <div v-if="canView('notificaciones')" data-tour="campana" class="inline-flex">
+                <NotificationBell />
+            </div>
 
             <button
                 type="button"

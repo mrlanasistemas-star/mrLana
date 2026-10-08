@@ -55,6 +55,8 @@ export type RequisicionAbilities = {
   registrar_pago: boolean
   ver_comprobaciones: boolean
   subir_comprobante: boolean
+  imprimir?: boolean
+  rechazar_pago?: boolean
 }
 
 export type RequisicionRow = {
@@ -95,6 +97,18 @@ export type Catalogos = {
   proveedores: { id: Id; razon_social: string; rfc?: string; clabe?: string; banco?: string; status?: string }[]
   /** true cuando el usuario solo puede registrar requisiciones propias. */
   solicitante_fijo?: boolean
+  /** Reglas de captura según los permisos especiales (las vuelve a aplicar el servidor). */
+  captura?: CapturaInfo
+}
+
+export type CapturaInfo = {
+  solicitante_fijo: boolean
+  sucursal_fija: boolean
+  corporativo_fijo: boolean
+  /** Hasta dónde puede elegir sucursal: sucursal | corporativo | global | none. */
+  alcance: string
+  /** Datos del colaborador de la cuenta (null si no tiene). */
+  propio: { solicitante_id: number; sucursal_id: number | null; corporativo_id: number | null } | null
 }
 
 export type RequisicionesFilters = {

@@ -6,6 +6,8 @@ use App\Enums\NotificationTopic;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\ErpNotification;
+use App\Support\Permissions\AccessScope;
+use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -15,7 +17,8 @@ use Throwable;
  * Despacha notificaciones internas según la configuración de cada rol.
  *
  * Destinatarios = (usuarios activos cuyos roles reciben el tema o "todas",
- * y que pueden ver notificaciones) ∪ destinatarios directos activos
+ * que pueden ver notificaciones y —si el evento es sobre un registro— pueden
+ * ver ese registro) ∪ destinatarios directos activos
  * (p. ej. el solicitante de una requisición). Cada usuario recibe una sola
  * notificación por evento aunque tenga varios roles.
  *
@@ -23,6 +26,11 @@ use Throwable;
  * quién hizo la acción, incluso si fue ella misma (así un administrador ve en
  * su campana las requisiciones que envía). A los destinatarios directos no se
  * les avisa de sus propias acciones.
+ *
+ * Suscribirse a un tema no amplía el alcance: con `canSee` solo se avisa a
+ * quien puede abrir el registro relacionado. La excepción son los roles que
+ * reciben todas las notificaciones y además pueden ver todas las
+ * notificaciones (consulta global, actual y futura).
  */
 class NotificationService
 {
@@ -39,8 +47,9 @@ class NotificationService
         iterable $direct = [],
         ?User $actor = null,
         bool $includeSubscribers = true,
+        ?Closure $canSee = null,
     ): Collection {
-        $recipients = $includeSubscribers ? $this->subscribersFor($topic) : collect();
+        $recipients = $includeSubscribers ? $this->subscribersFor($topic, $canSee) : collect();
 
         foreach ($direct as $user) {
             if ($user instanceof User && $user->activo && ! ($actor && $user->is($actor))) {
@@ -84,24 +93,39 @@ class NotificationService
      *
      * @return Collection<int, User>
      */
-    public function subscribersFor(NotificationTopic $topic): Collection
+    public function subscribersFor(NotificationTopic $topic, ?Closure $canSee = null): Collection
     {
-        $roleIds = Role::query()
+        $roles = Role::query()
+            ->with('notificationPreference')
             ->whereHas('notificationPreference', function ($q) use ($topic) {
                 $q->where('receive_all', true)
                     ->orWhereJsonContains('topics', $topic->value);
             })
-            ->pluck('id');
+            ->get();
 
-        if ($roleIds->isEmpty()) {
+        if ($roles->isEmpty()) {
             return collect();
         }
 
+        $receiveAllIds = $roles->filter(fn (Role $r) => $r->notificationPreference?->receive_all)->pluck('id');
+
         return User::query()
             ->active()
-            ->whereHas('roles', fn ($q) => $q->whereIn('id', $roleIds))
+            ->with('roles:id')
+            ->whereHas('roles', fn ($q) => $q->whereIn('id', $roles->pluck('id')))
             ->get()
-            ->filter(fn (User $u) => $u->can('notificaciones.ver'))
+            ->filter(function (User $u) use ($canSee, $receiveAllIds) {
+                if (! AccessScope::for($u, 'notificaciones')->allows()) {
+                    return false;
+                }
+                if ($canSee === null) {
+                    return true;
+                }
+                $global = $u->can('notificaciones.ver_todas')
+                    && $u->roles->pluck('id')->intersect($receiveAllIds)->isNotEmpty();
+
+                return $global || $canSee($u);
+            })
             ->values();
     }
 

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { Link, usePage } from '@inertiajs/vue3'
 import { NAVIGATION } from '@/Layouts/navigation'
-import { usePermissions } from '@/Composables/usePermissions'
+import { useVisibility } from '@/Composables/usePermissions'
 
 /**
  * Lista de navegación filtrada por permisos.
@@ -12,7 +12,7 @@ const props = defineProps<{ expanded: boolean }>()
 const emit = defineEmits<{ (e: 'navigate'): void }>()
 
 const page = usePage()
-const { canAny } = usePermissions()
+const visible = useVisibility()
 
 const safeRoute = (name: string): string | null => {
     try {
@@ -35,19 +35,20 @@ const isActive = (pattern: string): boolean => {
 const items = computed(() =>
     NAVIGATION
         .flatMap((g) => g.items)
-        .filter((i) => canAny(i.anyOf))
+        .filter((i) => visible(i))
         .map((i) => ({ ...i, href: safeRoute(i.routeName) }))
         .filter((i): i is typeof i & { href: string } => i.href !== null),
 )
 </script>
 
 <template>
-    <nav aria-label="Menú principal">
+    <nav data-tour="menu-principal" aria-label="Menú principal">
         <div class="space-y-1">
             <Link
                 v-for="item in items"
                 :key="item.routeName"
                 :href="item.href"
+                :data-tour="`nav-${item.key}`"
                 :preserve-scroll="true"
                 class="group relative flex min-h-[40px] items-center rounded-xl px-[15px] [@media(max-height:820px)]:min-h-[33px] text-[13.5px] font-medium transition-colors duration-150
                        focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"

@@ -48,7 +48,7 @@ class ColaboradorExportController extends Controller
 
     private function buildRows(Request $request): array
     {
-        $items = ColaboradorQuery::build(ColaboradorQuery::filters($request))
+        $items = ColaboradorQuery::build(ColaboradorQuery::filters($request), $request->user())
             ->with([
                 'sucursal:id,corporativo_id,nombre,activo',
                 'sucursal.corporativo:id,nombre,activo',
@@ -60,7 +60,13 @@ class ColaboradorExportController extends Controller
             ->orderBy('nombre')
             ->get();
 
-        return $items->map(function (Empleado $e) {
+        // La relación usuario–colaborador solo se muestra con su permiso.
+        $vinculo = $request->user()->can('usuarios.ver_vinculo');
+
+        return $items->map(function (Empleado $e) use ($vinculo) {
+            if (! $vinculo) {
+                $e->setRelation('user', null);
+            }
             $acceso = $e->user
                 ? 'Con acceso · '.($e->user->roles->pluck('name')->implode(', ') ?: 'Sin rol').($e->user->activo ? '' : ' (cuenta inactiva)')
                 : 'Sin acceso';

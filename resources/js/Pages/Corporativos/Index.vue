@@ -220,7 +220,7 @@
 
             <!-- Desktop tabla (hidden xl:block) -->
             <div class="hidden xl:block erp-panel overflow-hidden">
-                <table class="erp-table">
+                <table data-tour="corporativos-lista" class="erp-table">
                     <thead>
                         <tr>
                             <th class="w-[46px]">

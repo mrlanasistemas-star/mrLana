@@ -3,6 +3,7 @@
 namespace App\Services\Colaboradores;
 
 use App\Models\Empleado;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -35,13 +36,18 @@ final class ColaboradorQuery
     }
 
     /**
+     * Siempre limitado al alcance del usuario (mi registro, mi sucursal, mi
+     * corporativo o todos): búsquedas, filtros, contadores y exportaciones
+     * parten de esta misma consulta.
+     *
      * @param  array{q: string, corporativo_id: ?int, sucursal_id: ?int, area_id: ?int, activo: string, acceso: string}  $f
      */
-    public static function build(array $f, bool $applyAcceso = true): Builder
+    public static function build(array $f, User $user, bool $applyAcceso = true): Builder
     {
         $q = $f['q'];
 
         return Empleado::query()
+            ->visibleTo($user)
             ->when($q !== '', function (Builder $qq) use ($q) {
                 $qq->where(function (Builder $w) use ($q) {
                     $w->where('nombre', 'like', "%{$q}%")
@@ -69,10 +75,10 @@ final class ColaboradorQuery
      *
      * @return array{total: int, con_usuario: int, sin_usuario: int}
      */
-    public static function counts(array $f): array
+    public static function counts(array $f, User $user): array
     {
-        $total = self::build($f, false)->count();
-        $con = self::build($f, false)->has('user')->count();
+        $total = self::build($f, $user, false)->count();
+        $con = self::build($f, $user, false)->has('user')->count();
 
         return ['total' => $total, 'con_usuario' => $con, 'sin_usuario' => $total - $con];
     }

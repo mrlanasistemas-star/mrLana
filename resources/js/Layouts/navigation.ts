@@ -2,7 +2,9 @@ import type { Component } from 'vue'
 import {
     Banknote,
     Bell,
+    BellRing,
     Building2,
+    CircleHelp,
     ClipboardList,
     FileText,
     KeyRound,
@@ -17,69 +19,79 @@ import {
     UserCog,
     Users,
 } from 'lucide-vue-next'
+import type { Visibility } from '@/Composables/usePermissions'
 
-export type NavItem = {
+export type NavItem = Visibility & {
+    /** Identificador estable (también usado por los recorridos: data-tour="nav-<key>"). */
+    key: string
     label: string
     routeName: string
     /** Patrón para marcar activo (p. ej. 'usuarios.*'). */
     activePattern: string
     icon: Component
-    /** Basta con tener alguno de estos permisos. */
-    anyOf: string[]
 }
 
 export type NavGroup = { title: string; items: NavItem[] }
 
 /**
- * Menú principal. Cada opción se muestra solo si el usuario tiene alguno de
- * los permisos indicados; el backend vuelve a validar cada ruta.
+ * Menú principal. Cada opción se muestra si el usuario puede ver el módulo
+ * (`views`, alcance resuelto en el servidor) o tiene alguno de los permisos
+ * (`anyOf`). Sin reglas, la ve cualquier cuenta. El backend vuelve a validar
+ * cada ruta.
  */
 export const NAVIGATION: NavGroup[] = [
     {
         title: 'General',
         items: [
-            { label: 'Dashboard', routeName: 'dashboard', activePattern: 'dashboard*', icon: LayoutDashboard, anyOf: ['dashboard.ver'] },
-            { label: 'Notificaciones', routeName: 'notificaciones.index', activePattern: 'notificaciones.*', icon: Bell, anyOf: ['notificaciones.ver'] },
+            { key: 'dashboard', label: 'Dashboard', routeName: 'dashboard', activePattern: 'dashboard*', icon: LayoutDashboard, views: ['dashboard'] },
+            { key: 'notificaciones', label: 'Notificaciones', routeName: 'notificaciones.index', activePattern: 'notificaciones.index', icon: Bell, views: ['notificaciones'] },
         ],
     },
     {
         title: 'Operación',
         items: [
-            { label: 'Requisiciones', routeName: 'requisiciones.index', activePattern: 'requisiciones.*', icon: FileText, anyOf: ['requisiciones.ver_todos', 'requisiciones.ver_propios'] },
-            { label: 'Plantillas', routeName: 'plantillas.index', activePattern: 'plantillas.*', icon: ClipboardList, anyOf: ['plantillas.ver_todos', 'plantillas.ver_propios'] },
-            { label: 'Pagos', routeName: 'pagos.index', activePattern: 'pagos.*', icon: Banknote, anyOf: ['pagos.ver'] },
-            { label: 'Comprobantes', routeName: 'comprobantes.index', activePattern: 'comprobantes.*', icon: Receipt, anyOf: ['comprobaciones.ver'] },
+            { key: 'requisiciones', label: 'Requisiciones', routeName: 'requisiciones.index', activePattern: 'requisiciones.*', icon: FileText, views: ['requisiciones'] },
+            { key: 'plantillas', label: 'Plantillas', routeName: 'plantillas.index', activePattern: 'plantillas.*', icon: ClipboardList, views: ['plantillas'] },
+            { key: 'pagos', label: 'Pagos', routeName: 'pagos.index', activePattern: 'pagos.*', icon: Banknote, views: ['pagos'] },
+            { key: 'comprobantes', label: 'Comprobantes', routeName: 'comprobantes.index', activePattern: 'comprobantes.*', icon: Receipt, views: ['comprobaciones'] },
         ],
     },
     {
         title: 'Organización',
         items: [
-            { label: 'Corporativos', routeName: 'corporativos.index', activePattern: 'corporativos.*', icon: Building2, anyOf: ['corporativos.ver'] },
-            { label: 'Sucursales', routeName: 'sucursales.index', activePattern: 'sucursales.*', icon: MapPin, anyOf: ['sucursales.ver'] },
-            { label: 'Áreas', routeName: 'areas.index', activePattern: 'areas.*', icon: Layers3, anyOf: ['areas.ver'] },
+            { key: 'corporativos', label: 'Corporativos', routeName: 'corporativos.index', activePattern: 'corporativos.*', icon: Building2, views: ['corporativos'] },
+            { key: 'sucursales', label: 'Sucursales', routeName: 'sucursales.index', activePattern: 'sucursales.*', icon: MapPin, views: ['sucursales'] },
+            { key: 'areas', label: 'Áreas', routeName: 'areas.index', activePattern: 'areas.*', icon: Layers3, views: ['areas'] },
         ],
     },
     {
         title: 'Personas y accesos',
         items: [
-            { label: 'Colaboradores', routeName: 'colaboradores.index', activePattern: 'colaboradores.*', icon: Users, anyOf: ['colaboradores.ver'] },
-            { label: 'Usuarios', routeName: 'usuarios.index', activePattern: 'usuarios.*', icon: UserCog, anyOf: ['usuarios.ver'] },
-            { label: 'Roles y permisos', routeName: 'roles.index', activePattern: 'roles.*', icon: KeyRound, anyOf: ['roles.ver'] },
+            { key: 'colaboradores', label: 'Colaboradores', routeName: 'colaboradores.index', activePattern: 'colaboradores.*', icon: Users, views: ['colaboradores'] },
+            { key: 'usuarios', label: 'Usuarios', routeName: 'usuarios.index', activePattern: 'usuarios.*', icon: UserCog, views: ['usuarios'] },
+            { key: 'roles', label: 'Roles y permisos', routeName: 'roles.index', activePattern: 'roles.*', icon: KeyRound, anyOf: ['roles.ver'] },
         ],
     },
     {
         title: 'Catálogos',
         items: [
-            { label: 'Conceptos', routeName: 'conceptos.index', activePattern: 'conceptos.*', icon: Tags, anyOf: ['conceptos.ver'] },
-            { label: 'Proveedores', routeName: 'proveedores.index', activePattern: 'proveedores.*', icon: Truck, anyOf: ['proveedores.ver'] },
+            { key: 'conceptos', label: 'Conceptos', routeName: 'conceptos.index', activePattern: 'conceptos.*', icon: Tags, anyOf: ['conceptos.ver'] },
+            { key: 'proveedores', label: 'Proveedores', routeName: 'proveedores.index', activePattern: 'proveedores.*', icon: Truck, views: ['proveedores'] },
         ],
     },
     {
         title: 'Sistema',
         items: [
-            { label: 'Configuración', routeName: 'configuracion.edit', activePattern: 'configuracion.*', icon: Settings, anyOf: ['configuracion.ver', 'configuracion.administrar'] },
-            { label: 'Bitácora', routeName: 'systemlogs.index', activePattern: 'systemlogs.*', icon: ScrollText, anyOf: ['logs.ver'] },
+            { key: 'notificaciones-todas', label: 'Todas las notificaciones', routeName: 'notificaciones.all', activePattern: 'notificaciones.all', icon: BellRing, anyOf: ['notificaciones.ver_todas'] },
+            { key: 'configuracion', label: 'Configuración', routeName: 'configuracion.edit', activePattern: 'configuracion.*', icon: Settings, anyOf: ['configuracion.ver', 'configuracion.administrar'] },
+            { key: 'bitacora', label: 'Bitácora', routeName: 'systemlogs.index', activePattern: 'systemlogs.*', icon: ScrollText, views: ['logs'] },
+        ],
+    },
+    {
+        title: 'Soporte',
+        items: [
+            // Disponible para cualquier cuenta autenticada.
+            { key: 'ayuda', label: 'Ayuda', routeName: 'ayuda.guia', activePattern: 'ayuda.*', icon: CircleHelp },
         ],
     },
 ]
-

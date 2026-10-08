@@ -50,7 +50,7 @@ export type RequisicionPagoPageProps = {
   totales?: { pagado: number; pendiente: number }
   tipoPagoOptions: TipoPagoOption[]
   /** Acciones permitidas por el servidor para el usuario actual. */
-  can?: { autorizar: boolean; registrar: boolean }
+  can?: { autorizar: boolean; rechazar?: boolean; registrar: boolean; editar?: boolean; descargar?: boolean }
   auth?: any
   errors?: any
 }

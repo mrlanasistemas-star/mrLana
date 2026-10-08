@@ -128,13 +128,13 @@ class ColaboradoresUsuariosTest extends TestCase
         $conUsuario = $this->makeEmpleado(['nombre' => 'Con']);
         User::factory()->colaborador()->create(['empleado_id' => $conUsuario->id]);
 
-        $counts = ColaboradorQuery::counts(ColaboradorQuery::filters(new Request));
+        $counts = ColaboradorQuery::counts(ColaboradorQuery::filters(new Request), $admin);
         $this->assertSame(['total' => 5, 'con_usuario' => 2, 'sin_usuario' => 3], $counts);
 
-        $activos = ColaboradorQuery::counts(ColaboradorQuery::filters(new Request(['activo' => '1'])));
+        $activos = ColaboradorQuery::counts(ColaboradorQuery::filters(new Request(['activo' => '1'])), $admin);
         $this->assertSame(['total' => 4, 'con_usuario' => 2, 'sin_usuario' => 2], $activos);
 
-        $this->assertSame(3, ColaboradorQuery::build(ColaboradorQuery::filters(new Request(['acceso' => 'sin'])))->count());
+        $this->assertSame(3, ColaboradorQuery::build(ColaboradorQuery::filters(new Request(['acceso' => 'sin'])), $admin)->count());
 
         $this->actingAs($admin)
             ->get(route('colaboradores.index', ['acceso' => 'con']))

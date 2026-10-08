@@ -50,7 +50,11 @@ class SystemLogController extends Controller
     {
         $f = $this->filters($request);
 
+        $user = $request->user();
+
+        // Solo la actividad dentro del alcance: la mía, la de mi sucursal, mi corporativo o toda.
         $base = SystemLog::query()
+            ->visibleTo($user)
             ->when($f['from'], fn ($q, $d) => $q->where('created_at', '>=', $d))
             ->when($f['to'], fn ($q, $d) => $q->where('created_at', '<=', $d))
             ->when($f['tabla'], fn ($q, $t) => $q->where('tabla', $t))
@@ -82,14 +86,14 @@ class SystemLogController extends Controller
             'registro_id' => $l->registro_id,
             'etiqueta' => $l->etiqueta,
             'descripcion' => $l->descripcion,
-            'cambios' => $l->cambios,
+            'cambios' => self::redact($l->cambios),
             'ip_address' => $l->ip_address,
             'user_agent' => $l->user_agent,
             'user' => $l->user ? ['id' => $l->user->id, 'name' => $l->user->name, 'email' => $l->user->email] : null,
             'created_at' => optional($l->created_at)->toISOString(),
         ]);
 
-        $tablas = SystemLog::query()->select('tabla')->distinct()->pluck('tabla')
+        $tablas = SystemLog::query()->visibleTo($user)->select('tabla')->distinct()->pluck('tabla')
             ->map(fn ($t) => ['id' => $t, 'nombre' => self::MODULES[$t] ?? ucfirst(str_replace('_', ' ', $t))])
             ->sortBy('nombre')->values();
 
@@ -112,8 +116,32 @@ class SystemLogController extends Controller
             ],
             'tablas' => $tablas,
             'acciones' => collect(self::ACTIONS)->except('ACTIVACION', 'ELIMINACION')->map(fn ($label, $id) => ['id' => $id, 'nombre' => $label])->values(),
-            'usuarios' => User::query()->orderBy('name')->get(['id', 'name as nombre', 'email']),
+            'usuarios' => User::query()->whereIn('id', SystemLog::query()->visibleTo($user)->select('user_id'))->orderBy('name')->get(['id', 'name as nombre', 'email']),
         ]);
+    }
+
+    /** Campos que nunca se muestran aunque una versión anterior los haya registrado. */
+    private const SENSITIVE = '/(password|contrase|token|secret|cookie|app_key|api_key|credential|remember)/i';
+
+    /**
+     * Oculta valores sensibles dentro de los cambios registrados. La bitácora
+     * en la base de datos no se modifica (es inmutable); solo se protege lo
+     * que se muestra.
+     */
+    public static function redact(mixed $cambios): mixed
+    {
+        if (! is_array($cambios)) {
+            return $cambios;
+        }
+
+        $out = [];
+        foreach ($cambios as $key => $value) {
+            $out[$key] = is_string($key) && preg_match(self::SENSITIVE, $key)
+                ? '[oculto]'
+                : (is_array($value) ? self::redact($value) : $value);
+        }
+
+        return $out;
     }
 
     /** @return array<string, mixed> */

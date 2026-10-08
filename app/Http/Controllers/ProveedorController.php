@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Proveedor;
 use App\Models\User;
+use App\Support\Permissions\AccessScope;
+use App\Support\Permissions\Scope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,15 +32,16 @@ class ProveedorController extends Controller
         $perPage = (int) $request->get('perPage', 10);
         $perPage = $perPage > 0 ? $perPage : 10;
 
-        $isAdminLike = $user->can('proveedores.ver_todos');
+        $isAdminLike = AccessScope::for($user, 'proveedores') === Scope::Global;
 
+        // Alcance: mis proveedores o todos (AccessScope)
         $query = Proveedor::query()
+            ->visibleTo($user)
             ->select(['id', 'user_duenio_id', 'razon_social', 'rfc', 'clabe', 'banco', 'status', 'created_at', 'updated_at']);
 
         // Multi-tenant (yo lo mantengo para que no vean proveedores ajenos por URL)
         if (! $isAdminLike) {
-            $query->where('user_duenio_id', $user->id);
-            // si no eres admin/contador, yo fuerzo ACTIVO siempre
+            // Con "mis proveedores" se muestran solo los activos.
             $query->where('status', 'ACTIVO');
         }
 
@@ -195,7 +198,7 @@ class ProveedorController extends Controller
 
         Proveedor::query()
             ->whereIn('id', $data['ids'])
-            ->when(! $request->user()->can('proveedores.ver_todos'), fn ($q) => $q->where('user_duenio_id', $request->user()->id))
+            ->visibleTo($request->user())
             ->where('status', 'ACTIVO')
             ->updateEach(['status' => 'INACTIVO']);
 

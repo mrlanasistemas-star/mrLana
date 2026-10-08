@@ -40,6 +40,7 @@ class PagoController extends Controller
             'can' => [
                 'exportar' => $user->can('pagos.exportar'),
                 'registrar' => $user->can('pagos.registrar'),
+                'descargar' => $user->can('pagos.descargar'),
             ],
         ]);
     }
@@ -48,7 +49,7 @@ class PagoController extends Controller
     public function archivo(Request $request, Pago $pago): StreamedResponse
     {
         $pago->loadMissing('requisicion');
-        abort_unless($pago->requisicion && $request->user()->can('view', $pago->requisicion), 403);
+        abort_unless($pago->requisicion && $request->user()->can('downloadPayment', $pago->requisicion), 403);
         abort_unless($pago->archivo_path && Storage::disk('public')->exists($pago->archivo_path), 404, 'El archivo ya no está disponible.');
 
         $name = $pago->archivo_original ?: basename($pago->archivo_path);

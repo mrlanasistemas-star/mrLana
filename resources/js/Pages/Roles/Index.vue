@@ -66,7 +66,7 @@ function doDelete() {
         <template #header>Roles y permisos</template>
 
         <div class="w-full min-w-0 space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-            <section class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <section data-tour="roles-encabezado" class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div class="min-w-0">
                     <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">Roles y permisos</h2>
                     <p class="text-sm text-slate-500 dark:text-zinc-400">
@@ -99,7 +99,7 @@ function doDelete() {
                 <button v-if="q" type="button" class="ui-btn-secondary" @click="q = ''">Limpiar búsqueda</button>
             </div>
 
-            <ul v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
+            <ul data-tour="roles-lista" v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
                 <li v-for="r in filtered" :key="r.id" class="ui-card flex flex-col p-4 sm:p-5">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex min-w-0 items-start gap-3">

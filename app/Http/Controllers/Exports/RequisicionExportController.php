@@ -81,7 +81,8 @@ class RequisicionExportController
         $sort = $this->normalizeSort($sortRaw);
 
         $user = $request->user();
-        $verTodos = $user->can('requisiciones.ver_todos');
+        // Mismo criterio que el listado: más allá de lo propio se ocultan borradores ajenos en "Activas".
+        $verTodos = \App\Support\Permissions\AccessScope::for($user, 'requisiciones')->value > \App\Support\Permissions\Scope::Own->value;
 
         $query = Requisicion::query()
             ->visibleTo($user)

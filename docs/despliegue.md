@@ -137,6 +137,29 @@ Permisos de escritura (una vez): `sudo chown -R www-data:www-data storage bootst
 5. `php artisan queue:failed` debe estar vacío; revisa `storage/logs/laravel.log`.
 6. Da de baja a un colaborador de prueba con cuenta: su cuenta debe quedar desactivada y no poder iniciar sesión.
 
+### Permisos con alcance (octubre 2026)
+
+La migración `2026_10_08_120000_scoped_permissions_transition` crea los permisos
+nuevos (propio / sucursal / corporativo / global y acciones separadas) y los
+**agrega** a los roles existentes según lo que ya podían hacer. No quita permisos,
+roles, usuarios ni asignaciones, y queda registrada en `permission_transitions`.
+
+```bash
+# Antes de migrar (con la tabla ya creada en una copia o tras migrar): qué se agregaría a cada rol
+php artisan erp:permissions-transition --dry-run
+```
+
+Comprobaciones específicas después de publicar:
+
+1. Roles → abre Contabilidad: alcance «Global» en Requisiciones, Pagos, Comprobaciones y Ajustes, y la captura especial marcada.
+2. Roles → abre Colaborador: alcance «Propio» en esos módulos y ningún alcance global.
+3. Un colaborador al crear una requisición ve solicitante, sucursal y comprador bloqueados con sus datos.
+4. Dashboard: cada persona ve solo las pestañas de su alcance; la exportación respeta la pestaña activa.
+5. Las cuentas sin colaborador vinculado solo ven lo que crearon (o todo, si su rol es global).
+
+Si un rol personalizado necesita ajustes, edítalo desde **Roles y permisos**; al guardar,
+los permisos anteriores ocultos se retiran y se conserva solo el alcance más alto de cada módulo.
+
 ### Autorizador de pagos anteriores (opcional)
 
 Los pagos autorizados antes de esta versión muestran «No registrado» en «Autorizó». El comando

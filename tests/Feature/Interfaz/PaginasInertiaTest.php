@@ -69,7 +69,8 @@ class PaginasInertiaTest extends TestCase
 
         $this->actingAs($admin)->get(route('roles.create'))
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->where('modules', PermissionCatalog::grouped())
-                ->where('modules.0.permissions.0.label', 'Ver dashboard'));
+                ->where('modules', PermissionCatalog::forUi())
+                ->where('modules.0.scope.0.label', 'Ver mi dashboard de gastos')
+                ->where('modules.0.scope.3.label', 'Ver dashboard general'));
     }
 }

@@ -269,7 +269,7 @@ const inputClass =
             </div>
 
             <!-- Filtros -->
-            <section class="rounded-3xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/70 sm:p-5" aria-label="Filtros">
+            <section data-tour="colaboradores-filtros" class="rounded-3xl border border-slate-200/70 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900/70 sm:p-5" aria-label="Filtros">
                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-12">
                     <div class="xl:col-span-4">
                         <label for="colab-q" class="text-xs font-semibold text-slate-600 dark:text-zinc-300">Buscar</label>
@@ -321,7 +321,7 @@ const inputClass =
             </section>
 
             <!-- Listado -->
-            <section class="overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900/70">
+            <section data-tour="colaboradores-lista" class="overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900/70">
                 <p v-if="colaboradores.data.length === 0" class="p-10 text-center text-sm text-slate-500 dark:text-zinc-400">
                     No hay colaboradores con los filtros actuales.
                 </p>

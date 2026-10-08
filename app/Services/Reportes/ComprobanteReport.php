@@ -46,7 +46,7 @@ class ComprobanteReport
         $fecha = 'COALESCE(comprobantes.fecha_emision, DATE(comprobantes.created_at))';
 
         return Comprobante::query()
-            ->whereIn('requisicion_id', Requisicion::query()->visibleTo($user)->select('id'))
+            ->whereIn('requisicion_id', Requisicion::query()->visibleTo($user, 'comprobaciones')->select('id'))
             ->when($f['requisicion_id'], fn ($q, $id) => $q->where('requisicion_id', $id))
             ->when($f['estatus'], fn ($q, $v) => $q->where('estatus', $v))
             ->when($f['tipo_doc'], fn ($q, $v) => $q->where('tipo_doc', $v))
@@ -134,12 +134,12 @@ class ComprobanteReport
     /** @return array<string, mixed> */
     public function options(User $user): array
     {
-        $reqIds = Requisicion::query()->visibleTo($user)->select('id');
+        $reqIds = Requisicion::query()->visibleTo($user, 'comprobaciones')->select('id');
 
         return [
             'estatus' => collect(self::ESTATUS)->map(fn ($nombre, $id) => compact('id', 'nombre'))->values(),
             'tipos' => collect(self::TIPOS)->map(fn ($nombre, $id) => compact('id', 'nombre'))->values(),
-            'solicitantes' => DB::table('empleados')->whereIn('id', Requisicion::query()->visibleTo($user)->select('solicitante_id'))
+            'solicitantes' => DB::table('empleados')->whereIn('id', Requisicion::query()->visibleTo($user, 'comprobaciones')->select('solicitante_id'))
                 ->orderBy('nombre')->get(['id', DB::raw(self::fullName().' as nombre')]),
             'cargaron' => User::query()->whereIn('id', Comprobante::query()->whereIn('requisicion_id', $reqIds)->select('user_carga_id'))->orderBy('name')->get(['id', 'name as nombre']),
             'revisaron' => User::query()->whereIn('id', Comprobante::query()->whereIn('requisicion_id', $reqIds)->whereNotNull('user_revision_id')->select('user_revision_id'))->orderBy('name')->get(['id', 'name as nombre']),

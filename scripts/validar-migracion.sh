@@ -79,6 +79,11 @@ while IFS=$'\t' read -r t n; do
   if [[ "$after" != "$n" ]]; then
     # Tablas de sistema que cambian legítimamente al migrar.
     if [[ "$t" == "migrations" || "$t" == "cache" || "$t" == "jobs" ]]; then continue; fi
+    # Catálogo de permisos y asignaciones a roles: las transiciones solo agregan.
+    # Un aumento es esperado; una disminución sí es un error.
+    if [[ "$t" == "permissions" || "$t" == "role_has_permissions" ]] && [[ -n "$after" && "$after" -gt "$n" ]]; then
+      echo "   + $t: antes $n, después $after (solo se agregaron registros)"; continue
+    fi
     echo "   ✗ $t: antes $n, después ${after:-(no existe)}"; FAIL=1
   fi
 done < "$OUT/antes.tsv"

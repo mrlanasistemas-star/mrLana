@@ -34,9 +34,9 @@ class ExportacionesTest extends TestCase
             $cases["{$m} pdf"] = ["{$m}.export.pdf", [], 'pdf'];
             $cases["{$m} excel"] = ["{$m}.export.excel", [], 'xlsx'];
         }
-        foreach (['admin', 'contador', 'colaborador'] as $perfil) {
-            $cases["dashboard {$perfil} pdf"] = ['dashboard.export.pdf', ['role' => $perfil], 'pdf'];
-            $cases["dashboard {$perfil} excel"] = ['dashboard.export.excel', ['role' => $perfil], 'xlsx'];
+        foreach (['personal', 'sucursal', 'corporativo', 'general'] as $vista) {
+            $cases["dashboard {$vista} pdf"] = ['dashboard.export.pdf', ['vista' => $vista], 'pdf'];
+            $cases["dashboard {$vista} excel"] = ['dashboard.export.excel', ['vista' => $vista], 'xlsx'];
         }
 
         return $cases;

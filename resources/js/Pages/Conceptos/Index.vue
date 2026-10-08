@@ -255,7 +255,7 @@
                 <div class="hidden xl:block overflow-hidden rounded-2xl border border-slate-200/70 dark:border-white/10
                 bg-white dark:bg-neutral-900 shadow-sm w-full max-w-full min-w-0">
                     <div class="w-full max-w-full min-w-0 overflow-x-auto">
-                        <table class="w-full min-w-[980px] text-sm">
+                        <table data-tour="conceptos-lista" class="w-full min-w-[980px] text-sm">
                         <thead class="bg-slate-50 dark:bg-neutral-950/60">
                             <tr class="text-left text-slate-600 dark:text-neutral-300">
                                 <th class="px-4 py-3 font-semibold w-[46px]">

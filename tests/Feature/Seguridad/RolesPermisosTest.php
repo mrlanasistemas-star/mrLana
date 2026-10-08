@@ -34,7 +34,7 @@ class RolesPermisosTest extends TestCase
             route('corporativos.index'),
             route('systemlogs.index'),
             route('configuracion.edit'),
-            route('dashboard.admin'),
+            route('dashboard', ['vista' => 'general']),
             route('colaboradores.export.pdf'),
         ] as $url) {
             $this->actingAs($colaborador)->get($url)->assertForbidden();
@@ -118,14 +118,14 @@ class RolesPermisosTest extends TestCase
         $this->actingAs($admin)->post(route('roles.store'), [
             'name' => 'Auditor',
             'descripcion' => 'Solo consulta',
-            'permissions' => ['dashboard.ver', 'requisiciones.ver_todos', 'notificaciones.ver'],
+            'permissions' => ['dashboard.general', 'requisiciones.ver_todos', 'notificaciones.ver'],
             'receive_all' => false,
             'topics' => ['pagos'],
         ])->assertSessionHasNoErrors()->assertRedirect(route('roles.index'));
 
         $role = Role::where('name', 'Auditor')->firstOrFail();
         $this->assertEqualsCanonicalizing(
-            ['dashboard.ver', 'requisiciones.ver_todos', 'notificaciones.ver'],
+            ['dashboard.general', 'requisiciones.ver_todos', 'notificaciones.ver'],
             $role->permissions->pluck('name')->all()
         );
         $this->assertSame(['pagos'], $role->notificationPreference->topics);
@@ -135,17 +135,20 @@ class RolesPermisosTest extends TestCase
         $this->actingAs($auditor)->get(route('requisiciones.create'))->assertForbidden();
     }
 
-    public function test_rol_que_recibe_notificaciones_debe_poder_verlas(): void
+    public function test_rol_que_recibe_notificaciones_obtiene_ver_mis_notificaciones_y_nunca_todas(): void
     {
         $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN);
 
         $this->actingAs($admin)->post(route('roles.store'), [
-            'name' => 'Incoherente',
-            'permissions' => ['dashboard.ver'],
-            'receive_all' => true,
-        ])->assertSessionHasErrors('topics');
+            'name' => 'Avisos',
+            'permissions' => ['dashboard.personal'],
+            'receive_all' => false,
+            'topics' => ['pagos'],
+        ])->assertSessionHasNoErrors();
 
-        $this->assertDatabaseMissing('roles', ['name' => 'Incoherente']);
+        $perms = Role::where('name', 'Avisos')->firstOrFail()->permissions->pluck('name');
+        $this->assertTrue($perms->contains('notificaciones.ver'));
+        $this->assertFalse($perms->contains('notificaciones.ver_todas'));
     }
 
     public function test_proteccion_del_ultimo_administrador(): void
@@ -175,7 +178,7 @@ class RolesPermisosTest extends TestCase
         $admin->forceFill(['activo' => false])->save();
 
         $this->expectException(\Illuminate\Validation\ValidationException::class);
-        app(AdministratorGuard::class)->assertCanChangeRolePermissions($custom, ['dashboard.ver']);
+        app(AdministratorGuard::class)->assertCanChangeRolePermissions($custom, ['dashboard.personal']);
     }
 
     public function test_con_dos_administradores_si_se_puede_desactivar_uno(): void

@@ -7,7 +7,6 @@ use App\Models\Role;
 use App\Support\Permissions\PermissionCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Validator;
 
 class RoleRequest extends FormRequest
 {
@@ -48,19 +47,18 @@ class RoleRequest extends FormRequest
         ];
     }
 
-    public function withValidator(Validator $validator): void
+    /**
+     * Selección normalizada (PermissionCatalog::normalize): dependencias,
+     * alcance mínimo para acciones, "Ver mis notificaciones" si el rol recibe
+     * avisos y un solo nivel de alcance por módulo.
+     *
+     * @return list<string>
+     */
+    public function normalizedPermissions(): array
     {
-        $validator->after(function (Validator $v) {
-            $permissions = (array) $this->input('permissions', []);
-            $receives = $this->boolean('receive_all') || count((array) $this->input('topics', [])) > 0;
+        $receives = (bool) $this->validated('receive_all') || count((array) $this->validated('topics', [])) > 0;
 
-            if ($receives && ! in_array('notificaciones.ver', $permissions, true)) {
-                $v->errors()->add(
-                    'topics',
-                    'Para recibir notificaciones, el rol necesita el permiso "Ver notificaciones" (módulo Notificaciones).'
-                );
-            }
-        });
+        return PermissionCatalog::normalize((array) $this->validated('permissions', []), $receives);
     }
 
     public function messages(): array

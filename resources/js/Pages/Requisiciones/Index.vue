@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import SearchableSelect from "@/Components/ui/SearchableSelect.vue";
 import DatePickerShadcn from "@/Components/ui/DatePickerShadcn.vue";
 import ICON_PDF from "@/img/pdf.png";
 import ICON_EXCEL from "@/img/excel.png";
 import { toQS, downloadFile } from "@/Utils/exports";
-import Swal from "sweetalert2";
 import RequisicionActions from "./partials/RequisicionActions.vue";
 import { usePermissions } from "@/Composables/usePermissions";
 
@@ -64,14 +63,10 @@ const {
     clearSelection,
     destroySelected,
     goTo,
-    goShow,
-    goPay,
-    goComprobar,
     goCreate,
     destroyRow,
     captureRow,
     requestDeletion,
-    goAjustes,
     money,
     displayName,
     copyText,
@@ -124,20 +119,6 @@ const pendientesCount = computed(
                 String(r?.status || "").toUpperCase() === "POR_COMPROBAR",
         ).length,
 );
-
-const onPrint = (id: number | string) => {
-    Swal.fire({
-        toast: true,
-        position: "top-end",
-        showConfirmButton: false,
-        timer: 1200,
-        timerProgressBar: true,
-        icon: "info",
-        title: "Generando PDF…",
-    });
-    const url = route("requisiciones.print", { requisicion: id });
-    window.open(url, "_blank", "noopener,noreferrer");
-};
 
 
 function rowDisabled(r: RequisicionRow) {
@@ -272,12 +253,6 @@ function safeDateShort(v: any) {
     }).format(raw);
 }
 
-function shortText(v: any, max = 90) {
-    const txt = String(v || "").trim();
-    if (!txt) return "—";
-    return txt.length > max ? txt.slice(0, max).trim() + "…" : txt;
-}
-
 
 function statusAccentColor(s: any): string {
     const st = String(s ?? '').toUpperCase()
@@ -312,7 +287,7 @@ function statusAccentColor(s: any): string {
                     </p>
                 </div>
 
-                <button
+                <button data-tour="requisiciones-nueva"
                     v-if="can('requisiciones.registrar')"
                     type="button"
                     aria-label="Nueva requisición"
@@ -413,7 +388,7 @@ function statusAccentColor(s: any): string {
                 </div>
 
                 <div class="mt-4 flex flex-wrap items-center gap-2">
-                    <button v-if="can('requisiciones.exportar')"
+                    <button data-tour="requisiciones-exportar" v-if="can('requisiciones.exportar')"
                         type="button"
                         @click="downloadFile(exportExcelUrl)"
                         class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
@@ -476,7 +451,7 @@ function statusAccentColor(s: any): string {
             <div
                 class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-neutral-900/60 backdrop-blur p-4 sm:p-5 shadow-sm"
             >
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+                <div data-tour="requisiciones-filtros" class="grid grid-cols-1 lg:grid-cols-12 gap-3">
                     <div class="lg:col-span-5 min-w-0">
                         <label
                             class="block text-xs font-black text-slate-600 dark:text-zinc-300"
@@ -714,7 +689,7 @@ function statusAccentColor(s: any): string {
             </div>
 
             <!-- DESKTOP -->
-            <div class="hidden xl:block space-y-2">
+            <div data-tour="requisiciones-lista" class="hidden xl:block space-y-2">
                 <div
                     v-for="r in rows"
                     :key="r.id"
@@ -724,7 +699,7 @@ function statusAccentColor(s: any): string {
                            transition-all duration-200
                            hover:border-slate-300/80 dark:hover:border-white/20"
                     :style="{ borderLeftColor: statusAccentColor((r as any).status) }"
-                    :class="rowDisabled(r) ? 'opacity-50 pointer-events-none' : ''"
+                    :class="rowDisabled(r) ? 'opacity-70' : ''"
                 >
                     <!-- Fila principal -->
                     <div class="flex items-center gap-0 pl-4 pr-3 py-3.5">
@@ -741,10 +716,13 @@ function statusAccentColor(s: any): string {
                         <!-- Folio + Status badge -->
                         <div class="shrink-0 w-[172px] pr-4">
                             <div class="flex items-center gap-1.5 min-w-0">
-                                <span
-                                    class="font-black text-[13px] tracking-tight text-slate-900 dark:text-zinc-100 truncate leading-tight"
-                                    :title="(r as any).folio"
-                                >{{ (r as any).folio }}</span>
+                                <Link
+                                    :href="route('requisiciones.show', r.id)"
+                                    class="font-black text-[13px] tracking-tight text-slate-900 dark:text-zinc-100 truncate leading-tight
+                                           underline-offset-4 decoration-2 decoration-slate-300 hover:underline hover:text-brand-primary
+                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 rounded"
+                                    :title="`Abrir ${(r as any).folio}`"
+                                >{{ (r as any).folio }}</Link>
                                 <button
                                     type="button"
                                     class="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-md
@@ -829,43 +807,45 @@ function statusAccentColor(s: any): string {
                         <!-- Separador -->
                         <div class="self-stretch w-px bg-slate-100 dark:bg-white/8 shrink-0 mr-3"></div>
 
-                        <!-- Monto + Acciones -->
-                        <div class="shrink-0 w-[200px] flex flex-col items-end gap-2.5">
-                            <div class="text-right">
-                                <div class="text-lg font-black text-slate-900 dark:text-zinc-100 tabular-nums leading-none whitespace-nowrap">
-                                    {{ money((r as any).monto_total) }}
-                                </div>
-                                <div class="mt-0.5 text-[10px] text-slate-400 dark:text-zinc-500 tabular-nums">
-                                    Subtotal {{ money((r as any).monto_subtotal) }}
-                                </div>
+                        <!-- Monto -->
+                        <div class="shrink-0 w-[150px] text-right">
+                            <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Total</div>
+                            <div class="mt-0.5 text-lg font-black text-slate-900 dark:text-zinc-100 tabular-nums leading-none whitespace-nowrap">
+                                {{ money((r as any).monto_total) }}
                             </div>
-
-                            <RequisicionActions
-                                :row="r"
-                                @show="goShow(r.id)"
-                                @pay="goPay(r.id)"
-                                @comprobar="goComprobar(r.id)"
-                                @ajustes="goAjustes(r.id)"
-                                @print="onPrint(r.id)"
-                                @capture="captureRow(r.id)"
-                                @request-delete="requestDeletion(r)"
-                                @delete="destroyRow(r)"
-                            />
+                            <div class="mt-1 text-[10px] text-slate-400 dark:text-zinc-500 tabular-nums">
+                                Subtotal {{ money((r as any).monto_subtotal) }}
+                            </div>
                         </div>
                     </div>
 
-                    <div v-if="(r as any).eliminacion_pendiente" class="px-5 pb-2 -mt-1">
-                        <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                            Eliminación solicitada · pendiente de Contabilidad
-                        </span>
-                    </div>
-
-                    <!-- Observaciones — solo si existen -->
-                    <div v-if="(r as any).observaciones" class="px-5 pb-3 -mt-1">
-                        <div class="rounded-xl bg-slate-50/80 dark:bg-white/5 border border-slate-100/80 dark:border-white/5 px-3 py-2 flex items-start gap-2">
-                            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 mt-0.5">Observaciones</span>
-                            <span class="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">{{ shortText((r as any).observaciones, 280) }}</span>
+                    <!-- Segunda fila: observaciones a lo ancho + acciones visibles -->
+                    <div
+                        class="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 transition-colors duration-200
+                               group-hover:bg-slate-50 dark:border-white/5 dark:bg-white/[0.02] dark:group-hover:bg-white/[0.04]
+                               2xl:flex-row 2xl:items-start 2xl:justify-between"
+                    >
+                        <div class="min-w-0 flex-1 space-y-1.5">
+                            <span
+                                v-if="(r as any).eliminacion_pendiente"
+                                class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+                            >
+                                Eliminación solicitada · pendiente de revisión
+                            </span>
+                            <p v-if="(r as any).observaciones" class="flex min-w-0 items-start gap-2">
+                                <span class="mt-0.5 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Observaciones</span>
+                                <span class="min-w-0 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600 dark:text-zinc-300">{{ (r as any).observaciones }}</span>
+                            </p>
+                            <p v-else-if="!(r as any).eliminacion_pendiente" class="text-[11px] italic text-slate-400 dark:text-zinc-500">Sin observaciones</p>
                         </div>
+
+                        <RequisicionActions
+                            class="2xl:max-w-[60%] 2xl:justify-end"
+                            :row="r"
+                            @capture="captureRow(r.id)"
+                            @request-delete="requestDeletion(r)"
+                            @delete="destroyRow(r)"
+                        />
                     </div>
                 </div>
 
@@ -908,22 +888,23 @@ function statusAccentColor(s: any): string {
             </div>
 
             <!-- MOBILE / TABLET -->
-            <div class="xl:hidden space-y-2.5">
+            <div data-tour="requisiciones-lista" class="xl:hidden space-y-2.5">
                 <div
                     v-for="r in rows"
                     :key="r.id"
                     class="border border-l-4 border-slate-200/80 dark:border-white/10 rounded-2xl
                            bg-white dark:bg-neutral-900/90 p-4 shadow-sm"
                     :style="{ borderLeftColor: statusAccentColor((r as any).status) }"
-                    :class="rowDisabled(r) ? 'opacity-60 pointer-events-none' : ''"
+                    :class="rowDisabled(r) ? 'opacity-70' : ''"
                 >
                     <!-- Header: folio + checkbox -->
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2 min-w-0">
-                                <span class="font-black text-[14px] tracking-tight text-slate-900 dark:text-zinc-100 truncate">
-                                    {{ (r as any).folio }}
-                                </span>
+                                <Link
+                                    :href="route('requisiciones.show', r.id)"
+                                    class="font-black text-[14px] tracking-tight text-slate-900 dark:text-zinc-100 truncate underline-offset-4 hover:underline"
+                                >{{ (r as any).folio }}</Link>
                                 <button
                                     type="button"
                                     class="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-lg border border-slate-200 bg-transparent hover:bg-slate-100 active:scale-95 transition-all dark:border-white/10 dark:hover:bg-white/10"
@@ -1027,8 +1008,8 @@ function statusAccentColor(s: any): string {
                         <!-- Observaciones (solo si existen) -->
                         <div v-if="(r as any).observaciones" class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
                             <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Observaciones</div>
-                            <div class="mt-0.5 text-[11px] text-slate-600 dark:text-zinc-300 break-words">
-                                {{ shortText((r as any).observaciones, 160) }}
+                            <div class="mt-0.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600 dark:text-zinc-300">
+                                {{ (r as any).observaciones }}
                             </div>
                         </div>
                     </div>
@@ -1043,11 +1024,6 @@ function statusAccentColor(s: any): string {
                         <RequisicionActions
                             :row="r"
                             size="md"
-                            @show="goShow(r.id)"
-                            @pay="goPay(r.id)"
-                            @comprobar="goComprobar(r.id)"
-                            @ajustes="goAjustes(r.id)"
-                            @print="onPrint(r.id)"
                             @capture="captureRow(r.id)"
                             @request-delete="requestDeletion(r)"
                             @delete="destroyRow(r)"

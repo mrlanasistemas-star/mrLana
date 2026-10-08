@@ -244,7 +244,7 @@
             <!-- Desktop tabla (hidden xl:block) -->
             <div class="hidden xl:block erp-panel overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="erp-table min-w-[700px]">
+                    <table data-tour="areas-lista" class="erp-table min-w-[700px]">
                         <thead>
                             <tr>
                                 <th class="w-[46px]">

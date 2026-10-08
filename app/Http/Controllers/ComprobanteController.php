@@ -39,7 +39,7 @@ class ComprobanteController extends Controller
             'options' => $this->report->options($user),
             'can' => [
                 'exportar' => $user->can('comprobaciones.exportar'),
-                'revisar' => $user->can('comprobaciones.revisar'),
+                'revisar' => $user->canAny(['comprobaciones.aceptar', 'comprobaciones.rechazar']) && $user->can('comprobaciones.revisar'),
             ],
         ]);
     }
@@ -48,7 +48,7 @@ class ComprobanteController extends Controller
     public function archivo(Request $request, Comprobante $comprobante): StreamedResponse
     {
         $comprobante->loadMissing('requisicion');
-        abort_unless($comprobante->requisicion && $request->user()->can('view', $comprobante->requisicion), 403);
+        abort_unless($comprobante->requisicion && $request->user()->can('viewComprobaciones', $comprobante->requisicion), 403);
         abort_unless($comprobante->archivo_path && Storage::disk('public')->exists($comprobante->archivo_path), 404, 'El archivo ya no está disponible.');
 
         $name = $comprobante->archivo_original ?: basename($comprobante->archivo_path);

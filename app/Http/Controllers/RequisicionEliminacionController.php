@@ -58,15 +58,16 @@ class RequisicionEliminacionController extends Controller
             severity: 'warning',
             url: route('requisiciones.show', $requisicion->id, false),
             actor: $user,
+            canSee: fn ($u) => $u->can('view', $requisicion),
         );
 
-        return back()->with('success', 'Solicitud de eliminación enviada a Contabilidad.');
+        return back()->with('success', 'Solicitud de eliminación enviada a revisión.');
     }
 
     public function review(Request $request, RequisicionEliminacionSolicitud $solicitud): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user->can('view', $solicitud->requisicion), 403);
+        abort_unless($user->can('reviewDeletion', $solicitud->requisicion), 403);
 
         $data = $request->validate([
             'accion' => ['required', 'in:APROBAR,RECHAZAR'],
@@ -135,7 +136,7 @@ class RequisicionEliminacionController extends Controller
     {
         $user = $request->user();
         $isOwner = (int) $solicitud->solicitado_por_id === (int) $user->id;
-        abort_unless($isOwner || $user->can('requisiciones.autorizar_eliminacion'), 403);
+        abort_unless($isOwner || $user->can('reviewDeletion', $solicitud->requisicion), 403);
 
         $updated = RequisicionEliminacionSolicitud::query()
             ->whereKey($solicitud->id)

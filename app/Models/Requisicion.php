@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Permissions\AccessScope;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -120,7 +121,7 @@ class Requisicion extends Model
     }
 
     /* ============================
-     * Alcance por usuario (permisos "ver todos" / "ver propios")
+     * Alcance por usuario (AccessScope)
      * ============================ */
 
     /**
@@ -138,25 +139,46 @@ class Requisicion extends Model
     }
 
     /**
-     * Limita la consulta a lo que el usuario puede ver según sus permisos.
-     * Sin "ver todos" ni "ver propios" no devuelve registros.
+     * Cómo se filtra cada nivel de alcance. Pagos, comprobaciones y ajustes
+     * heredan este mismo criterio con su propio permiso de alcance.
+     *
+     * @return array<string, \Closure|string>
      */
-    public function scopeVisibleTo($query, User $user)
+    public static function scopeMap(User $user, string $table = 'requisicions'): array
     {
-        if ($user->can('requisiciones.ver_todos')) {
-            return $query;
-        }
+        return [
+            'own' => function ($q) use ($user, $table) {
+                $q->where("{$table}.creada_por_user_id", $user->id);
+                if ($user->empleado_id) {
+                    $q->orWhere("{$table}.solicitante_id", $user->empleado_id);
+                }
+            },
+            'sucursal' => "{$table}.sucursal_id",
+        ];
+    }
 
-        if (! $user->can('requisiciones.ver_propios')) {
-            return $query->whereRaw('1 = 0');
-        }
+    /**
+     * Limita la consulta a lo que el usuario puede ver en el módulo indicado
+     * (requisiciones, pagos, comprobaciones o ajustes). Sin alcance no
+     * devuelve registros.
+     */
+    public function scopeVisibleTo($query, User $user, string $module = 'requisiciones')
+    {
+        return AccessScope::apply($query, $user, $module, self::scopeMap($user, $this->getTable()));
+    }
 
-        return $query->where(function ($q) use ($user) {
-            $q->where('creada_por_user_id', $user->id);
-            if ($user->empleado_id) {
-                $q->orWhere('solicitante_id', $user->empleado_id);
-            }
-        });
+    /** ¿El registro concreto está dentro del alcance del usuario en el módulo? */
+    public function isVisibleTo(User $user, string $module = 'requisiciones'): bool
+    {
+        return AccessScope::contains(
+            $user,
+            $module,
+            $this->isOwnedBy($user),
+            $this->sucursal_id ? (int) $this->sucursal_id : null,
+            fn () => $this->relationLoaded('sucursal')
+                ? $this->sucursal?->corporativo_id
+                : Sucursal::query()->whereKey($this->sucursal_id)->value('corporativo_id'),
+        );
     }
 
     /* ============================

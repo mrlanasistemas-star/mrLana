@@ -5,7 +5,8 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "guia:pdf": "node scripts/guia-pdf.ts"
+        "guia:pdf": "node scripts/guia-pdf.ts",
+        "test:tour": "node --test tests/js/tour-engine.test.ts"
     },
     "devDependencies": {
         "@inertiajs/vue3": "^2.3.4",

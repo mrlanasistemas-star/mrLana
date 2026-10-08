@@ -23,8 +23,8 @@ class PlantillaStoreRequest extends FormRequest
 
     public function rules(): array
     {
-        // Sin "ver todas las requisiciones" el solicitante se asigna automáticamente.
-        $solicitanteFijo = ! $this->user()?->can('requisiciones.ver_todos');
+        // Sin "Elegir solicitante" el solicitante se asigna automáticamente (CaptureContext).
+        $solicitanteFijo = ! $this->user()?->can('requisiciones.elegir_solicitante');
 
         return [
             'nombre' => ['required', 'string', 'max:100'],

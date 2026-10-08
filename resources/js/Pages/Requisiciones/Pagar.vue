@@ -57,6 +57,26 @@ const tot = computed(() => (props as any).totales ?? { pagado: 0, pendiente: 0 }
 // Permisos calculados por el servidor (policy) para esta requisición
 const canAuthorize = computed(() => props.can?.autorizar === true && req.value?.status === 'CAPTURADA')
 const canUploadPago = computed(() => props.can?.registrar === true)
+const canReject = computed(() => props.can?.rechazar === true && req.value?.status === 'CAPTURADA')
+
+// Rechazo del pago: el motivo es obligatorio y queda en la bitácora.
+async function rejectPago() {
+  if (!req.value?.id) return
+  const r = await Swal.fire({
+    title: 'Rechazar pago',
+    input: 'textarea',
+    inputLabel: 'Motivo del rechazo',
+    inputPlaceholder: 'Explica por qué no procede el pago…',
+    inputAttributes: { maxlength: '2000' },
+    showCancelButton: true,
+    confirmButtonText: 'Rechazar pago',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#dc2626',
+    inputValidator: (v) => (!v || v.trim().length < 5 ? 'Escribe un motivo de al menos 5 caracteres.' : undefined),
+  })
+  if (!r.isConfirmed) return
+  router.post(route('requisiciones.rechazarPago', { requisicion: req.value.id }), { motivo: String(r.value).trim() }, { preserveScroll: true })
+}
 
 // Fecha de pago para autorizar y función para llamar la ruta
 const fechaAutorizacion = ref<string>('')
@@ -122,16 +142,19 @@ watch(() => req.value?.fecha_pago_programada, (v) => {
   if (v && !fechaPagoGeneral.value) fechaPagoGeneral.value = v
 })
 
+// "Editar datos de pago cuando el estado lo permita"
+const canEditPago = computed(() => props.can?.editar ?? canUploadPago.value)
+
 // Usa la bandera que viene del backend (fuente de verdad)
 const puedeDefinirFechaGeneral = computed(() => {
   const data = (props as any).requisicion?.data
   // Si el backend lo envía, úsalo directamente
   if (typeof data?.puede_definir_fecha_pago_general === 'boolean') {
-    return data.puede_definir_fecha_pago_general && canUploadPago.value
+    return data.puede_definir_fecha_pago_general && canEditPago.value
   }
   // Fallback: calcula localmente (para SSR o si backend no lo envía aún)
   const cantPagos = data?.cantidad_pagos ?? (props as any).pagos?.data?.length ?? 0
-  return canUploadPago.value && cantPagos > 0 && Number(pendiente.value) <= 0.00001
+  return canEditPago.value && cantPagos > 0 && Number(pendiente.value) <= 0.00001
 })
 
 const savingFechaGeneral = ref(false)
@@ -240,8 +263,9 @@ function saveFechaGeneral() {
               </dl>
             </div>
 
-            <!-- Sección para autorizar pago -->
-            <div v-if="canAuthorize" class="mt-4 p-4 border-t border-slate-200/70 dark:border-white/10">
+            <!-- Sección para autorizar o rechazar el pago -->
+            <div v-if="canAuthorize || canReject" class="mt-4 p-4 border-t border-slate-200/70 dark:border-white/10">
+              <template v-if="canAuthorize">
               <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
                 Fecha programada de pago
                 </label>
@@ -254,6 +278,16 @@ function saveFechaGeneral() {
                 @click="authorizePago"
               >
                 Autorizar pago
+              </button>
+              </template>
+              <button
+                v-if="canReject"
+                type="button"
+                class="mt-2 w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl border border-rose-200 px-4 py-3 text-sm font-black
+                       text-rose-700 transition hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                @click="rejectPago"
+              >
+                Rechazar pago
               </button>
             </div>
           </div>

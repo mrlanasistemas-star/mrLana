@@ -134,8 +134,8 @@ export function useProveedoresIndex(props: ProveedoresIndexProps) {
     'dark:focus:border-white/30 dark:focus:ring-white/10'
 
   // Ver proveedores de todos los usuarios (permiso); el servidor filtra de nuevo.
-  const { can } = usePermissions()
-  const isPrivileged = computed(() => can('proveedores.ver_todos'))
+  const { can, scope } = usePermissions()
+  const isPrivileged = computed(() => scope('proveedores') === 'global')
 
   // =========================
   // Filtros (default: ACTIVO)

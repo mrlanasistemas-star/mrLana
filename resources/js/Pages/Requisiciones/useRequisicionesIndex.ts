@@ -97,11 +97,12 @@ function normalizePagerLabel(label: string) {
 
 export function useRequisicionesIndex(props: RequisicionesPageProps) {
   const page = usePage<any>()
-  const { can } = usePermissions()
+  const { can, scope } = usePermissions()
   const empleadoId = computed(() => page.props?.auth?.user?.empleado_id ?? null)
 
   /** Sin "ver todas": el listado siempre muestra solo las requisiciones propias. */
-  const isColaborador = computed(() => !can('requisiciones.ver_todos'))
+  // Con alcance "propio" se ocultan filtros que no aportan (p. ej. solicitante).
+  const isColaborador = computed(() => scope('requisiciones') === 'own')
   const canDelete = computed(() => can('requisiciones.eliminar'))
 
   /**

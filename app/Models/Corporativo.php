@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Support\Permissions\AccessScope;
 use App\Traits\LogsActivity;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Class Corporativo
@@ -20,10 +21,9 @@ use App\Traits\LogsActivity;
  * @property string|null $codigo
  * @property string|null $logo_path
  * @property bool $activo
-*/
-
-class Corporativo extends Model {
-
+ */
+class Corporativo extends Model
+{
     use HasFactory, LogsActivity;
 
     // Protección contra asignación masiva.
@@ -45,18 +45,36 @@ class Corporativo extends Model {
     ];
 
     // Un corporativo tiene muchas sucursales.
-    public function sucursales() {
+    public function sucursales()
+    {
         return $this->hasMany(Sucursal::class);
     }
 
     // Un corporativo puede tener muchas áreas.
-    public function areas() {
+    public function areas()
+    {
         return $this->hasMany(Area::class);
     }
 
     // Requisiciones donde este corporativo actúa como comprador.
-    public function requisicionesComprador() {
+    public function requisicionesComprador()
+    {
         return $this->hasMany(Requisicion::class, 'comprador_corp_id');
     }
 
+    /* ============================
+     * Alcance (AccessScope): "mi corporativo" o todos
+     * ============================ */
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        return AccessScope::apply($query, $user, 'corporativos', [
+            'own' => fn ($q) => $q->where('corporativos.id', AccessScope::corporativoId($user) ?? 0),
+        ]);
+    }
+
+    public function isVisibleTo(User $user): bool
+    {
+        return AccessScope::contains($user, 'corporativos', (int) $this->id === AccessScope::corporativoId($user));
+    }
 }

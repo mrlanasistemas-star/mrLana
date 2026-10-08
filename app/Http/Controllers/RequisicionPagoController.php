@@ -36,11 +36,10 @@ class RequisicionPagoController extends Controller
             && ($pagado + 0.00001 >= $total)
             && $pendiente <= 0.00001;
         $benef = $this->buildBeneficiario($requisicion);
-        $pagosShape = $pagos->map(function ($p) use ($benef) {
-            $url = null;
-            if (! empty($p->archivo_path)) {
-                $url = Storage::disk('public')->url($p->archivo_path);
-            }
+        $canDownload = $user->can('downloadPayment', $requisicion);
+        $pagosShape = $pagos->map(function ($p) use ($benef, $canDownload) {
+            // Archivo por la ruta protegida (respeta "Descargar comprobantes de pago").
+            $url = $canDownload && ! empty($p->archivo_path) ? route('pagos.archivo', $p->id) : null;
 
             return [
                 'id' => (int) $p->id,
@@ -96,7 +95,10 @@ class RequisicionPagoController extends Controller
             ],
             'can' => [
                 'autorizar' => $user->can('authorizePayment', $requisicion),
+                'rechazar' => $user->can('rejectPayment', $requisicion),
                 'registrar' => $user->can('registerPayment', $requisicion),
+                'editar' => $user->can('editPayment', $requisicion),
+                'descargar' => $canDownload,
             ],
         ]);
     }
@@ -142,6 +144,7 @@ class RequisicionPagoController extends Controller
             url: route('requisiciones.show', $requisicion->id, false),
             direct: [$requisicion->solicitante?->user, $requisicion->creadaPor],
             actor: $request->user(),
+            canSee: fn ($u) => $u->can('viewPayments', $requisicion),
         );
 
         $colaborador = $requisicion->solicitante?->user;
@@ -221,6 +224,7 @@ class RequisicionPagoController extends Controller
                 url: route('requisiciones.comprobar', $requisicion->id, false),
                 direct: [$requisicion->solicitante?->user, $requisicion->creadaPor],
                 actor: $request->user(),
+                canSee: fn ($u) => $u->can('viewPayments', $requisicion),
             );
 
             $colaborador = $requisicion->solicitante?->user;
@@ -232,9 +236,54 @@ class RequisicionPagoController extends Controller
         return back()->with('success', 'Pago registrado correctamente.');
     }
 
+    /**
+     * Rechaza el pago de una requisición CAPTURADA (queda en PAGO_RECHAZADO).
+     * El motivo es obligatorio, queda en la bitácora y se avisa al solicitante.
+     */
+    public function rejectPago(Request $request, Requisicion $requisicion)
+    {
+        $this->authorize('rejectPayment', $requisicion);
+        $data = $request->validate([
+            'motivo' => ['required', 'string', 'min:5', 'max:2000'],
+        ], [
+            'motivo.required' => 'Escribe el motivo del rechazo.',
+            'motivo.min' => 'El motivo debe tener al menos 5 caracteres.',
+            'motivo.max' => 'El motivo no debe exceder 2,000 caracteres.',
+        ]);
+
+        $rechazada = DB::transaction(fn () => Requisicion::query()
+            ->whereKey($requisicion->id)
+            ->where('status', 'CAPTURADA')
+            ->update(['status' => 'PAGO_RECHAZADO']) === 1);
+
+        if (! $rechazada) {
+            return back()->with('error', 'Solo se puede rechazar el pago de una requisición capturada.');
+        }
+
+        $motivo = trim($data['motivo']);
+        $requisicion->auditLog('CAMBIO_ESTATUS', "Pago rechazado: {$requisicion->folio}. Motivo: {$motivo}", [
+            'status' => ['CAPTURADA', 'PAGO_RECHAZADO'],
+        ]);
+
+        $requisicion->refresh()->load(['solicitante.user', 'creadaPor']);
+        $this->notifications->notify(
+            topic: NotificationTopic::Pagos,
+            event: 'pago.rechazado',
+            title: "Pago rechazado: {$requisicion->folio}",
+            message: "{$request->user()->name} rechazó el pago. Motivo: ".str($motivo)->limit(160),
+            severity: 'danger',
+            url: route('requisiciones.show', $requisicion->id, false),
+            direct: [$requisicion->solicitante?->user, $requisicion->creadaPor],
+            actor: $request->user(),
+            canSee: fn ($u) => $u->can('viewPayments', $requisicion),
+        );
+
+        return back()->with('success', 'Pago rechazado. Se avisó al solicitante.');
+    }
+
     public function updateFechaPagoGeneral(Request $request, Requisicion $requisicion)
     {
-        $this->authorize('registerPayment', $requisicion);
+        $this->authorize('editPayment', $requisicion);
 
         $data = $request->validate([
             'fecha_pago' => ['required', 'date'],

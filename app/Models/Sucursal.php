@@ -1,10 +1,13 @@
-<?php // app/Models/Sucursal.php
+<?php
+
+// app/Models/Sucursal.php
 
 namespace App\Models;
 
+use App\Support\Permissions\AccessScope;
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\LogsActivity;
 
 /**
  * Class Sucursal
@@ -23,7 +26,6 @@ use App\Traits\LogsActivity;
  */
 class Sucursal extends Model
 {
-
     use HasFactory, LogsActivity;
 
     protected $table = 'sucursals';
@@ -69,4 +71,20 @@ class Sucursal extends Model
         return $this->hasMany(Detalle::class);
     }
 
+    /* ============================
+     * Alcance (AccessScope): mi sucursal, las de mi corporativo o todas
+     * ============================ */
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        return AccessScope::apply($query, $user, 'sucursales', [
+            'own' => fn ($q) => $q->where('sucursals.id', AccessScope::sucursalId($user) ?? 0),
+            'corporativo' => 'sucursals.corporativo_id',
+        ]);
+    }
+
+    public function isVisibleTo(User $user): bool
+    {
+        return AccessScope::contains($user, 'sucursales', (int) $this->id === AccessScope::sucursalId($user), (int) $this->id, (int) $this->corporativo_id);
+    }
 }

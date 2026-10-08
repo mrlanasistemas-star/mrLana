@@ -224,7 +224,7 @@ const errorList = computed(() => Object.values(form.errors as Record<string, str
         <template #header>Configuración</template>
 
         <form class="w-full min-w-0 space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8" novalidate @submit.prevent="submit">
-            <section class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <section data-tour="configuracion-encabezado" class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div class="min-w-0">
                     <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">Configuración del sistema</h2>
                     <p class="text-sm text-slate-500 dark:text-zinc-400">Apariencia, logo y enlace de descarga de la aplicación. Aplica para todas las personas usuarias.</p>

@@ -4,6 +4,7 @@
 
 namespace App\Models;
 
+use App\Support\Permissions\AccessScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -39,5 +40,21 @@ class SystemLog extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Alcance (AccessScope): mi actividad, la de personas de mi sucursal o
+     * corporativo (según su colaborador), o toda la bitácora.
+     */
+    public function scopeVisibleTo($query, User $user)
+    {
+        $usersOf = fn ($sucursales) => User::query()->select('users.id')
+            ->whereIn('users.empleado_id', Empleado::query()->select('empleados.id')->whereIn('empleados.sucursal_id', $sucursales));
+
+        return AccessScope::apply($query, $user, 'logs', [
+            'own' => fn ($q) => $q->where('system_logs.user_id', $user->id),
+            'sucursal' => fn ($q, int $id) => $q->whereIn('system_logs.user_id', $usersOf([$id])),
+            'corporativo' => fn ($q, int $id) => $q->whereIn('system_logs.user_id', $usersOf(AccessScope::sucursalesOf($id))),
+        ]);
     }
 }

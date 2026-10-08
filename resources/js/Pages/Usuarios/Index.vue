@@ -17,6 +17,7 @@ type Usuario = {
     empleado_id: number | null
     colaborador: { id: number; nombre: string; puesto: string | null } | null
     created_at: string | null
+    can?: { editar: boolean; desactivar: boolean; reactivar: boolean }
 }
 
 type Estado = 'todos' | 'activos' | 'inactivos'
@@ -73,7 +74,8 @@ const stats = computed(() => [
 
 /* ---------- Activar / desactivar ---------- */
 const isSelf = (u: Usuario) => authUser.value?.id === u.id
-const canToggle = (u: Usuario) => (u.activo ? props.can.desactivar && !isSelf(u) : props.can.reactivar)
+// El servidor indica por cuenta qué se puede hacer (permiso + alcance).
+const canToggle = (u: Usuario) => (u.activo ? (u.can?.desactivar ?? props.can.desactivar) && !isSelf(u) : (u.can?.reactivar ?? props.can.reactivar))
 
 const confirm = reactive({ open: false, target: null as Usuario | null, loading: false, error: null as string | null })
 function askToggle(u: Usuario) {
@@ -145,7 +147,7 @@ const initials = (name: string) =>
             </div>
 
             <!-- Filtros -->
-            <section class="ui-card p-4 sm:p-5" aria-label="Filtros">
+            <section data-tour="usuarios-filtros" class="ui-card p-4 sm:p-5" aria-label="Filtros">
                 <div class="grid grid-cols-1 gap-3 md:grid-cols-12">
                     <div class="md:col-span-7">
                         <label for="usr-q" class="ui-label">Buscar</label>
@@ -190,7 +192,7 @@ const initials = (name: string) =>
             </section>
 
             <!-- Listado -->
-            <section class="ui-card overflow-hidden transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading">
+            <section data-tour="usuarios-lista" class="ui-card overflow-hidden transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading">
                 <div v-if="users.data.length === 0" class="flex flex-col items-center gap-3 p-10 text-center">
                     <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-zinc-400">
                         <UserCog class="h-6 w-6" aria-hidden="true" />

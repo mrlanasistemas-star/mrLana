@@ -26,7 +26,12 @@ const ymd = (v: unknown): string => (typeof v === 'string' ? v.slice(0, 10) : ''
  * vuelve a validar todas las reglas al guardar.
  */
 export function useRequisicionCreate(catalogos: Catalogos, plantilla: Plantilla = null, today = '') {
-    const solicitanteFijo = computed(() => catalogos.solicitante_fijo === true)
+    // Reglas de captura del servidor (CaptureContext). Los catálogos ya llegan
+    // limitados a lo que la persona puede elegir; el servidor vuelve a validar.
+    const captura = catalogos.captura ?? null
+    const solicitanteFijo = computed(() => captura?.solicitante_fijo ?? catalogos.solicitante_fijo === true)
+    const sucursalFija = computed(() => captura?.sucursal_fija ?? solicitanteFijo.value)
+    const corporativoFijo = computed(() => captura?.corporativo_fijo ?? solicitanteFijo.value)
 
     const saving = ref(false)
     const showError = ref(false)
@@ -91,27 +96,56 @@ export function useRequisicionCreate(catalogos: Catalogos, plantilla: Plantilla 
     }
     loadFromPlantilla()
 
-    // Sin "ver todas las requisiciones": solicitante, sucursal y corporativo del colaborador vinculado.
-    const empleadoPropio = solicitanteFijo.value ? (catalogos.empleados ?? [])[0] ?? null : null
-    if (empleadoPropio) {
-        state.solicitante_id = empleadoPropio.id
-        state.sucursal_id = empleadoPropio.sucursal_id
-        const sucursal = (catalogos.sucursales ?? []).find((s) => Number(s.id) === Number(empleadoPropio.sucursal_id))
-        if (sucursal) {
-            state.corporativo_id = sucursal.corporativo_id
-            state.comprador_corp_id = sucursal.corporativo_id
+    // Valores predeterminados: el colaborador de la cuenta, su sucursal y su corporativo.
+    const propio = captura?.propio ?? null
+    const sucursalesCatalogo = (catalogos.sucursales ?? []).filter((s) => s.activo !== false)
+    const enCatalogo = (id: unknown) => sucursalesCatalogo.some((s) => Number(s.id) === Number(id))
+    if (propio) {
+        if (solicitanteFijo.value || !state.solicitante_id) state.solicitante_id = propio.solicitante_id
+        if (sucursalFija.value || (!state.sucursal_id && enCatalogo(propio.sucursal_id))) {
+            state.sucursal_id = propio.sucursal_id ?? ''
+            state.corporativo_id = propio.corporativo_id ?? ''
+            state.comprador_corp_id = propio.corporativo_id ?? ''
+        } else if (corporativoFijo.value && !state.corporativo_id) {
+            state.corporativo_id = propio.corporativo_id ?? ''
+            state.comprador_corp_id = propio.corporativo_id ?? ''
+        }
+    } else if (!captura && solicitanteFijo.value) {
+        // Compatibilidad: sin datos de captura se usa el único colaborador permitido.
+        const e = (catalogos.empleados ?? [])[0]
+        const s = e ? sucursalesCatalogo.find((x) => Number(x.id) === Number(e.sucursal_id)) : null
+        if (e) state.solicitante_id = e.id
+        if (s) {
+            state.sucursal_id = s.id
+            state.corporativo_id = s.corporativo_id
+            state.comprador_corp_id = s.corporativo_id
         }
     }
 
-    const corporativosActive = computed(() => {
-        const list = (catalogos.corporativos ?? []).filter((c) => c.activo !== false)
-        return solicitanteFijo.value ? list.filter((c) => Number(c.id) === Number(state.corporativo_id || 0)) : list
+    const corporativosActive = computed(() => (catalogos.corporativos ?? []).filter((c) => c.activo !== false))
+    const sucursalesActive = computed(() => sucursalesCatalogo)
+
+    /**
+     * Si cambia el solicitante a alguien de otra sucursal no se cambia nada en
+     * silencio: se ofrece "Usar datos del solicitante" cuando esa sucursal se
+     * puede elegir.
+     */
+    const sugerenciaSolicitante = computed(() => {
+        if (solicitanteFijo.value || sucursalFija.value) return null
+        const e = (catalogos.empleados ?? []).find((x) => Number(x.id) === Number(state.solicitante_id || 0))
+        if (!e || !e.sucursal_id || Number(e.sucursal_id) === Number(state.sucursal_id || 0)) return null
+        const s = sucursalesCatalogo.find((x) => Number(x.id) === Number(e.sucursal_id))
+        if (!s) return null
+        const corp = (catalogos.corporativos ?? []).find((c) => Number(c.id) === Number(s.corporativo_id))
+        return { sucursal: s, corporativo: corp ?? null }
     })
 
-    const sucursalesActive = computed(() => {
-        const list = (catalogos.sucursales ?? []).filter((s) => s.activo !== false)
-        return solicitanteFijo.value ? list.filter((s) => Number(s.id) === Number(state.sucursal_id || 0)) : list
-    })
+    function usarDatosSolicitante() {
+        const sug = sugerenciaSolicitante.value
+        if (!sug) return
+        state.corporativo_id = sug.sucursal.corporativo_id
+        state.sucursal_id = sug.sucursal.id
+    }
 
     const empleadosActive = computed(() => (catalogos.empleados ?? []).filter((e) => e.activo !== false))
     const conceptosActive = computed(() => (catalogos.conceptos ?? []).filter((c) => c.activo !== false))
@@ -311,6 +345,10 @@ export function useRequisicionCreate(catalogos: Catalogos, plantilla: Plantilla 
         sendRequi: () => submit('ENVIAR'),
         money,
         solicitanteFijo,
+        sucursalFija,
+        corporativoFijo,
+        sugerenciaSolicitante,
+        usarDatosSolicitante,
         saving,
         errorFor,
     }

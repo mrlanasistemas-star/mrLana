@@ -25,8 +25,9 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   })
 
   const canDelete = computed(() => serverCan.value.eliminar)
-  const canDeleteComprobante = (_c: ComprobanteRow) => serverCan.value.eliminar
-  const canUseFoliosPanel = computed(() => can('comprobaciones.revisar') || can('comprobaciones.administrar_folios'))
+  // El servidor indica por comprobante si se puede eliminar (propios aún no aprobados o cualquiera).
+  const canDeleteComprobante = (c: ComprobanteRow) => c.can_delete ?? serverCan.value.eliminar
+  const canUseFoliosPanel = computed(() => serverCan.value.revisar || can('comprobaciones.administrar_folios'))
   const canEditFolio = computed(() => serverCan.value.administrar_folios)
   const canNotify = computed(() => serverCan.value.subir)
     const canSendNotification = computed(() => canNotify.value && pendientePorCargarCents.value <= 0)
@@ -443,7 +444,7 @@ const canUploadMore = computed(() => {
   }
 
   const approve = async (id: number) => {
-    if (!canReview.value) {
+    if (!canReview.value || serverCan.value.aceptar === false) {
         Swal.fire({ icon: 'warning', title: 'Sin permisos', text: 'Tu rol no puede aprobar/rechazar comprobantes.' })
         return
     }
@@ -471,7 +472,7 @@ const canUploadMore = computed(() => {
     }
 
   const reject = async (id: number) => {
-    if (!canReview.value) {
+    if (!canReview.value || serverCan.value.rechazar === false) {
       Swal.fire({ icon: 'warning', title: 'Sin permisos', text: 'Tu rol no puede aprobar/rechazar comprobantes.' })
       return
     }

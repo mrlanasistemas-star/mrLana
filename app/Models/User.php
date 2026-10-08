@@ -5,6 +5,7 @@
 namespace App\Models;
 
 use App\Notifications\ResetPasswordNotification;
+use App\Support\Permissions\AccessScope;
 use App\Support\Permissions\PermissionCatalog;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Builder;
@@ -201,5 +202,36 @@ class User extends Authenticatable
     public function foliosRegistrados()
     {
         return $this->hasMany(Folio::class, 'user_registro_id');
+    }
+
+    /* =========================================================
+     | ALCANCE (AccessScope)
+     =========================================================*/
+
+    /**
+     * Cuentas que el usuario puede administrar: las de colaboradores de su
+     * sucursal o corporativo, o todas (incluidas las que no tienen
+     * colaborador, que solo se ven con "Ver todos los usuarios").
+     */
+    public function scopeVisibleTo($query, User $user)
+    {
+        return AccessScope::apply($query, $user, 'usuarios', [
+            'own' => fn ($q) => $q->where('users.id', $user->id),
+            'sucursal' => fn ($q, int $id) => $q->whereIn('users.empleado_id', Empleado::query()->select('id')->where('sucursal_id', $id)),
+            'corporativo' => fn ($q, int $id) => $q->whereIn('users.empleado_id', Empleado::query()->select('id')->whereIn('sucursal_id', AccessScope::sucursalesOf($id))),
+        ]);
+    }
+
+    public function isVisibleTo(User $viewer): bool
+    {
+        $this->loadMissing('empleado.sucursal');
+
+        return AccessScope::contains(
+            $viewer,
+            'usuarios',
+            $this->is($viewer),
+            $this->empleado?->sucursal_id ? (int) $this->empleado->sucursal_id : null,
+            $this->empleado?->sucursal?->corporativo_id ? (int) $this->empleado->sucursal->corporativo_id : null,
+        );
     }
 }

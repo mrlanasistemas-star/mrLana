@@ -139,7 +139,7 @@ const navItem = (on: boolean) => [
         <template #header>Notificaciones</template>
 
         <div class="w-full min-w-0 space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-            <section class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <section data-tour="notificaciones-encabezado" class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div class="flex min-w-0 items-center gap-3">
                     <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-accent/10 text-brand-accent">
                         <Bell class="h-5 w-5" aria-hidden="true" />
@@ -204,7 +204,7 @@ const navItem = (on: boolean) => [
                 </aside>
 
                 <!-- Lista -->
-                <section class="ui-card min-w-0 overflow-hidden transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading">
+                <section data-tour="notificaciones-lista" class="ui-card min-w-0 overflow-hidden transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading">
                     <div v-if="loading" class="flex items-center gap-2 border-b border-slate-100 px-5 py-2 text-xs text-slate-500 dark:border-white/[0.06] dark:text-zinc-400" role="status">
                         <Loader2 class="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Cargando…
                     </div>

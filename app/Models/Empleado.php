@@ -1,10 +1,13 @@
-<?php // app/Models/Empleado.php
+<?php
+
+// app/Models/Empleado.php
 
 namespace App\Models;
 
+use App\Support\Permissions\AccessScope;
+use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\LogsActivity;
 
 /**
  * Class Empleado
@@ -24,7 +27,6 @@ use App\Traits\LogsActivity;
  */
 class Empleado extends Model
 {
-
     use HasFactory, LogsActivity;
 
     // Protección contra asignación masiva.
@@ -70,4 +72,26 @@ class Empleado extends Model
         return $this->hasMany(Requisicion::class, 'solicitante_id');
     }
 
+    /* ============================
+     * Alcance (AccessScope): mi registro, mi sucursal, mi corporativo o todos
+     * ============================ */
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        return AccessScope::apply($query, $user, 'colaboradores', [
+            'own' => fn ($q) => $q->where('empleados.id', $user->empleado_id ?? 0),
+            'sucursal' => 'empleados.sucursal_id',
+        ]);
+    }
+
+    public function isVisibleTo(User $user): bool
+    {
+        return AccessScope::contains(
+            $user,
+            'colaboradores',
+            $user->empleado_id !== null && (int) $this->id === (int) $user->empleado_id,
+            $this->sucursal_id ? (int) $this->sucursal_id : null,
+            fn () => Sucursal::query()->whereKey($this->sucursal_id)->value('corporativo_id'),
+        );
+    }
 }

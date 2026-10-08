@@ -22,7 +22,10 @@ use App\Models\User;
 use App\Rules\ActiveProveedor;
 use App\Services\Notifications\NotificationService;
 use App\Services\Pdf\PdfService;
+use App\Services\Requisiciones\CaptureContext;
 use App\Support\BusinessDate;
+use App\Support\Permissions\AccessScope;
+use App\Support\Permissions\Scope;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,7 +50,8 @@ class RequisicionController extends Controller
     public function index(RequisicionIndexRequest $request): Response
     {
         $user = $request->user();
-        $verTodos = $user->can('requisiciones.ver_todos');
+        // Quien ve más allá de lo propio no necesita borradores ajenos en "Activas".
+        $verTodos = AccessScope::for($user, 'requisiciones')->value > Scope::Own->value;
 
         $v = $request->validated();
         $raw = array_merge($request->query(), $v);
@@ -183,7 +187,7 @@ class RequisicionController extends Controller
 
         return Inertia::render('Requisiciones/Index', [
             'requisiciones' => RequisicionResource::collection($requisiciones),
-            'catalogos' => $this->catalogos($user),
+            'catalogos' => $this->filterCatalogos($user),
             'filters' => [
                 'tab' => $tab,
                 'q' => $q,
@@ -346,13 +350,13 @@ class RequisicionController extends Controller
                 'fecha_resolucion' => optional($s->fecha_resolucion)->toISOString(),
                 'can' => [
                     'revisar' => $s->estatus === RequisicionEliminacionSolicitud::PENDIENTE
-                        && $user->can('requisiciones.autorizar_eliminacion'),
+                        && $user->can('reviewDeletion', $requisicion),
                     'cancelar' => $s->estatus === RequisicionEliminacionSolicitud::PENDIENTE
-                        && ((int) $s->solicitado_por_id === (int) $user->id || $user->can('requisiciones.autorizar_eliminacion')),
+                        && ((int) $s->solicitado_por_id === (int) $user->id || $user->can('reviewDeletion', $requisicion)),
                 ],
             ])->values(),
             'pdf' => [
-                'can_print' => true,
+                'can_print' => $user->can('print', $requisicion),
                 'print_url' => route('requisiciones.print', $requisicion->id),
                 'filename' => ($requisicion->folio ?? 'requisicion').'.pdf',
                 'files' => $pagosFiles,
@@ -362,7 +366,7 @@ class RequisicionController extends Controller
 
     public function pdf(Request $request, Requisicion $requisicion, PdfService $pdf)
     {
-        $this->authorize('view', $requisicion);
+        $this->authorize('print', $requisicion);
 
         $requisicion->load([
             'sucursal:id,nombre,codigo,corporativo_id',
@@ -405,8 +409,26 @@ class RequisicionController extends Controller
             }
         }
 
+        // Una plantilla no puede imponer solicitante, sucursal, corporativo o
+        // proveedor que la persona no puede elegir: se sustituyen por sus
+        // valores permitidos (y el servidor vuelve a validar al guardar).
+        $capture = CaptureContext::for($user);
+        if ($plantilla) {
+            $plantilla = $plantilla->toArray();
+            if ($capture->solicitanteFijo()) {
+                $plantilla['solicitante_id'] = $capture->empleado?->id;
+            }
+            if ($capture->sucursalFija() || ! $capture->sucursales()->whereKey((int) ($plantilla['sucursal_id'] ?? 0))->exists()) {
+                $plantilla['sucursal_id'] = $capture->sucursalFija() ? $capture->sucursalId : null;
+                $plantilla['comprador_corp_id'] = $capture->sucursalFija() ? $capture->corporativoId : null;
+            }
+            if (! $capture->proveedores()->whereKey((int) ($plantilla['proveedor_id'] ?? 0))->exists()) {
+                $plantilla['proveedor_id'] = null;
+            }
+        }
+
         return Inertia::render('Requisiciones/Create', [
-            'catalogos' => $this->catalogos($user),
+            'catalogos' => $this->captureCatalogos($capture),
             'plantilla' => $plantilla,
             'today' => BusinessDate::todayString(),
         ]);
@@ -473,14 +495,8 @@ class RequisicionController extends Controller
         $data = $request->validated();
         unset($data['accion']);
 
-        // Sin "ver todas", el solicitante siempre es el colaborador vinculado a la cuenta.
-        if (! $user->can('requisiciones.ver_todos')) {
-            if (! $user->empleado_id) {
-                return back()->withErrors(['solicitante_id' => 'Tu usuario no está vinculado a un colaborador. Pide a un administrador que lo vincule.']);
-            }
-            $data['solicitante_id'] = (int) $user->empleado_id;
-        }
-
+        // Solicitante, sucursal, corporativo y proveedor según los permisos de captura.
+        $data = CaptureContext::for($user)->enforce($data);
         $data = $this->assertCatalogosActivos($data);
 
         $detalles = $data['detalles'];
@@ -500,9 +516,10 @@ class RequisicionController extends Controller
         $data['monto_subtotal'] = $montoSubtotal;
         $data['monto_total'] = $montoTotal;
 
-        $requisicion = DB::transaction(function () use ($data, $cleanDetalles) {
+        $requisicion = DB::transaction(function () use ($data, $cleanDetalles, $user) {
             $req = Requisicion::create($data);
             $req->detalles()->createMany($cleanDetalles);
+            $this->logCapturaANombre($req, $user);
 
             return $req;
         });
@@ -525,10 +542,7 @@ class RequisicionController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        if (! $user->can('requisiciones.ver_todos')) {
-            $data['solicitante_id'] = (int) $requisicion->solicitante_id;
-        }
-
+        $data = CaptureContext::for($user)->enforce($data, $requisicion->only(['solicitante_id', 'sucursal_id', 'comprador_corp_id', 'proveedor_id']));
         $data = $this->assertCatalogosActivos($data);
 
         $detalles = $data['detalles'];
@@ -565,11 +579,15 @@ class RequisicionController extends Controller
     {
         $ids = $request->validated()['ids'];
 
+        $user = $request->user();
         $updated = Requisicion::query()
-            ->visibleTo($request->user())
+            ->visibleTo($user)
             ->whereIn('id', $ids)
             ->where('status', '!=', 'ELIMINADA')
-            ->updateEach(['status' => 'ELIMINADA']);
+            ->get()
+            ->filter(fn (Requisicion $r) => $user->can('delete', $r))
+            ->each(fn (Requisicion $r) => $r->forceFill(['status' => 'ELIMINADA'])->save())
+            ->count();
 
         return redirect()->route('requisiciones.index')->with('success', $updated === 1
             ? '1 requisición eliminada.'
@@ -605,10 +623,13 @@ class RequisicionController extends Controller
             ],
             'ajustes' => $requisicion->ajustes->map(fn (Ajuste $a) => self::ajusteToArray($a) + [
                 'can' => [
-                    'revisar' => $a->estatus === Ajuste::ESTATUS_PENDIENTE && $user->can('ajustes.revisar'),
-                    'aplicar' => $a->estatus === Ajuste::ESTATUS_APROBADO && $user->can('ajustes.aplicar'),
+                    'revisar' => $a->estatus === Ajuste::ESTATUS_PENDIENTE
+                        && ($user->can('approveAdjustment', $requisicion) || $user->can('rejectAdjustment', $requisicion)),
+                    'aprobar' => $a->estatus === Ajuste::ESTATUS_PENDIENTE && $user->can('approveAdjustment', $requisicion),
+                    'rechazar' => $a->estatus === Ajuste::ESTATUS_PENDIENTE && $user->can('rejectAdjustment', $requisicion),
+                    'aplicar' => $a->estatus === Ajuste::ESTATUS_APROBADO && $user->can('applyAdjustment', $requisicion),
                     'cancelar' => $a->estatus === Ajuste::ESTATUS_PENDIENTE
-                        && ((int) $a->user_registro_id === (int) $user->id || $user->can('ajustes.revisar')),
+                        && ((int) $a->user_registro_id === (int) $user->id || $user->can('approveAdjustment', $requisicion) || $user->can('rejectAdjustment', $requisicion)),
                 ],
             ])->values(),
             'can' => [
@@ -663,6 +684,8 @@ class RequisicionController extends Controller
             'registrar_pago' => $user->can('registerPayment', $r),
             'ver_comprobaciones' => $user->can('viewComprobaciones', $r),
             'subir_comprobante' => $user->can('uploadComprobante', $r),
+            'rechazar_pago' => $user->can('rejectPayment', $r),
+            'imprimir' => $user->can('print', $r),
         ];
     }
 
@@ -681,6 +704,7 @@ class RequisicionController extends Controller
             severity: 'info',
             url: route('requisiciones.show', $requisicion->id, false),
             actor: $actor,
+            canSee: fn (User $u) => $u->can('view', $requisicion),
         );
 
         $to = config('erp.requisicion_notify_to', []);
@@ -726,55 +750,80 @@ class RequisicionController extends Controller
         return $data;
     }
 
-    private function catalogos(User $user): array
+    /** Catálogos del formulario de captura (solo lo que la persona puede elegir). */
+    private function captureCatalogos(CaptureContext $capture): array
     {
-        $verTodos = $user->can('requisiciones.ver_todos');
+        return $capture->catalogos() + [
+            'conceptos' => Concepto::select('id', 'nombre', 'activo')->where('activo', true)->orderBy('nombre')->get(),
+        ];
+    }
 
-        $corporativos = Corporativo::select('id', 'nombre', 'activo')
-            ->where('activo', true)
-            ->orderBy('nombre')
-            ->get();
+    /**
+     * Opciones de filtro del listado limitadas al alcance: solo corporativos,
+     * sucursales, solicitantes y proveedores que aparecen en requisiciones
+     * visibles (con alcance global, los catálogos activos).
+     */
+    private function filterCatalogos(User $user): array
+    {
+        $scope = AccessScope::for($user, 'requisiciones');
+        $visible = Requisicion::query()->visibleTo($user);
 
-        $sucursales = Sucursal::select('id', 'nombre', 'codigo', 'corporativo_id', 'activo')
-            ->where('activo', true)
-            ->orderBy('nombre')
-            ->get();
-
-        $conceptos = Concepto::select('id', 'nombre', 'activo')
-            ->where('activo', true)
-            ->orderBy('nombre')
-            ->get();
-
-        $proveedores = Proveedor::select('id', 'razon_social', 'rfc', 'clabe', 'banco', 'status')
-            ->where('status', 'ACTIVO')
-            ->when(! $user->can('proveedores.ver_todos'), fn ($q) => $q->where('user_duenio_id', $user->id))
-            ->orderBy('razon_social')
-            ->limit(1000)
-            ->get();
-
-        $empleadosQ = Empleado::select('id', 'nombre', 'apellido_paterno', 'apellido_materno', 'sucursal_id', 'activo')
-            ->where('activo', true)
-            ->orderBy('nombre');
-
-        if (! $verTodos) {
-            $empleadosQ->where('id', (int) $user->empleado_id);
+        $corporativos = Corporativo::select('id', 'nombre', 'activo')->orderBy('nombre');
+        $sucursales = Sucursal::select('id', 'nombre', 'codigo', 'corporativo_id', 'activo')->orderBy('nombre');
+        if ($scope === Scope::Global) {
+            $corporativos->where('activo', true);
+            $sucursales->where('activo', true);
+        } else {
+            $corporativos->whereIn('id', (clone $visible)->select('comprador_corp_id'));
+            $sucursales->whereIn('id', (clone $visible)->select('sucursal_id'));
         }
 
-        $empleados = $empleadosQ->get()->map(fn ($e) => [
-            'id' => $e->id,
-            'nombre' => trim($e->nombre.' '.$e->apellido_paterno.' '.($e->apellido_materno ?? '')),
-            'sucursal_id' => $e->sucursal_id,
-            'activo' => $e->activo,
-        ]);
+        $empleados = Empleado::query()
+            ->whereIn('id', (clone $visible)->select('solicitante_id'))
+            ->orderBy('nombre')
+            ->get(['id', 'nombre', 'apellido_paterno', 'apellido_materno', 'sucursal_id', 'activo'])
+            ->map(fn ($e) => [
+                'id' => $e->id,
+                'nombre' => trim($e->nombre.' '.$e->apellido_paterno.' '.($e->apellido_materno ?? '')),
+                'sucursal_id' => $e->sucursal_id,
+                'activo' => $e->activo,
+            ]);
 
         return [
-            'corporativos' => $corporativos,
-            'sucursales' => $sucursales,
+            'corporativos' => $corporativos->get(),
+            'sucursales' => $sucursales->get(),
             'empleados' => $empleados,
-            'conceptos' => $conceptos,
-            'proveedores' => $proveedores,
-            'solicitante_fijo' => ! $verTodos,
+            'conceptos' => Concepto::select('id', 'nombre', 'activo')->where('activo', true)->orderBy('nombre')->get(),
+            'proveedores' => Proveedor::select('id', 'razon_social', 'rfc', 'clabe', 'banco', 'status')
+                ->whereIn('id', (clone $visible)->select('proveedor_id'))
+                ->orderBy('razon_social')->limit(1000)->get(),
+            'solicitante_fijo' => $scope === Scope::Own,
         ];
+    }
+
+    /**
+     * Bitácora explícita cuando alguien captura a nombre de otro colaborador:
+     * quién capturó, para quién, en qué sucursal y corporativo.
+     */
+    private function logCapturaANombre(Requisicion $req, User $user): void
+    {
+        if ((int) $req->solicitante_id === (int) $user->empleado_id) {
+            return;
+        }
+
+        $req->loadMissing(['solicitante:id,nombre,apellido_paterno', 'sucursal:id,nombre', 'comprador:id,nombre']);
+        $solicitante = trim(($req->solicitante?->nombre ?? '').' '.($req->solicitante?->apellido_paterno ?? ''));
+
+        $req->auditLog(
+            'CAPTURA_A_NOMBRE',
+            "{$user->name} capturó {$req->folio} a nombre de {$solicitante} (sucursal {$req->sucursal?->nombre}, corporativo {$req->comprador?->nombre}).",
+            [
+                'capturo_user_id' => [null, $user->id],
+                'solicitante_id' => [null, $req->solicitante_id],
+                'sucursal_id' => [null, $req->sucursal_id],
+                'comprador_corp_id' => [null, $req->comprador_corp_id],
+            ],
+        );
     }
 
     private function makeFolio(): string

@@ -6,10 +6,10 @@ use App\Http\Requests\Plantilla\PlantillaStoreRequest;
 use App\Http\Requests\Plantilla\PlantillaUpdateRequest;
 use App\Models\Concepto;
 use App\Models\Corporativo;
-use App\Models\Empleado;
 use App\Models\Plantilla;
 use App\Models\Proveedor;
 use App\Models\Sucursal;
+use App\Services\Requisiciones\CaptureContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -66,9 +66,13 @@ class PlantillaController extends Controller
         $paginator = $query->paginate($filters['perPage'])->withQueryString();
 
         // data
-        $data = $paginator->getCollection()->map(function (Plantilla $p) {
+        $data = $paginator->getCollection()->map(function (Plantilla $p) use ($user) {
             return [
                 'id' => $p->id,
+                'can' => [
+                    'editar' => $user->can('update', $p),
+                    'eliminar' => $user->can('delete', $p),
+                ],
                 'nombre' => $p->nombre,
                 'status' => $p->status,
                 'monto_subtotal' => (string) $p->monto_subtotal,
@@ -149,8 +153,8 @@ class PlantillaController extends Controller
             'filters' => $filters,
             'can' => [
                 'registrar' => $user->can('plantillas.registrar'),
-                'editar' => $user->can('plantillas.editar'),
-                'eliminar' => $user->can('plantillas.eliminar'),
+                'editar' => $user->canAny(['plantillas.editar', 'plantillas.editar_cualquiera']),
+                'eliminar' => $user->canAny(['plantillas.eliminar', 'plantillas.eliminar_cualquiera']),
                 'usar' => $user->can('requisiciones.registrar'),
             ],
         ]);
@@ -162,7 +166,7 @@ class PlantillaController extends Controller
     public function create(Request $request): Response
     {
         return Inertia::render('Plantillas/Create', [
-            'catalogos' => $this->catalogos(),
+            'catalogos' => $this->catalogos($request->user()),
         ]);
     }
 
@@ -177,16 +181,9 @@ class PlantillaController extends Controller
         $detalles = $data['detalles'] ?? [];
         unset($data['detalles']);
 
-        // Deducir comprador_corp_id desde sucursal si no viene
-        if (! empty($data['sucursal_id']) && empty($data['comprador_corp_id'])) {
-            $sucursal = Sucursal::select('id', 'corporativo_id')->find($data['sucursal_id']);
-            $data['comprador_corp_id'] = $sucursal?->corporativo_id;
-        }
-
-        // Sin "ver todas las requisiciones" el solicitante es el colaborador de la cuenta.
-        if (! $user->can('requisiciones.ver_todos')) {
-            $data['solicitante_id'] = $user->empleado_id;
-        }
+        // Mismas reglas de captura que una requisición nueva: una plantilla no
+        // puede usarse para evadir solicitante, sucursal, corporativo o proveedor.
+        $data = CaptureContext::for($user)->enforce($data);
 
         $data['user_id'] = $user->id;
         $data['status'] = 'BORRADOR';
@@ -213,12 +210,12 @@ class PlantillaController extends Controller
 
         return Inertia::render('Plantillas/Edit', [
             'plantilla' => $this->formatPlantillaForForm($plantilla),
-            'catalogos' => $this->catalogos(),
+            'catalogos' => $this->catalogos($request->user()),
             'routes' => [
                 'index' => route('plantillas.index'),
                 'update' => route('plantillas.update', $plantilla),
             ],
-            'ui' => ['solicitante_fijo' => ! $request->user()->can('requisiciones.ver_todos')],
+            'ui' => ['solicitante_fijo' => CaptureContext::for($request->user())->solicitanteFijo()],
         ]);
     }
 
@@ -229,14 +226,13 @@ class PlantillaController extends Controller
     {
         $this->authorize('update', $plantilla);
 
-        $data = $request->validated();
+        $data = CaptureContext::for($request->user())->enforce(
+            $request->validated(),
+            $plantilla->only(['solicitante_id', 'sucursal_id', 'comprador_corp_id', 'proveedor_id']),
+            partial: true,
+        );
         $detalles = $data['detalles'] ?? [];
         unset($data['detalles']);
-
-        if (! empty($data['sucursal_id']) && empty($data['comprador_corp_id'])) {
-            $sucursal = Sucursal::select('id', 'corporativo_id')->find($data['sucursal_id']);
-            $data['comprador_corp_id'] = $sucursal?->corporativo_id;
-        }
 
         $plantilla->update($data);
 
@@ -285,56 +281,20 @@ class PlantillaController extends Controller
             ->with('success', 'Plantilla reactivada.');
     }
 
-    // Catálogos para Create/Edit.
-    private function catalogos(): array
+    /** Catálogos para Create/Edit: solo lo que la persona puede elegir al capturar. */
+    private function catalogos(\App\Models\User $user): array
     {
-        $user = auth()->user();
-
-        // Catálogos generales
-        $corporativos = Corporativo::select('id', 'nombre', 'activo')
-            ->orderBy('nombre')
-            ->get();
-
-        $sucursales = Sucursal::select('id', 'nombre', 'codigo', 'corporativo_id', 'activo')
-            ->orderBy('nombre')
-            ->get();
-
-        $conceptos = Concepto::select('id', 'nombre', 'activo')
-            ->orderBy('nombre')
-            ->get();
-
-        // Filtrar proveedores: administradores y contadores ven todos; colaboradores ven sólo los propios.
-        $proveedoresQuery = Proveedor::select('id', 'razon_social')
-            ->orderBy('razon_social');
-
-        if (! $user->can('proveedores.ver_todos')) {
-            $proveedoresQuery->where('user_duenio_id', $user->id);
-        }
-
-        $proveedores = $proveedoresQuery
-            ->limit(500)
-            ->get()
-            ->map(fn ($p) => ['id' => $p->id, 'nombre' => $p->razon_social])
-            ->values();
-
-        $empleados = Empleado::select('id', 'nombre', 'apellido_paterno', 'apellido_materno', 'sucursal_id', 'puesto', 'activo')
-            ->orderBy('nombre')
-            ->get()
-            ->map(fn ($e) => [
-                'id' => $e->id,
-                'nombre' => trim($e->nombre.' '.$e->apellido_paterno.' '.($e->apellido_materno ?? '')),
-                'sucursal_id' => $e->sucursal_id,
-                'puesto' => $e->puesto,
-                'activo' => $e->activo,
-            ])
-            ->values();
+        $capture = CaptureContext::for($user);
+        $base = $capture->catalogos();
 
         return [
-            'corporativos' => $corporativos,
-            'sucursales' => $sucursales,
-            'empleados' => $empleados,
-            'conceptos' => $conceptos,
-            'proveedores' => $proveedores,
+            'corporativos' => $base['corporativos'],
+            'sucursales' => $base['sucursales'],
+            'empleados' => $base['empleados'],
+            'conceptos' => Concepto::select('id', 'nombre', 'activo')->where('activo', true)->orderBy('nombre')->get(),
+            'proveedores' => $base['proveedores']->map(fn ($p) => ['id' => $p->id, 'nombre' => $p->razon_social])->values(),
+            'captura' => $base['captura'],
+            'solicitante_fijo' => $base['solicitante_fijo'],
         ];
     }
 

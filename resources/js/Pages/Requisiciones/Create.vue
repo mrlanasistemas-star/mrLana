@@ -1,7 +1,7 @@
 <!-- resources/js/Pages/Requisiciones/Create.vue -->
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3'
-import { Loader2, Plus, Save, Send, Trash2 } from 'lucide-vue-next'
+import { Lock, Loader2, Plus, Save, Send, Trash2, UserCheck } from 'lucide-vue-next'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
 import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
@@ -34,6 +34,10 @@ const {
   sendRequi,
   money,
   solicitanteFijo,
+  sucursalFija,
+  corporativoFijo,
+  sugerenciaSolicitante,
+  usarDatosSolicitante,
   saving,
   errorFor,
 } = useRequisicionCreate(props.catalogos, props.plantilla ?? null, props.today)
@@ -59,7 +63,7 @@ const inputClass =
 
     <div class="w-full min-w-0 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <form class="space-y-6" novalidate @submit.prevent>
-        <section class="space-y-4 rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:p-6" aria-labelledby="datos-generales">
+        <section class="space-y-4 rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:p-6" aria-labelledby="datos-generales" data-tour="requisicion-datos">
           <h3 id="datos-generales" class="text-base font-extrabold text-slate-900 dark:text-neutral-100">Datos generales</h3>
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -75,8 +79,12 @@ const inputClass =
                 rounded="2xl"
                 label-key="nombre"
                 value-key="id"
-                :button-class="solicitanteFijo ? lockedClass : ''"
+                :button-class="corporativoFijo ? lockedClass : ''"
+                :aria-disabled="corporativoFijo || undefined"
               />
+              <p v-if="corporativoFijo && !errorFor('comprador_corp_id')" class="mt-1 flex items-center gap-1 text-[11px] text-slate-500 dark:text-neutral-400">
+                <Lock class="h-3 w-3" aria-hidden="true" /> Corporativo de tu colaborador.
+              </p>
               <p v-if="errorFor('comprador_corp_id')" class="mt-1 text-xs text-rose-600 dark:text-rose-400" role="alert">{{ errorFor('comprador_corp_id') }}</p>
             </div>
 
@@ -92,9 +100,13 @@ const inputClass =
                 rounded="2xl"
                 label-key="nombre"
                 value-key="id"
-                :button-class="solicitanteFijo ? lockedClass : ''"
+                :button-class="sucursalFija ? lockedClass : ''"
+                :aria-disabled="sucursalFija || undefined"
               />
               <p v-if="errorFor('sucursal_id')" class="mt-1 text-xs text-rose-600 dark:text-rose-400" role="alert">{{ errorFor('sucursal_id') }}</p>
+              <p v-else-if="sucursalFija" class="mt-1 flex items-center gap-1 text-[11px] text-slate-500 dark:text-neutral-400">
+                <Lock class="h-3 w-3" aria-hidden="true" /> Sucursal de tu colaborador.
+              </p>
               <p v-else-if="!state.corporativo_id" class="mt-1 text-[11px] text-slate-500 dark:text-neutral-400">
                 Primero elige un corporativo para ver sus sucursales.
               </p>
@@ -103,6 +115,7 @@ const inputClass =
             <div>
               <SearchableSelect
                 id="solicitante"
+                data-tour="requisicion-solicitante"
                 v-model="state.solicitante_id"
                 :options="empleadosActive"
                 label="Solicitante"
@@ -113,12 +126,31 @@ const inputClass =
                 label-key="nombre"
                 value-key="id"
                 :button-class="solicitanteFijo ? lockedClass : ''"
+                :aria-disabled="solicitanteFijo || undefined"
               />
               <p v-if="errorFor('solicitante_id')" class="mt-1 text-xs text-rose-600 dark:text-rose-400" role="alert">{{ errorFor('solicitante_id') }}</p>
-              <p v-else-if="solicitanteFijo" class="mt-1 text-[11px] text-slate-500 dark:text-neutral-400">
-                El solicitante es el colaborador vinculado a tu cuenta.
+              <p v-else-if="solicitanteFijo" class="mt-1 flex items-center gap-1 text-[11px] text-slate-500 dark:text-neutral-400">
+                <Lock class="h-3 w-3" aria-hidden="true" /> El solicitante es el colaborador vinculado a tu cuenta.
               </p>
             </div>
+          </div>
+
+          <div
+            v-if="sugerenciaSolicitante"
+            class="flex flex-col gap-2 rounded-2xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-100 sm:flex-row sm:items-center sm:justify-between"
+            role="status"
+          >
+            <p class="min-w-0 break-words">
+              El solicitante pertenece a <strong>{{ sugerenciaSolicitante.sucursal.nombre }}</strong><template v-if="sugerenciaSolicitante.corporativo"> ({{ sugerenciaSolicitante.corporativo.nombre }})</template>.
+              La sucursal y el comprador no se cambian solos.
+            </p>
+            <button
+              type="button"
+              class="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-2 rounded-xl bg-sky-600 px-3 text-xs font-bold text-white transition hover:bg-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+              @click="usarDatosSolicitante"
+            >
+              <UserCheck class="h-4 w-4" aria-hidden="true" /> Usar datos del solicitante
+            </button>
           </div>
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -204,7 +236,7 @@ const inputClass =
           </div>
         </section>
 
-        <section class="space-y-4 rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:p-6" aria-labelledby="items-titulo">
+        <section class="space-y-4 rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:p-6" aria-labelledby="items-titulo" data-tour="requisicion-items">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h3 id="items-titulo" class="text-base font-extrabold text-slate-900 dark:text-neutral-100">Items de la requisición</h3>
             <button
@@ -279,7 +311,7 @@ const inputClass =
           </div>
         </section>
 
-        <div class="flex flex-col-reverse items-stretch justify-end gap-3 sm:flex-row sm:items-center">
+        <div class="flex flex-col-reverse items-stretch justify-end gap-3 sm:flex-row sm:items-center" data-tour="requisicion-enviar">
           <Link
             :href="route('requisiciones.index')"
             class="inline-flex min-h-[46px] items-center justify-center rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700
@@ -290,6 +322,7 @@ const inputClass =
           </Link>
 
           <button
+            v-if="can('requisiciones.guardar_borrador')"
             type="button"
             class="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-extrabold text-white transition
                    hover:bg-slate-800 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
@@ -301,6 +334,7 @@ const inputClass =
           </button>
 
           <button
+            v-if="can('requisiciones.enviar')"
             type="button"
             class="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-2xl bg-brand-button px-4 text-sm font-extrabold text-brand-button-fg transition
                    hover:bg-brand-button/90 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400

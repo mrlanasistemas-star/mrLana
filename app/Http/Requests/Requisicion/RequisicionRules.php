@@ -16,9 +16,10 @@ final class RequisicionRules
     public static function header(): array
     {
         return [
-            'solicitante_id' => ['required', 'integer', 'exists:empleados,id'],
-            'comprador_corp_id' => ['required', 'integer', 'exists:corporativos,id'],
-            'sucursal_id' => ['required', 'integer', 'exists:sucursals,id'],
+            // Obligatorios, pero los completa o rechaza CaptureContext según los permisos de captura.
+            'solicitante_id' => ['nullable', 'integer', 'exists:empleados,id'],
+            'comprador_corp_id' => ['nullable', 'integer', 'exists:corporativos,id'],
+            'sucursal_id' => ['nullable', 'integer', 'exists:sucursals,id'],
             'concepto_id' => ['required', 'integer', 'exists:conceptos,id'],
             'proveedor_id' => ['required', 'integer', new ActiveProveedor],
             'fecha_solicitud' => ['required', 'date_format:Y-m-d', new NotBeforeBusinessToday],

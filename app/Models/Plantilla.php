@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Permissions\AccessScope;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -32,15 +33,14 @@ class Plantilla extends Model
      */
     public function scopeVisibleTo($query, User $user)
     {
-        if ($user->can('plantillas.ver_todos')) {
-            return $query;
-        }
+        return AccessScope::apply($query, $user, 'plantillas', [
+            'own' => fn ($q) => $q->where('plantillas.user_id', $user->id),
+        ]);
+    }
 
-        if (! $user->can('plantillas.ver_propios')) {
-            return $query->whereRaw('1 = 0');
-        }
-
-        return $query->where('user_id', $user->id);
+    public function isVisibleTo(User $user): bool
+    {
+        return AccessScope::contains($user, 'plantillas', (int) $this->user_id === (int) $user->id);
     }
 
     /* ============================

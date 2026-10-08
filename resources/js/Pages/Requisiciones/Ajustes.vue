@@ -40,7 +40,7 @@ type Ajuste = {
     fecha_registro: string | null
     fecha_resolucion: string | null
     fecha_aplicacion: string | null
-    can: { revisar: boolean; aplicar: boolean; cancelar: boolean }
+    can: { revisar: boolean; aprobar?: boolean; rechazar?: boolean; aplicar: boolean; cancelar: boolean }
 }
 
 const props = defineProps<{
@@ -58,7 +58,7 @@ const props = defineProps<{
     today: string
 }>()
 
-const { can } = usePermissions()
+const { can, canView } = usePermissions()
 const MOTIVO_MAX = 2000
 
 /* ---------- Catálogos de presentación ---------- */
@@ -228,7 +228,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                             <p class="text-2xl font-black tabular-nums text-slate-900 dark:text-zinc-100 sm:text-3xl">{{ money(requisicion.monto_total) }}</p>
                         </div>
                         <Link
-                            v-if="can('comprobaciones.ver')"
+                            v-if="canView('comprobaciones')"
                             :href="route('requisiciones.comprobar', requisicion.id)"
                             class="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 text-sm font-semibold text-slate-700
                                    transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
@@ -417,8 +417,8 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                     </td>
                                     <td class="px-5 py-4">
                                         <div class="flex flex-col items-end gap-1.5">
-                                            <button v-if="a.can.revisar" type="button" class="action-btn bg-emerald-600 text-white hover:bg-emerald-700" @click="abrir('APROBAR', a)"><CheckCircle2 class="h-4 w-4" aria-hidden="true" /> Aprobar</button>
-                                            <button v-if="a.can.revisar" type="button" class="action-btn border border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10" @click="abrir('RECHAZAR', a)"><XCircle class="h-4 w-4" aria-hidden="true" /> Rechazar</button>
+                                            <button v-if="a.can.aprobar ?? a.can.revisar" type="button" class="action-btn bg-emerald-600 text-white hover:bg-emerald-700" @click="abrir('APROBAR', a)"><CheckCircle2 class="h-4 w-4" aria-hidden="true" /> Aprobar</button>
+                                            <button v-if="a.can.rechazar ?? a.can.revisar" type="button" class="action-btn border border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10" @click="abrir('RECHAZAR', a)"><XCircle class="h-4 w-4" aria-hidden="true" /> Rechazar</button>
                                             <button v-if="a.can.aplicar" type="button" class="action-btn bg-brand-button text-brand-button-fg hover:bg-brand-button/90" @click="abrir('APLICAR', a)"><PlayCircle class="h-4 w-4" aria-hidden="true" /> Aplicar</button>
                                             <button v-if="a.can.cancelar" type="button" class="action-btn border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5" @click="abrir('CANCELAR', a)"><Ban class="h-4 w-4" aria-hidden="true" /> Cancelar</button>
                                             <span v-if="!a.can.revisar && !a.can.aplicar && !a.can.cancelar" class="inline-flex items-center gap-1 text-xs text-slate-400"><BadgeCheck class="h-3.5 w-3.5" aria-hidden="true" /> Sin acciones</span>
@@ -456,8 +456,8 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                 <p v-if="a.aplicado_por">Aplicó {{ a.aplicado_por }} · {{ fechaCorta(a.fecha_aplicacion) }}</p>
                             </div>
                             <div v-if="a.can.revisar || a.can.aplicar || a.can.cancelar" class="grid grid-cols-2 gap-2">
-                                <button v-if="a.can.revisar" type="button" class="action-btn justify-center bg-emerald-600 text-white" @click="abrir('APROBAR', a)"><CheckCircle2 class="h-4 w-4" aria-hidden="true" /> Aprobar</button>
-                                <button v-if="a.can.revisar" type="button" class="action-btn justify-center border border-rose-200 text-rose-700 dark:border-rose-500/30 dark:text-rose-300" @click="abrir('RECHAZAR', a)"><XCircle class="h-4 w-4" aria-hidden="true" /> Rechazar</button>
+                                <button v-if="a.can.aprobar ?? a.can.revisar" type="button" class="action-btn justify-center bg-emerald-600 text-white" @click="abrir('APROBAR', a)"><CheckCircle2 class="h-4 w-4" aria-hidden="true" /> Aprobar</button>
+                                <button v-if="a.can.rechazar ?? a.can.revisar" type="button" class="action-btn justify-center border border-rose-200 text-rose-700 dark:border-rose-500/30 dark:text-rose-300" @click="abrir('RECHAZAR', a)"><XCircle class="h-4 w-4" aria-hidden="true" /> Rechazar</button>
                                 <button v-if="a.can.aplicar" type="button" class="action-btn col-span-2 justify-center bg-brand-button text-brand-button-fg" @click="abrir('APLICAR', a)"><PlayCircle class="h-4 w-4" aria-hidden="true" /> Aplicar al monto</button>
                                 <button v-if="a.can.cancelar" type="button" class="action-btn col-span-2 justify-center border border-slate-200 text-slate-600 dark:border-white/10 dark:text-zinc-300" @click="abrir('CANCELAR', a)"><Ban class="h-4 w-4" aria-hidden="true" /> Cancelar solicitud</button>
                             </div>

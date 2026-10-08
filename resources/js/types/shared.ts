@@ -34,10 +34,15 @@ export type FlashProps = {
     folio_updated_id?: number | null
 }
 
+/** Alcance de lectura de un módulo, resuelto en el servidor (AccessScope). */
+export type ScopeLevel = 'none' | 'own' | 'sucursal' | 'corporativo' | 'global'
+
 export type SharedProps = {
     auth: {
         user: AuthUser | null
         permissions: string[]
+        /** Alcance efectivo por módulo (requisiciones, pagos, dashboard…). */
+        scopes: Record<string, ScopeLevel>
     }
     notifications: { unread_count: number } | null
     appSettings: AppSettings

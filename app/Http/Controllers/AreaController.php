@@ -61,7 +61,9 @@ class AreaController extends Controller
         $activo = ($activo === '' || $activo === null) ? '1' : (string) $activo;
         $activo = in_array($activo, ['all', '1', '0'], true) ? $activo : '1'; // ✅ si viene basura => Activas
 
+        // Solo áreas dentro del alcance (mi área, mi corporativo o todas)
         $areasQuery = Area::query()
+            ->visibleTo($request->user())
             ->with(['corporativo:id,nombre,codigo,activo'])
             ->when($q !== '', function ($query) use ($q) {
                 $query->where('nombre', 'like', "%{$q}%");
@@ -95,7 +97,7 @@ class AreaController extends Controller
             ->withQueryString();
 
         // corporativos para filtros y modal (front decide: activos vs todos)
-        $corporativos = Corporativo::query()
+        $corporativos = $this->corporativosPermitidos($request->user())
             ->select(['id', 'nombre', 'codigo', 'activo'])
             ->orderBy('nombre')
             ->get();
@@ -132,6 +134,8 @@ class AreaController extends Controller
             'activo' => ['required', 'boolean'],
         ]);
 
+        $this->assertCorporativoPermitido($request, $data['corporativo_id'] ?? null);
+
         // Negocio: no crear bajo corporativo en baja
         if (! empty($data['corporativo_id'])) {
             $corp = Corporativo::query()
@@ -160,11 +164,16 @@ class AreaController extends Controller
      */
     public function update(Request $request, Area $area)
     {
+        $this->authorize('update', $area);
         $data = $request->validate([
             'corporativo_id' => ['nullable', 'integer', 'exists:corporativos,id'],
             'nombre' => ['required', 'string', 'max:150'],
             'activo' => ['required', 'boolean'],
         ]);
+
+        if ((int) ($data['corporativo_id'] ?? 0) !== (int) $area->corporativo_id) {
+            $this->assertCorporativoPermitido($request, $data['corporativo_id'] ?? null);
+        }
 
         // Negocio: no permitir asignar/actualizar con corporativo en baja
         if (! empty($data['corporativo_id'])) {
@@ -190,6 +199,7 @@ class AreaController extends Controller
      */
     public function destroy(Area $area)
     {
+        $this->authorize('delete', $area);
         if (! $area->activo) {
             return back()->with('success', 'El área ya se encontraba dada de baja.');
         }
@@ -210,6 +220,7 @@ class AreaController extends Controller
      */
     public function activate(Request $request, Area $area)
     {
+        $this->authorize('restore', $area);
         // Negocio: no permitir activar área bajo corporativo en baja
         $corp = Corporativo::query()
             ->select(['id', 'activo'])
@@ -218,6 +229,30 @@ class AreaController extends Controller
         $area->update(['activo' => true]);
 
         return back()->with('success', 'Área activada.');
+    }
+
+    /** Corporativos donde puede registrar o mover áreas: todos (global) o el propio. */
+    private function corporativosPermitidos(\App\Models\User $user)
+    {
+        $q = Corporativo::query();
+
+        return \App\Support\Permissions\AccessScope::for($user, 'areas') === \App\Support\Permissions\Scope::Global
+            ? $q
+            : $q->whereKey(\App\Support\Permissions\AccessScope::corporativoId($user) ?? 0);
+    }
+
+    /** Sin alcance global no se pueden crear áreas sin corporativo ni en otro corporativo. */
+    private function assertCorporativoPermitido(Request $request, mixed $corporativoId): void
+    {
+        $global = \App\Support\Permissions\AccessScope::for($request->user(), 'areas') === \App\Support\Permissions\Scope::Global;
+        if ($global) {
+            return;
+        }
+        if (empty($corporativoId) || ! $this->corporativosPermitidos($request->user())->whereKey((int) $corporativoId)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'corporativo_id' => 'Solo puedes registrar áreas en tu corporativo.',
+            ]);
+        }
     }
 
     // Metodo adicional para eliminación masiva
@@ -230,6 +265,7 @@ class AreaController extends Controller
 
         // Baja lógica (antes se borraban físicamente): conserva historial y relaciones.
         Area::query()
+            ->visibleTo($request->user())
             ->whereIn('id', $data['ids'])
             ->where('activo', true)
             ->updateEach(['activo' => false]);

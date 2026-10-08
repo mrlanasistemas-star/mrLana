@@ -32,7 +32,7 @@ class RoleController extends Controller
     {
         $roles = Role::query()
             ->where('guard_name', 'web')
-            ->withCount(['users', 'permissions'])
+            ->withCount(['users'])
             ->with(['notificationPreference', 'permissions:id,name'])
             ->orderBy('name')
             ->get()
@@ -42,7 +42,8 @@ class RoleController extends Controller
                 'descripcion' => $r->descripcion,
                 'users_count' => $r->users_count,
                 'active_users_count' => $r->users()->where('activo', true)->count(),
-                'permissions_count' => $r->permissions_count,
+                // Solo permisos vigentes: los legados ocultos no se cuentan.
+                'permissions_count' => $r->permissions->pluck('name')->intersect(PermissionCatalog::all())->count(),
                 'is_system' => $this->isSystem($r),
                 'is_admin' => $this->guard->roleGrantsAdministration($r->permissions->pluck('name')),
                 'receive_all' => (bool) $r->notificationPreference?->receive_all,
@@ -74,13 +75,13 @@ class RoleController extends Controller
     {
         $data = $request->validated();
 
-        $role = DB::transaction(function () use ($data) {
+        $role = DB::transaction(function () use ($data, $request) {
             $role = Role::create([
                 'name' => $data['name'],
                 'guard_name' => 'web',
                 'descripcion' => $data['descripcion'] ?? null,
             ]);
-            $role->syncPermissions($data['permissions'] ?? []);
+            $role->syncPermissions($request->normalizedPermissions());
             $role->notificationPreference()->create([
                 'receive_all' => (bool) $data['receive_all'],
                 'topics' => $data['receive_all'] ? [] : ($data['topics'] ?? []),
@@ -105,11 +106,8 @@ class RoleController extends Controller
             return back()->withErrors(['name' => 'Los roles iniciales del sistema no se pueden renombrar.']);
         }
 
-        $permissions = $isAdminRole ? PermissionCatalog::all() : ($data['permissions'] ?? []);
-
-        if ($isAdminRole && ! in_array('notificaciones.ver', $permissions, true)) {
-            $permissions[] = 'notificaciones.ver';
-        }
+        // Administrador conserva siempre todo el catálogo (actual y futuro).
+        $permissions = $isAdminRole ? PermissionCatalog::all() : $request->normalizedPermissions();
 
         $this->guard->assertCanChangeRolePermissions($role, $permissions);
 
@@ -163,14 +161,17 @@ class RoleController extends Controller
                 'id' => $role->id,
                 'name' => $role->name,
                 'descripcion' => $role->descripcion,
-                'permissions' => $role->permissions->pluck('name')->values(),
+                // Solo permisos vigentes; los legados ocultos nunca llegan a la interfaz.
+                'permissions' => $role->permissions->pluck('name')->intersect(PermissionCatalog::all())->values(),
                 'receive_all' => (bool) $role->notificationPreference?->receive_all,
                 'topics' => $role->notificationPreference?->topics ?? [],
                 'users_count' => $role->users()->count(),
+                'active_users_count' => $role->users()->where('activo', true)->count(),
                 'is_system' => $this->isSystem($role),
                 'is_admin_role' => $role->name === PermissionCatalog::ROLE_ADMIN,
             ] : null,
-            'modules' => PermissionCatalog::grouped(),
+            'modules' => PermissionCatalog::forUi(),
+            'scopeLevels' => collect(\App\Support\Permissions\Scope::cases())->map(fn ($s) => ['value' => $s->key(), 'label' => $s->label()])->values(),
             'topics' => NotificationTopic::options(),
             'adminPermissions' => PermissionCatalog::ADMIN_PERMISSIONS,
             'canEdit' => request()->user()->can($role ? 'roles.editar' : 'roles.registrar'),

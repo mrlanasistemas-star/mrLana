@@ -54,12 +54,12 @@ class ProveedorExportController extends Controller
         $owner = $request->integer('user_duenio_id');
         $sort = (string) $request->get('sort', 'created_at');
         $dir = strtolower((string) $request->get('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $isAdminLike = $request->user()->can('proveedores.ver_todos');
+        $isAdminLike = \App\Support\Permissions\AccessScope::for($request->user(), 'proveedores') === \App\Support\Permissions\Scope::Global;
         $query = Proveedor::query()
+            ->visibleTo($request->user())
             ->select(['id', 'user_duenio_id', 'razon_social', 'rfc', 'clabe', 'banco', 'status', 'created_at']);
         if (! $isAdminLike) {
-            $query->where('user_duenio_id', $request->user()->id)
-                ->where('status', 'ACTIVO');
+            $query->where('status', 'ACTIVO');
         }
         if ($isAdminLike && ! empty($owner)) {
             $query->where('user_duenio_id', (int) $owner);

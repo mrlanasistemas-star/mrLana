@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\NotificationTopic;
+use App\Models\User;
 use App\Support\SafeUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -12,8 +13,11 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Notificaciones internas del usuario autenticado (campana y centro).
- * Cada usuario solo puede ver y marcar sus propias notificaciones.
+ * Notificaciones internas.
+ * - index / recent / markAsRead / markAllAsRead: SOLO las del usuario
+ *   autenticado (campana y centro personal).
+ * - all: consulta administrativa de solo lectura ("Ver todas las
+ *   notificaciones"). Abrirlas desde ahí no cambia su estado de lectura.
  */
 class NotificationController extends Controller
 {
@@ -72,6 +76,45 @@ class NotificationController extends Controller
         return $request->expectsJson() && ! $request->header('X-Inertia')
             ? response()->json(['ok' => true, 'unread_count' => 0])
             : back()->with('success', 'Todas las notificaciones se marcaron como leídas.');
+    }
+
+    /**
+     * Consulta administrativa de todas las notificaciones (solo lectura).
+     */
+    public function all(Request $request): Response
+    {
+        $filter = in_array($request->query('estado'), ['leidas', 'no_leidas'], true) ? $request->query('estado') : 'todas';
+        $categoria = in_array($request->query('categoria'), NotificationTopic::values(), true) ? $request->query('categoria') : null;
+        $q = trim((string) $request->query('q', ''));
+        $userId = $request->integer('destinatario') ?: null;
+
+        $query = DatabaseNotification::query()
+            ->where('notifiable_type', (new User)->getMorphClass())
+            ->when($filter === 'no_leidas', fn ($w) => $w->whereNull('read_at'))
+            ->when($filter === 'leidas', fn ($w) => $w->whereNotNull('read_at'))
+            ->when($categoria, fn ($w, $c) => $w->where('data->category', $c))
+            ->when($userId, fn ($w, $id) => $w->where('notifiable_id', $id))
+            ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x
+                ->where('data->title', 'like', "%{$q}%")
+                ->orWhere('data->message', 'like', "%{$q}%")))
+            ->latest();
+
+        $page = $query->paginate(25)->withQueryString();
+        $recipients = User::query()->whereIn('id', $page->getCollection()->pluck('notifiable_id')->unique())
+            ->get(['id', 'name', 'email'])->keyBy('id');
+
+        $page->getCollection()->transform(fn (DatabaseNotification $n) => $this->present($n) + [
+            'recipient' => ($u = $recipients->get($n->notifiable_id)) ? ['id' => $u->id, 'name' => $u->name, 'email' => $u->email] : null,
+        ]);
+
+        return Inertia::render('Notificaciones/Todas', [
+            'notifications' => $page,
+            'filters' => ['estado' => $filter, 'categoria' => $categoria, 'q' => $q, 'destinatario' => $userId],
+            'categorias' => NotificationTopic::options(),
+            'destinatarios' => User::query()->whereIn('id', DatabaseNotification::query()
+                ->where('notifiable_type', (new User)->getMorphClass())->select('notifiable_id'))
+                ->orderBy('name')->get(['id', 'name as nombre']),
+        ]);
     }
 
     /** @return array<string, mixed> */

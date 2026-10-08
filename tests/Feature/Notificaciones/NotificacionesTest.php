@@ -69,7 +69,7 @@ class NotificacionesTest extends TestCase
 
     public function test_usuarios_inactivos_o_sin_permiso_de_ver_no_reciben(): void
     {
-        $this->roleWithPrefs('SinVer', true, [], ['dashboard.ver']);
+        $this->roleWithPrefs('SinVer', true, [], ['dashboard.personal']);
         $sinVer = User::factory()->withRole('SinVer')->create();
         $this->roleWithPrefs('Todo2', true, []);
         $inactivo = User::factory()->withRole('Todo2')->inactive()->create();

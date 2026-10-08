@@ -3,28 +3,49 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Services\Dashboard\DashboardProfile;
+use App\Services\Dashboard\DashboardDataService;
+use App\Services\Dashboard\DashboardView;
+use App\Support\Permissions\AccessScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class DashboardController extends Controller
 {
     /**
-     * Redirige al panel que corresponde a los permisos del usuario.
-     * Sin permiso de dashboard, lleva al primer módulo disponible.
+     * Dashboard con la vista elegida (?vista=personal|sucursal|corporativo|general).
+     * Sin vista se muestra la más amplia disponible. Pedir una vista no
+     * autorizada devuelve 403. Sin permiso de dashboard lleva al primer módulo.
      */
-    public function index(Request $request): RedirectResponse
+    public function index(Request $request, DashboardDataService $service): Response|RedirectResponse
     {
         $user = $request->user();
+        $available = DashboardView::availableFor($user);
 
-        if ($user->can('dashboard.ver')) {
-            return redirect()->route(DashboardProfile::forUser($user)->routeName(), $request->query());
+        if ($available === []) {
+            return AccessScope::for($user, 'requisiciones')->allows()
+                ? redirect()->route('requisiciones.index')
+                : redirect()->route('profile.edit');
         }
 
-        if ($user->canAny(['requisiciones.ver_todos', 'requisiciones.ver_propios'])) {
-            return redirect()->route('requisiciones.index');
-        }
+        $requested = $request->query('vista');
+        $view = $requested !== null ? DashboardView::tryFrom((string) $requested) : $available[0];
+        abort_unless($view !== null && in_array($view, $available, true), 403);
 
-        return redirect()->route('profile.edit');
+        $data = $service->build($view, $user, $request->query());
+
+        return Inertia::render('Dashboard/Index', [
+            'dashboard' => $data + [
+                'view' => $view->value,
+                'views' => array_map(fn (DashboardView $v) => [
+                    'value' => $v->value,
+                    'label' => $v->label(),
+                    'description' => $v->description(),
+                ], $available),
+                'canExport' => $user->can('reportes.dashboard'),
+                'scopeLabel' => $view->description(),
+            ],
+        ]);
     }
 }

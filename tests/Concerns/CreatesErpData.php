@@ -117,4 +117,71 @@ trait CreatesErpData
     {
         return Role::where('name', $name)->firstOrFail();
     }
+
+    /* ---------------------------------------------------------------
+     | Alcances: varios corporativos y roles con permisos exactos
+     --------------------------------------------------------------- */
+
+    protected Sucursal $sucursal2;
+
+    protected Corporativo $corporativoB;
+
+    protected Sucursal $sucursalB;
+
+    /** Corporativo A (con dos sucursales) y corporativo B (con una). */
+    protected function setUpOrganizacion(): void
+    {
+        $this->setUpCatalogos();
+        $this->sucursal2 = Sucursal::create(['corporativo_id' => $this->corporativo->id, 'nombre' => 'Norte', 'activo' => true]);
+        $this->corporativoB = Corporativo::create(['nombre' => 'Corporativo B', 'activo' => true]);
+        $this->sucursalB = Sucursal::create(['corporativo_id' => $this->corporativoB->id, 'nombre' => 'Sur B', 'activo' => true]);
+    }
+
+    /** Rol con exactamente estos permisos (los crea si faltan). */
+    protected function roleWith(array $permissions, ?string $name = null): Role
+    {
+        app(\App\Support\Permissions\RoleSynchronizer::class)->syncPermissions();
+        $role = Role::create(['name' => $name ?? 'Rol '.uniqid(), 'guard_name' => 'web']);
+        $role->syncPermissions($permissions);
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        return $role;
+    }
+
+    /** Usuario con un rol de permisos exactos y colaborador en la sucursal indicada. */
+    protected function userWith(array $permissions, ?Sucursal $sucursal = null, bool $withEmpleado = true): User
+    {
+        $role = $this->roleWith($permissions);
+        $empleado = $withEmpleado ? $this->makeEmpleado(['sucursal_id' => ($sucursal ?? $this->sucursal)->id, 'nombre' => 'Colab '.uniqid()]) : null;
+        $user = User::factory()->create(['empleado_id' => $empleado?->id]);
+        $user->assignRole($role);
+
+        return $user;
+    }
+
+    /** Requisición en una sucursal concreta (el comprador es su corporativo). */
+    protected function requisicionEn(Sucursal $sucursal, User $creator, array $attrs = []): Requisicion
+    {
+        return $this->makeRequisicion($creator, $attrs + [
+            'sucursal_id' => $sucursal->id,
+            'comprador_corp_id' => $sucursal->corporativo_id,
+        ]);
+    }
+
+    /** Texto de todas las celdas de un Excel descargado (para verificar el alcance exportado). */
+    protected function excelText(\Illuminate\Testing\TestResponse $response): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'xlsx');
+        copy($response->baseResponse->getFile()->getPathname(), $path);
+        $book = \PhpOffice\PhpSpreadsheet\IOFactory::load($path);
+        $text = '';
+        foreach ($book->getAllSheets() as $sheet) {
+            foreach ($sheet->toArray(null, true, false) as $row) {
+                $text .= implode('|', array_map(fn ($v) => (string) $v, $row))."\n";
+            }
+        }
+        @unlink($path);
+
+        return $text;
+    }
 }

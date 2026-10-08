@@ -13,7 +13,9 @@ class AjusteReviewRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('ajustes.revisar');
+        // El alcance sobre la requisición y la decisión concreta (aprobar o
+        // rechazar) se validan en el controlador con la policy.
+        return (bool) $this->user()?->canAny(['ajustes.autorizar', 'ajustes.rechazar']);
     }
 
     protected function prepareForValidation(): void

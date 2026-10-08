@@ -30,18 +30,18 @@ class DashboardFiltrosTest extends TestCase
         $this->makeRequisicion($colab, ['monto_total' => 500, 'concepto_id' => $otro->id]);
         $this->makeRequisicion($colab, ['monto_total' => 9999, 'status' => 'ELIMINADA']);
 
-        $this->actingAs($admin)->get(route('dashboard.admin'))
+        $this->actingAs($admin)->get(route('dashboard', ['vista' => 'general']))
             ->assertInertia(fn (AssertableInertia $p) => $p->component('Dashboard/Index', true)
                 ->where('dashboard.cards.0.value', 1500)
                 ->where('dashboard.cards.1.value', 2));
 
-        $this->actingAs($admin)->get(route('dashboard.admin', ['concepto_id' => $otro->id]))
+        $this->actingAs($admin)->get(route('dashboard', ['vista' => 'general', 'concepto_id' => $otro->id]))
             ->assertInertia(fn (AssertableInertia $p) => $p
                 ->where('dashboard.cards.0.value', 500)
                 ->where('dashboard.filters.concepto_id', $otro->id)
                 ->where('dashboard.byConcepto.0.name', 'Viáticos'));
 
-        $this->actingAs($admin)->get(route('dashboard.admin', ['status' => 'ELIMINADA']))
+        $this->actingAs($admin)->get(route('dashboard', ['vista' => 'general', 'status' => 'ELIMINADA']))
             ->assertInertia(fn (AssertableInertia $p) => $p->where('dashboard.cards.0.value', 9999));
     }
 
@@ -52,20 +52,20 @@ class DashboardFiltrosTest extends TestCase
         $this->makeRequisicion($mia, ['monto_total' => 300]);
         $this->makeRequisicion($ajena, ['monto_total' => 7000]);
 
-        $this->actingAs($mia)->get(route('dashboard.colaborador'))
+        $this->actingAs($mia)->get(route('dashboard'))
             ->assertInertia(fn (AssertableInertia $p) => $p
                 ->where('dashboard.profile', 'personal')
                 ->where('dashboard.cards.0.value', 300)
                 ->where('dashboard.bySucursal', []));
 
-        $this->actingAs($mia)->get(route('dashboard.admin'))->assertForbidden();
+        $this->actingAs($mia)->get(route('dashboard', ['vista' => 'general']))->assertForbidden();
     }
 
     public function test_rango_personalizado_y_tendencia_mensual(): void
     {
         $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN);
 
-        $this->actingAs($admin)->get(route('dashboard.admin', ['preset' => 'rango', 'desde' => '2026-01-01', 'hasta' => '2026-06-30']))
+        $this->actingAs($admin)->get(route('dashboard', ['vista' => 'general', 'preset' => 'rango', 'desde' => '2026-01-01', 'hasta' => '2026-06-30']))
             ->assertInertia(fn (AssertableInertia $p) => $p
                 ->where('dashboard.filters.desde', '2026-01-01')
                 ->where('dashboard.trend.granularity', 'month')

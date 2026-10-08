@@ -2,37 +2,38 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Corporativo;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB;
-use Inertia\Inertia;
-use App\Http\Resources\CorporativoResource;
 use App\Http\Requests\Corporativo\StoreCorporativoRequest;
 use App\Http\Requests\Corporativo\UpdateCorporativoRequest;
+use App\Http\Resources\CorporativoResource;
+use App\Models\Corporativo;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 
-class CorporativoController extends Controller {
-
+class CorporativoController extends Controller
+{
     // Listado con filtros y paginación
-    public function index(Request $request){
+    public function index(Request $request)
+    {
 
         // Declaración de variables de filtro
-        $q       = trim((string) $request->query('q', ''));
-        $activo  = (string) $request->query('activo', '1');
+        $q = trim((string) $request->query('q', ''));
+        $activo = (string) $request->query('activo', '1');
         $perPage = (int) $request->query('per_page', 10);
         $perPage = ($perPage > 0 && $perPage <= 100) ? $perPage : 10;
 
-        // Consulta base
-        $query = Corporativo::query()->orderByDesc('id');
+        // Consulta base: solo corporativos dentro del alcance (mi corporativo o todos)
+        $query = Corporativo::query()->visibleTo($request->user())->orderByDesc('id');
 
         // Filtro de búsqueda por string en varios campos
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('nombre', 'like', "%{$q}%")
-                  ->orWhere('rfc', 'like', "%{$q}%")
-                  ->orWhere('email', 'like', "%{$q}%")
-                  ->orWhere('telefono', 'like', "%{$q}%")
-                  ->orWhere('codigo', 'like', "%{$q}%");
+                    ->orWhere('rfc', 'like', "%{$q}%")
+                    ->orWhere('email', 'like', "%{$q}%")
+                    ->orWhere('telefono', 'like', "%{$q}%")
+                    ->orWhere('codigo', 'like', "%{$q}%");
             });
         }
 
@@ -50,24 +51,25 @@ class CorporativoController extends Controller {
                 'data' => CorporativoResource::collection($paginator)->resolve(),
                 'meta' => [
                     'current_page' => $paginator->currentPage(),
-                    'last_page'    => $paginator->lastPage(),
-                    'per_page'     => $paginator->perPage(),
-                    'total'        => $paginator->total(),
-                    'from'         => $paginator->firstItem(),
-                    'to'           => $paginator->lastItem(),
-                    'links'        => $paginator->linkCollection(),
+                    'last_page' => $paginator->lastPage(),
+                    'per_page' => $paginator->perPage(),
+                    'total' => $paginator->total(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem(),
+                    'links' => $paginator->linkCollection(),
                 ],
             ],
             'filters' => [
-                'q'        => $q,
-                'activo'   => $activo,
+                'q' => $q,
+                'activo' => $activo,
                 'per_page' => $perPage,
             ],
         ]);
     }
 
     // Metodo para registrar nuevo corporativo
-    public function store(StoreCorporativoRequest $request){
+    public function store(StoreCorporativoRequest $request)
+    {
         $data = $request->validated();
 
         // Si llega archivo directo (opcional)
@@ -87,6 +89,7 @@ class CorporativoController extends Controller {
     // Metodo para actualizar corporativo
     public function update(UpdateCorporativoRequest $request, Corporativo $corporativo)
     {
+        $this->authorize('update', $corporativo);
         $data = $request->validated();
 
         unset($data['activo']);
@@ -124,8 +127,10 @@ class CorporativoController extends Controller {
     }
 
     // Metodo para eliminar corporativo (baja lógica + cascada)
-    public function destroy(Corporativo $corporativo) {
-        if (!$corporativo->activo) {
+    public function destroy(Corporativo $corporativo)
+    {
+        $this->authorize('delete', $corporativo);
+        if (! $corporativo->activo) {
             return redirect()
                 ->route('corporativos.index')
                 ->with('success', 'El corporativo ya se encontraba dado de baja.');
@@ -154,15 +159,17 @@ class CorporativoController extends Controller {
     }
 
     // Metodo para activar corporativo junto a sus relaciones
-    public function activate(Request $request, Corporativo $corporativo) {
+    public function activate(Request $request, Corporativo $corporativo)
+    {
+        $this->authorize('restore', $corporativo);
 
         // 1) Validación: sucursales + áreas (ambas opcionales)
         $validated = $request->validate([
-            'sucursal_ids'   => ['nullable', 'array'],
+            'sucursal_ids' => ['nullable', 'array'],
             'sucursal_ids.*' => ['integer'],
 
-            'area_ids'       => ['nullable', 'array'],
-            'area_ids.*'     => ['integer'],
+            'area_ids' => ['nullable', 'array'],
+            'area_ids.*' => ['integer'],
         ]);
 
         // 2) Normaliza IDs (int + únicos)
@@ -207,8 +214,9 @@ class CorporativoController extends Controller {
     // Listado de sucursales inactivas de un corporativo
     public function inactiveSucursales(Corporativo $corporativo)
     {
+        $this->authorize('view', $corporativo);
         $rows = $corporativo->sucursales()
-            ->select('id','nombre','codigo','ciudad','estado','activo')
+            ->select('id', 'nombre', 'codigo', 'ciudad', 'estado', 'activo')
             ->where('activo', false)
             ->orderBy('nombre')
             ->get();
@@ -221,8 +229,9 @@ class CorporativoController extends Controller {
     // Listado de áreas inactivas de un corporativo
     public function inactiveAreas(Corporativo $corporativo)
     {
+        $this->authorize('view', $corporativo);
         $rows = $corporativo->areas()
-            ->select('id','nombre','corporativo_id','activo')
+            ->select('id', 'nombre', 'corporativo_id', 'activo')
             ->where('activo', false)
             ->orderBy('nombre')
             ->get();
@@ -233,7 +242,8 @@ class CorporativoController extends Controller {
     }
 
     // Metodo para subir logo
-    public function uploadLogo(Request $request){
+    public function uploadLogo(Request $request)
+    {
         $request->validate([
             'logo' => ['required', 'file', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
         ]);
@@ -246,8 +256,11 @@ class CorporativoController extends Controller {
     }
 
     // Elimina el logo del disco público si existe
-    private function deletePublicLogoIfExists(?string $logoPath): void{
-        if (!$logoPath) return;
+    private function deletePublicLogoIfExists(?string $logoPath): void
+    {
+        if (! $logoPath) {
+            return;
+        }
 
         $clean = str_starts_with($logoPath, '/storage/')
             ? substr($logoPath, 9)
@@ -257,5 +270,4 @@ class CorporativoController extends Controller {
             Storage::disk('public')->delete($clean);
         }
     }
-
 }

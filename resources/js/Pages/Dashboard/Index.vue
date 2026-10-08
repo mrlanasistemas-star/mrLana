@@ -4,7 +4,7 @@ import { Head, router } from '@inertiajs/vue3'
 import VueApexCharts from 'vue3-apexcharts'
 import {
     ArrowDownRight, ArrowUpRight, BarChart3, Building2, CalendarRange, CircleDollarSign, ClipboardCheck, Clock, FileStack,
-    Loader2, Minus, PieChart, Receipt, RotateCcw, Tags, TrendingUp, Truck, Wallet,
+    Globe2, Loader2, MapPin, Minus, PieChart, Receipt, RotateCcw, Tags, TrendingUp, Truck, UserRound, Wallet,
 } from 'lucide-vue-next'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ChartCard from '@/Components/dashboard/ChartCard.vue'
@@ -18,17 +18,18 @@ import ICON_EXCEL from '@/img/excel.png'
 type Card = { key: string; label: string; value: number; previous: number | null; delta: number | null; format: 'money' | 'int'; display: string; hint: string }
 type Item = { id?: number | null; key?: string; name: string; value: number; count?: number; monto?: number }
 type Opcion = { id: number | string; nombre: string; corporativo_id?: number | null }
+type DashboardView = 'personal' | 'sucursal' | 'corporativo' | 'general'
 type Filters = { preset: string; desde: string; hasta: string; corporativo_id: number | null; sucursal_id: number | null; concepto_id: number | null; status: string | null }
 
 const props = defineProps<{
     dashboard: {
-        profile: 'ejecutivo' | 'financiero' | 'personal'
+        profile: DashboardView
+        view: DashboardView
+        views: { value: DashboardView; label: string; description: string }[]
         headline: string
         subheadline: string
         userRole: string
         scopeLabel: string
-        routeName: string
-        exportSegment: string
         canExport: boolean
         filters: Filters
         period: { from: string; to: string; label: string; compare: string }
@@ -46,7 +47,11 @@ const props = defineProps<{
 
 const charts = useDashboardCharts()
 const d = computed(() => props.dashboard)
-const isPersonal = computed(() => d.value.profile === 'personal')
+/** Vistas acotadas (personal o sucursal) no comparan sucursales entre sí. */
+const isPersonal = computed(() => d.value.view === 'personal' || d.value.view === 'sucursal')
+const showCorporativos = computed(() => d.value.options.corporativos.length > 0)
+const showSucursales = computed(() => d.value.options.sucursales.length > 0)
+const viewIcons: Record<DashboardView, unknown> = { personal: UserRound, sucursal: MapPin, corporativo: Building2, general: Globe2 }
 
 /* ---------- Filtros ---------- */
 const f = reactive<Filters>({ ...props.dashboard.filters })
@@ -63,7 +68,7 @@ const params = () => ({
 })
 
 function apply() {
-    router.get(route(d.value.routeName), params(), {
+    router.get(route('dashboard'), { vista: d.value.view, ...params() }, {
         preserveState: true,
         preserveScroll: true,
         replace: true,
@@ -88,12 +93,26 @@ function reset() {
     Object.assign(f, { preset: 'mes', corporativo_id: null, sucursal_id: null, concepto_id: null, status: null })
 }
 
-/* ---------- Exportar con los mismos filtros ---------- */
+/* ---------- Cambio de vista (solo entre las autorizadas) ---------- */
+function switchView(view: DashboardView) {
+    if (view === d.value.view || loading.value) return
+    // Corporativo y sucursal no aplican igual en otra vista: se limpian.
+    f.corporativo_id = null
+    f.sucursal_id = null
+    router.get(route('dashboard'), { vista: view, ...params(), corporativo_id: undefined, sucursal_id: undefined }, {
+        preserveScroll: true,
+        replace: true,
+        onStart: () => (loading.value = true),
+        onFinish: () => (loading.value = false),
+    })
+}
+
+/* ---------- Exportar exactamente la vista y los filtros actuales ---------- */
 const exporting = ref<'pdf' | 'excel' | null>(null)
 async function exportar(kind: 'pdf' | 'excel') {
     exporting.value = kind
     try {
-        await downloadFile(route(`dashboard.export.${kind}`, { role: d.value.exportSegment }) + toQS(params()))
+        await downloadFile(route(`dashboard.export.${kind}`, { vista: d.value.view }) + toQS(params()))
     } finally {
         exporting.value = null
     }
@@ -161,8 +180,33 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
         <template #header>Dashboard</template>
 
         <div class="w-full min-w-0 space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+            <!-- Selector de vista: solo las que el rol permite (la inicial es la más amplia) -->
+            <nav
+                v-if="d.views.length > 1"
+                class="flex w-full max-w-full gap-1 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white p-1 shadow-sm [scrollbar-width:none] dark:border-white/10 dark:bg-neutral-900"
+                aria-label="Vista del dashboard"
+                data-tour="dashboard-vistas"
+            >
+                <button
+                    v-for="v in d.views"
+                    :key="v.value"
+                    type="button"
+                    class="group inline-flex min-h-[42px] shrink-0 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-all duration-150
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 sm:flex-1 sm:justify-center"
+                    :class="d.view === v.value
+                        ? 'bg-brand-primary text-brand-primary-fg shadow-sm'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-300 dark:hover:bg-white/10'"
+                    :aria-pressed="d.view === v.value"
+                    :title="v.description"
+                    @click="switchView(v.value)"
+                >
+                    <component :is="viewIcons[v.value]" class="h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110 motion-reduce:transform-none" aria-hidden="true" />
+                    {{ v.label }}
+                </button>
+            </nav>
+
             <!-- Encabezado -->
-            <section class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <section class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between" data-tour="dashboard-encabezado">
                 <div class="min-w-0">
                     <div class="mb-1 flex flex-wrap items-center gap-2">
                         <span class="ui-badge ui-badge-muted">{{ d.userRole || 'Sin rol' }}</span>
@@ -173,7 +217,7 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
                         {{ d.subheadline }} <span class="font-semibold text-slate-700 dark:text-zinc-200">{{ d.period.label }}: {{ d.period.from }} – {{ d.period.to }}</span>
                     </p>
                 </div>
-                <div v-if="d.canExport" class="flex flex-wrap gap-2">
+                <div v-if="d.canExport" class="flex flex-wrap gap-2" data-tour="dashboard-exportar">
                     <button type="button" class="ui-btn-secondary" :disabled="exporting !== null" @click="exportar('pdf')">
                         <Loader2 v-if="exporting === 'pdf'" class="h-4 w-4 animate-spin" aria-hidden="true" />
                         <img v-else :src="ICON_PDF" class="h-5 w-5" alt="" /> PDF
@@ -186,7 +230,7 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
             </section>
 
             <!-- Filtros -->
-            <section class="ui-card space-y-4 p-4 sm:p-5" aria-label="Filtros del dashboard">
+            <section class="ui-card space-y-4 p-4 sm:p-5" aria-label="Filtros del dashboard" data-tour="dashboard-filtros">
                 <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Periodo">
                     <CalendarRange class="mr-1 h-4 w-4 text-slate-400" aria-hidden="true" />
                     <button
@@ -209,10 +253,10 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
                         <div class="xl:col-span-2"><DatePickerShadcn v-model="f.desde" label="Desde" :max-value="f.hasta" /></div>
                         <div class="xl:col-span-2"><DatePickerShadcn v-model="f.hasta" label="Hasta" :min-value="f.desde" /></div>
                     </template>
-                    <div v-if="!isPersonal" :class="f.preset === 'rango' ? 'xl:col-span-2' : 'xl:col-span-3'">
+                    <div v-if="showCorporativos" :class="f.preset === 'rango' ? 'xl:col-span-2' : 'xl:col-span-3'">
                         <SearchableSelect v-model="f.corporativo_id" :options="d.options.corporativos" label="Corporativo" placeholder="Todos" :allow-null="true" null-label="Todos" rounded="xl" />
                     </div>
-                    <div v-if="!isPersonal" :class="f.preset === 'rango' ? 'xl:col-span-2' : 'xl:col-span-3'">
+                    <div v-if="showSucursales" :class="f.preset === 'rango' ? 'xl:col-span-2' : 'xl:col-span-3'">
                         <SearchableSelect v-model="f.sucursal_id" :options="sucursalesFiltro" label="Sucursal" placeholder="Todas" :allow-null="true" null-label="Todas" rounded="xl" />
                     </div>
                     <div :class="f.preset === 'rango' ? 'xl:col-span-2' : 'xl:col-span-3'">
@@ -232,7 +276,7 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
             </section>
 
             <!-- KPIs -->
-            <section class="grid grid-cols-1 gap-3 transition-opacity sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6" :class="loading ? 'opacity-60' : ''" aria-label="Indicadores">
+            <section class="grid grid-cols-1 gap-3 transition-opacity sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6" :class="loading ? 'opacity-60' : ''" aria-label="Indicadores" data-tour="dashboard-indicadores">
                 <article v-for="c in d.cards" :key="c.key" class="ui-card group p-4 transition hover:border-slate-300 dark:hover:border-white/15">
                     <div class="flex items-start justify-between gap-2">
                         <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent">

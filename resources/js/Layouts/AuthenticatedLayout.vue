@@ -5,6 +5,8 @@ import Navbar from '@/Layouts/partials/navbar.vue'
 import Sidebar from '@/Layouts/partials/sidebar.vue'
 import FlashToaster from '@/Components/layout/FlashToaster.vue'
 import MobileBottomNav from '@/Components/layout/MobileBottomNav.vue'
+import HelpButton from '@/Components/tour/HelpButton.vue'
+import TourOverlay from '@/Components/tour/TourOverlay.vue'
 import { useBranding } from '@/Composables/useBranding'
 
 useBranding()
@@ -52,4 +54,7 @@ onMounted(() => {
 
     <MobileBottomNav />
     <FlashToaster />
+    <!-- Ayuda contextual y recorridos interactivos (estado global entre navegaciones) -->
+    <HelpButton />
+    <TourOverlay />
 </template>

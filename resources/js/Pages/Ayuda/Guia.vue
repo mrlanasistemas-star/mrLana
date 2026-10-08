@@ -2,7 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import { usePermissions } from '@/Composables/usePermissions'
+import { usePermissions, useVisibility } from '@/Composables/usePermissions'
+import { useTour } from '@/Composables/useTour'
 import {
     AlertTriangle,
     ArrowLeft,
@@ -17,6 +18,8 @@ import {
     KeyRound,
     LayoutGrid,
     Lightbulb,
+    PlayCircle,
+    Route,
     Search,
     Target,
     Users,
@@ -31,14 +34,26 @@ const props = defineProps<{
 
 const PDF_URL = '/ayuda/mr-lana-ayuda.pdf'
 
-const { can, canAny, roles } = usePermissions()
+const { can, roles } = usePermissions()
+const visible = useVisibility()
+const tour = useTour()
 
 /* ---------------------------------------------------------- Visibilidad */
-const visibleTo = (anyOf?: string[]) => !anyOf || anyOf.length === 0 || canAny(anyOf)
+/** Visible si cumple permisos (anyOf) o alcance de módulo (views); sin reglas, para todos. */
+const visibleTo = (rule?: { anyOf?: string[]; views?: string[] }) => !rule || visible(rule)
 const itemText = (i: Item) => (typeof i === 'string' ? i : i.texto)
-const visibleItems = (list?: Item[]) => (list ?? []).filter((i) => typeof i === 'string' || visibleTo(i.anyOf))
+const visibleItems = (list?: Item[]) => (list ?? []).filter((i) => typeof i === 'string' || visibleTo(i))
 
-const modulos = computed(() => MODULOS.filter((m) => visibleTo(m.anyOf)))
+const modulos = computed(() => MODULOS.filter((m) => visibleTo(m)))
+
+/* ---------------------------------------------------------- Recorridos */
+const tourDisponible = (m: GuiaModulo) => !!m.tour && (m.tour === 'general' || tour.available.value.some((t) => t.id === m.tour))
+const visto = (m: GuiaModulo) => !!m.tour && tour.seen.has(m.tour)
+function iniciarRecorrido(m: GuiaModulo) {
+    if (m.tour === 'general') tour.startFull()
+    else if (m.tour) tour.start(m.tour)
+}
+const vistos = computed(() => modulos.value.filter(visto).length)
 const grupos = computed(() =>
     GRUPOS.map((g) => ({ titulo: g, modulos: modulos.value.filter((m) => m.grupo === g) })).filter((g) => g.modulos.length > 0),
 )
@@ -95,7 +110,7 @@ const textoBuscable = (m: GuiaModulo) =>
     normaliza(
         [
             m.nombre, m.resumen, m.paraQue, m.quien, m.claves ?? '',
-            ...m.pasos.filter((p) => visibleTo(p.anyOf)).flatMap((p) => [p.titulo, p.texto]),
+            ...m.pasos.filter((p) => visibleTo(p)).flatMap((p) => [p.titulo, p.texto]),
             ...[m.acciones, m.filtros, m.errores, m.advertencias, m.consejos].flatMap((l) => visibleItems(l).map(itemText)),
             ...(m.estados ?? []).flatMap((e) => [e.nombre, e.texto]),
         ].join(' '),
@@ -120,7 +135,7 @@ const resultados = computed(() => {
 function fragmento(m: GuiaModulo, terminos: string[]): string {
     const frases = [
         m.paraQue,
-        ...m.pasos.filter((p) => visibleTo(p.anyOf)).map((p) => `${p.titulo}: ${p.texto}`),
+        ...m.pasos.filter((p) => visibleTo(p)).map((p) => `${p.titulo}: ${p.texto}`),
         ...[m.acciones, m.filtros, m.errores, m.advertencias, m.consejos].flatMap((l) => visibleItems(l).map(itemText)),
         ...(m.estados ?? []).map((e) => `${e.nombre}: ${e.texto}`),
     ]
@@ -179,14 +194,14 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
 </script>
 
 <template>
-    <Head title="Guía del sistema" />
+    <Head title="Ayuda" />
 
     <AuthenticatedLayout>
-        <template #header>Guía del sistema</template>
+        <template #header>Ayuda</template>
 
         <div class="w-full min-w-0 space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
             <!-- Encabezado -->
-            <section class="ui-card relative overflow-hidden p-5 sm:p-7">
+            <section class="ui-card relative overflow-hidden p-5 sm:p-7" data-tour="ayuda-encabezado">
                 <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-accent/10 via-transparent to-transparent" aria-hidden="true" />
                 <div class="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div class="flex min-w-0 items-start gap-4">
@@ -194,20 +209,26 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
                             <BookOpen class="h-6 w-6" aria-hidden="true" />
                         </span>
                         <div class="min-w-0">
-                            <h2 class="text-xl font-black tracking-tight text-slate-900 sm:text-2xl dark:text-zinc-100">Guía del sistema</h2>
+                            <h2 class="text-xl font-black tracking-tight text-slate-900 sm:text-2xl dark:text-zinc-100">Centro de ayuda</h2>
                             <p class="mt-1 max-w-2xl text-pretty text-sm text-slate-600 dark:text-zinc-400">
                                 Aprende a usar cada módulo paso a paso. Solo ves lo que tu acceso permite:
                                 <strong class="font-semibold text-slate-800 dark:text-zinc-200">{{ modulos.length }} temas</strong>
                                 para tu rol <strong class="font-semibold text-slate-800 dark:text-zinc-200">{{ rolLabel }}</strong>.
+                                <span v-if="vistos" class="whitespace-nowrap">Has visto {{ vistos }} recorrido(s).</span>
                             </p>
                         </div>
                     </div>
-                    <a :href="PDF_URL" download class="ui-btn-secondary w-full justify-center sm:w-auto">
-                        <Download class="h-4 w-4" aria-hidden="true" /> Descargar guía en PDF
-                    </a>
+                    <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                        <button type="button" class="ui-btn-primary justify-center transition-transform hover:-translate-y-px motion-reduce:transform-none" @click="tour.startFull()">
+                            <Route class="h-4 w-4" aria-hidden="true" /> Iniciar recorrido completo
+                        </button>
+                        <a :href="PDF_URL" download class="ui-btn-secondary justify-center">
+                            <Download class="h-4 w-4" aria-hidden="true" /> Descargar en PDF
+                        </a>
+                    </div>
                 </div>
 
-                <div class="relative mt-5">
+                <div class="relative mt-5" data-tour="ayuda-buscador">
                     <label for="guia-buscar" class="sr-only">Buscar en la guía</label>
                     <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                     <input
@@ -322,32 +343,43 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
                         </section>
 
                         <!-- Todos los temas -->
-                        <section v-else-if="!actual" key="inicio" class="space-y-6" aria-labelledby="guia-inicio-titulo">
+                        <section v-else-if="!actual" key="inicio" class="space-y-6" aria-labelledby="guia-inicio-titulo" data-tour="ayuda-modulos">
                             <h3 id="guia-inicio-titulo" ref="tituloDetalle" tabindex="-1" class="sr-only">Todos los temas</h3>
                             <div v-for="g in grupos" :key="g.titulo" class="space-y-3">
                                 <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ g.titulo }}</h4>
                                 <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                                    <button
+                                    <article
                                         v-for="m in g.modulos"
                                         :key="m.id"
-                                        type="button"
-                                        class="ui-card group flex flex-col gap-3 p-4 text-left hover:border-slate-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50 dark:hover:border-white/15"
+                                        class="ui-card group flex min-w-0 flex-col gap-3 p-4 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:hover:border-white/15 motion-reduce:transform-none"
                                         :class="anim"
-                                        @click="seleccionar(m.id)"
                                     >
                                         <span class="flex items-start gap-3">
                                             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" :class="tonoGrupo(m.grupo)">
                                                 <component :is="m.icono" class="h-5 w-5" aria-hidden="true" />
                                             </span>
-                                            <span class="min-w-0">
-                                                <span class="block font-bold text-slate-900 dark:text-zinc-100">{{ m.nombre }}</span>
-                                                <span class="mt-0.5 block text-pretty text-sm text-slate-600 dark:text-zinc-400">{{ m.resumen }}</span>
+                                            <span class="min-w-0 flex-1">
+                                                <span class="flex items-center gap-2">
+                                                    <span class="block min-w-0 break-words font-bold text-slate-900 dark:text-zinc-100">{{ m.nombre }}</span>
+                                                    <span v-if="visto(m)" class="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" title="Ya viste el recorrido de este módulo">
+                                                        <CheckCircle2 class="h-3 w-3" aria-hidden="true" /> Visto
+                                                    </span>
+                                                </span>
+                                                <span class="mt-0.5 block text-pretty break-words text-sm text-slate-600 dark:text-zinc-400">{{ m.resumen }}</span>
                                             </span>
                                         </span>
-                                        <span class="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-brand-accent">
-                                            Leer la guía <ArrowRight class="h-3.5 w-3.5 motion-safe:transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                                        </span>
-                                    </button>
+                                        <div class="mt-auto flex flex-wrap gap-1.5">
+                                            <button type="button" class="guia-card-btn text-brand-accent" @click="seleccionar(m.id)">
+                                                <BookOpen class="h-3.5 w-3.5" aria-hidden="true" /> Leer la guía
+                                            </button>
+                                            <button v-if="tourDisponible(m)" type="button" class="guia-card-btn" @click="iniciarRecorrido(m)">
+                                                <PlayCircle class="h-3.5 w-3.5" aria-hidden="true" /> Iniciar recorrido
+                                            </button>
+                                            <Link v-if="safeRoute(m.ruta) && m.ruta !== 'ayuda.guia'" :href="safeRoute(m.ruta)!" class="guia-card-btn">
+                                                Ir al módulo <ArrowUpRight class="h-3.5 w-3.5" aria-hidden="true" />
+                                            </Link>
+                                        </div>
+                                    </article>
                                 </div>
                             </div>
                         </section>
@@ -368,19 +400,24 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
                                             <p class="mt-1 text-pretty text-sm text-slate-600 dark:text-zinc-400">{{ actual.resumen }}</p>
                                         </div>
                                     </div>
-                                    <Link v-if="safeRoute(actual.ruta)" :href="safeRoute(actual.ruta)!" class="ui-btn-primary w-full shrink-0 justify-center sm:w-auto">
-                                        Abrir {{ actual.nombre.toLowerCase() }} <ArrowUpRight class="h-4 w-4" aria-hidden="true" />
-                                    </Link>
+                                    <div class="flex w-full shrink-0 flex-col gap-2 sm:w-auto">
+                                        <button v-if="tourDisponible(actual)" type="button" class="ui-btn-secondary justify-center" @click="iniciarRecorrido(actual)">
+                                            <PlayCircle class="h-4 w-4" aria-hidden="true" /> Iniciar recorrido
+                                        </button>
+                                        <Link v-if="safeRoute(actual.ruta) && actual.ruta !== 'ayuda.guia'" :href="safeRoute(actual.ruta)!" class="ui-btn-primary justify-center">
+                                            Ir al módulo <ArrowUpRight class="h-4 w-4" aria-hidden="true" />
+                                        </Link>
+                                    </div>
                                 </div>
                             </header>
 
                             <div class="grid gap-4 md:grid-cols-2">
                                 <section class="ui-card p-5">
-                                    <h4 class="guia-h"><Target class="h-4 w-4" aria-hidden="true" /> Para qué sirve</h4>
+                                    <h4 class="guia-h"><Target class="h-4 w-4" aria-hidden="true" /> Qué es</h4>
                                     <p class="text-pretty text-sm text-slate-700 dark:text-zinc-300">{{ actual.paraQue }}</p>
                                 </section>
                                 <section class="ui-card p-5">
-                                    <h4 class="guia-h"><Users class="h-4 w-4" aria-hidden="true" /> Quién puede verlo</h4>
+                                    <h4 class="guia-h"><Users class="h-4 w-4" aria-hidden="true" /> Quién tiene permiso</h4>
                                     <p class="text-pretty text-sm text-slate-700 dark:text-zinc-300">{{ actual.quien }}</p>
                                     <div v-if="tuAcceso(actual).length" class="mt-3">
                                         <p class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-zinc-400"><KeyRound class="h-3.5 w-3.5" aria-hidden="true" /> Tu acceso</p>
@@ -393,9 +430,9 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
 
                             <!-- Pasos -->
                             <section class="ui-card p-5 sm:p-6">
-                                <h4 class="guia-h">Paso a paso</h4>
+                                <h4 class="guia-h">Flujo principal</h4>
                                 <ol class="relative space-y-4">
-                                    <li v-for="(p, i) in actual.pasos.filter((x) => visibleTo(x.anyOf))" :key="p.titulo" class="relative flex gap-4">
+                                    <li v-for="(p, i) in actual.pasos.filter((x) => visibleTo(x))" :key="p.titulo" class="relative flex gap-4">
                                         <span class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-accent text-sm font-black text-brand-accent-fg" aria-hidden="true">{{ i + 1 }}</span>
                                         <div class="min-w-0 pt-1">
                                             <p class="font-semibold text-slate-900 dark:text-zinc-100"><span class="sr-only">Paso {{ i + 1 }}: </span>{{ p.titulo }}</p>
@@ -407,7 +444,7 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
 
                             <div class="grid gap-4" :class="actual.filtros?.length ? 'md:grid-cols-2' : ''">
                                 <section class="ui-card p-5">
-                                    <h4 class="guia-h"><CheckCircle2 class="h-4 w-4" aria-hidden="true" /> Acciones disponibles para ti</h4>
+                                    <h4 class="guia-h"><CheckCircle2 class="h-4 w-4" aria-hidden="true" /> Qué puedes hacer</h4>
                                     <ul class="space-y-2">
                                         <li v-for="a in visibleItems(actual.acciones)" :key="itemText(a)" class="flex gap-2 text-sm text-slate-700 dark:text-zinc-300">
                                             <CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
@@ -438,7 +475,7 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
 
                             <div class="grid gap-4 lg:grid-cols-3">
                                 <section class="rounded-2xl border border-rose-200 bg-rose-50/70 p-5 dark:border-rose-400/20 dark:bg-rose-500/5">
-                                    <h4 class="guia-h !text-rose-800 dark:!text-rose-300"><CircleAlert class="h-4 w-4" aria-hidden="true" /> Errores comunes</h4>
+                                    <h4 class="guia-h !text-rose-800 dark:!text-rose-300"><CircleAlert class="h-4 w-4" aria-hidden="true" /> Errores frecuentes</h4>
                                     <ul class="space-y-2 text-sm text-rose-900/90 dark:text-rose-200/90">
                                         <li v-for="x in visibleItems(actual.errores)" :key="itemText(x)" class="text-pretty break-words">{{ itemText(x) }}</li>
                                     </ul>
@@ -450,7 +487,7 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
                                     </ul>
                                 </section>
                                 <section class="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 dark:border-emerald-400/20 dark:bg-emerald-500/5">
-                                    <h4 class="guia-h !text-emerald-800 dark:!text-emerald-300"><Lightbulb class="h-4 w-4" aria-hidden="true" /> Buenas prácticas</h4>
+                                    <h4 class="guia-h !text-emerald-800 dark:!text-emerald-300"><Lightbulb class="h-4 w-4" aria-hidden="true" /> Consejos</h4>
                                     <ul class="space-y-2 text-sm text-emerald-900/90 dark:text-emerald-200/90">
                                         <li v-for="x in visibleItems(actual.consejos)" :key="itemText(x)" class="text-pretty break-words">{{ itemText(x) }}</li>
                                     </ul>
@@ -484,6 +521,9 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
 .guia-nav-item--active::before {
     content: '';
     @apply absolute left-0 top-2 bottom-2 w-1 rounded-full bg-brand-accent;
+}
+.guia-card-btn {
+    @apply inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition duration-150 hover:-translate-y-px hover:bg-slate-50 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50 motion-reduce:transform-none dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5;
 }
 .guia-h {
     @apply mb-3 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-zinc-100;

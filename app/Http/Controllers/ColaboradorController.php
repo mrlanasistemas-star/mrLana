@@ -11,6 +11,8 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Colaboradores\ColaboradorQuery;
 use App\Services\Users\AdministratorGuard;
+use App\Support\Permissions\AccessScope;
+use App\Support\Permissions\Scope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +40,8 @@ class ColaboradorController extends Controller
         $sort = $request->input('sort') === 'id' ? 'id' : 'nombre';
         $dir = $request->input('dir') === 'desc' ? 'desc' : 'asc';
 
-        $query = ColaboradorQuery::build($f)->with([
+        $vinculo = $user->can('usuarios.ver_vinculo');
+        $query = ColaboradorQuery::build($f, $user)->with([
             'sucursal:id,corporativo_id,nombre,codigo,activo',
             'sucursal.corporativo:id,nombre,codigo,activo',
             'area:id,corporativo_id,nombre,activo',
@@ -77,7 +80,7 @@ class ColaboradorController extends Controller
                 ] : null,
             ] : null,
             'area' => $e->area ? ['id' => $e->area->id, 'nombre' => $e->area->nombre] : null,
-            'user' => $e->user ? [
+            'user' => $vinculo && $e->user ? [
                 'id' => $e->user->id,
                 'name' => $e->user->name,
                 'email' => $e->user->email,
@@ -88,10 +91,11 @@ class ColaboradorController extends Controller
 
         return Inertia::render('Colaboradores/Index', [
             'colaboradores' => $colaboradores,
-            'counts' => ColaboradorQuery::counts($f),
-            'corporativos' => Corporativo::query()->select(['id', 'nombre', 'codigo', 'activo'])->orderBy('nombre')->get(),
-            'sucursales' => Sucursal::query()->select(['id', 'corporativo_id', 'nombre', 'codigo', 'activo'])->orderBy('nombre')->get(),
-            'areas' => Area::query()->select(['id', 'corporativo_id', 'nombre', 'activo'])->orderBy('nombre')->get(),
+            'counts' => ColaboradorQuery::counts($f, $user),
+            // Opciones de filtro y de alta limitadas a las sucursales del alcance.
+            'corporativos' => Corporativo::query()->whereIn('id', $this->sucursalesPermitidas($user)->select('corporativo_id'))->select(['id', 'nombre', 'codigo', 'activo'])->orderBy('nombre')->get(),
+            'sucursales' => $this->sucursalesPermitidas($user)->select(['id', 'corporativo_id', 'nombre', 'codigo', 'activo'])->orderBy('nombre')->get(),
+            'areas' => Area::query()->whereIn('corporativo_id', $this->sucursalesPermitidas($user)->select('corporativo_id'))->select(['id', 'corporativo_id', 'nombre', 'activo'])->orderBy('nombre')->get(),
             'filters' => $f + ['per_page' => $perPage, 'sort' => $sort, 'dir' => $dir],
             'can' => [
                 'registrar' => $user->can('colaboradores.registrar'),
@@ -100,7 +104,8 @@ class ColaboradorController extends Controller
                 'reactivar' => $user->can('colaboradores.reactivar'),
                 'exportar' => $user->can('colaboradores.exportar'),
                 'crear_usuario' => $user->can('usuarios.registrar'),
-                'ver_usuario' => $user->can('usuarios.ver'),
+                'ver_usuario' => $vinculo && AccessScope::for($user, 'usuarios')->allows(),
+                'ver_vinculo' => $vinculo,
             ],
         ]);
     }
@@ -108,6 +113,7 @@ class ColaboradorController extends Controller
     public function store(StoreColaboradorRequest $request): RedirectResponse
     {
         $data = $request->validated();
+        $this->assertSucursalPermitida($request, (int) $data['sucursal_id']);
         $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] ?? null);
 
         Empleado::create([
@@ -120,7 +126,11 @@ class ColaboradorController extends Controller
 
     public function update(UpdateColaboradorRequest $request, Empleado $empleado): RedirectResponse
     {
+        $this->authorize('update', $empleado);
         $data = $request->validated();
+        if ((int) $data['sucursal_id'] !== (int) $empleado->sucursal_id) {
+            $this->assertSucursalPermitida($request, (int) $data['sucursal_id']);
+        }
         $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] ?? null);
 
         $empleado->update([
@@ -138,6 +148,7 @@ class ColaboradorController extends Controller
      */
     public function destroy(Request $request, Empleado $empleado): RedirectResponse
     {
+        $this->authorize('delete', $empleado);
         if (! $empleado->activo) {
             return back()->with('success', 'El colaborador ya estaba dado de baja.');
         }
@@ -156,6 +167,7 @@ class ColaboradorController extends Controller
 
     public function activate(Empleado $empleado): RedirectResponse
     {
+        $this->authorize('restore', $empleado);
         $this->assertOrgActivaOrFail((int) $empleado->sucursal_id, $empleado->area_id ? (int) $empleado->area_id : null);
 
         $empleado->update(['activo' => true]);
@@ -175,7 +187,7 @@ class ColaboradorController extends Controller
             'ids.*.exists' => 'Uno o más colaboradores no existen.',
         ]);
 
-        $ids = Empleado::query()->whereIn('id', $data['ids'])->where('activo', true)->pluck('id');
+        $ids = Empleado::query()->visibleTo($request->user())->whereIn('id', $data['ids'])->where('activo', true)->pluck('id');
         $cuentas = $this->cuentasActivas($request, $ids);
 
         DB::transaction(function () use ($ids, $cuentas) {
@@ -208,6 +220,28 @@ class ColaboradorController extends Controller
         $this->guard->assertCanDeactivateMany($cuentas, 'ids');
 
         return $cuentas;
+    }
+
+    /**
+     * Sucursales donde puede registrar o mover colaboradores, según su alcance
+     * en Colaboradores: todas, las de su corporativo o solo la suya.
+     */
+    private function sucursalesPermitidas(User $user)
+    {
+        $q = Sucursal::query();
+
+        return match (AccessScope::for($user, 'colaboradores')) {
+            Scope::Global => $q,
+            Scope::Corporativo => $q->where('corporativo_id', AccessScope::corporativoId($user) ?? 0),
+            default => $q->whereKey(AccessScope::sucursalId($user) ?? 0),
+        };
+    }
+
+    private function assertSucursalPermitida(Request $request, int $sucursalId): void
+    {
+        if (! $this->sucursalesPermitidas($request->user())->whereKey($sucursalId)->exists()) {
+            throw ValidationException::withMessages(['sucursal_id' => 'La sucursal está fuera de tu alcance de colaboradores.']);
+        }
     }
 
     private function assertOrgActivaOrFail(int $sucursalId, int|string|null $areaId = null): void

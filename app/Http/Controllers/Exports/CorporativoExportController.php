@@ -59,7 +59,9 @@ class CorporativoExportController extends Controller
         $activo = (string) $request->get('activo', 'all'); // all|1|0|true|false
         $sort = (string) $request->get('sort', 'nombre_asc');
 
+        // Mismo alcance que el listado: nunca exporta más de lo que se puede ver.
         $query = Corporativo::query()
+            ->visibleTo($request->user())
             ->withCount(['sucursales', 'areas']);
 
         // Estatus

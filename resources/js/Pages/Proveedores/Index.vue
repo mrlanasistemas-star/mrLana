@@ -215,7 +215,7 @@ const { can } = usePermissions()
             <div class="hidden lg:block rounded-3xl border border-slate-200/70
             dark:border-white/10 bg-white/90 dark:bg-neutral-900/80
             backdrop-blur shadow-sm overflow-hidden">
-                <table class="w-full table-auto text-sm">
+                <table data-tour="proveedores-lista" class="w-full table-auto text-sm">
                     <thead class="bg-slate-50 dark:bg-neutral-950/60">
                         <tr class="text-left text-slate-600 dark:text-neutral-300">
                             <th class="px-4 py-3 font-semibold w-12">

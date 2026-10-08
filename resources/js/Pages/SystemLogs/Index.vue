@@ -161,7 +161,7 @@ const pageLabel = (l: string) =>
             </div>
 
             <!-- Filtros -->
-            <section class="ui-card space-y-4 p-4 sm:p-5" aria-label="Filtros">
+            <section data-tour="bitacora-filtros" class="ui-card space-y-4 p-4 sm:p-5" aria-label="Filtros">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-12">
                     <div class="sm:col-span-2 xl:col-span-4">
                         <label for="log-q" class="ui-label">Buscar</label>
@@ -217,7 +217,7 @@ const pageLabel = (l: string) =>
             </section>
 
             <!-- Eventos -->
-            <section class="ui-card overflow-hidden transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading">
+            <section data-tour="bitacora-lista" class="ui-card overflow-hidden transition-opacity" :class="loading ? 'opacity-60' : ''" :aria-busy="loading">
                 <div v-if="logs.data.length === 0" class="flex flex-col items-center gap-3 px-6 py-16 text-center">
                     <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-white/5 dark:text-zinc-500">
                         <ScrollText class="h-7 w-7" aria-hidden="true" />

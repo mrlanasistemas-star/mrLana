@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\AppSetting;
+use App\Support\Permissions\AccessScope;
+use App\Support\Permissions\PermissionCatalog;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -48,8 +50,14 @@ class HandleInertiaRequests extends Middleware
                     'roles' => $user->getRoleNames()->values()->all(),
                 ] : null,
                 'permissions' => $user ? $user->permissionNames() : [],
+                // Alcance efectivo por módulo (none|own|sucursal|corporativo|global).
+                // La interfaz no debe comprobar permisos de alcance sueltos: un rol
+                // guarda solo su nivel más alto y este mapa ya lo resuelve.
+                'scopes' => $user ? collect(PermissionCatalog::scopedModules())
+                    ->mapWithKeys(fn (string $m) => [$m => AccessScope::for($user, $m)->key()])
+                    ->all() : [],
             ],
-            'notifications' => fn () => $user && $user->can('notificaciones.ver')
+            'notifications' => fn () => $user && AccessScope::for($user, 'notificaciones')->allows()
                 ? ['unread_count' => $user->unreadNotifications()->count()]
                 : null,
             'appSettings' => fn () => AppSetting::resolved(),

@@ -3,7 +3,9 @@ import {
     ArrowLeftRight,
     Banknote,
     Bell,
+    BellRing,
     Building2,
+    CircleHelp,
     ClipboardList,
     FileDown,
     FileText,
@@ -28,21 +30,22 @@ import {
 /**
  * Contenido de la Guía del sistema.
  *
- * Cada módulo declara los permisos que lo hacen visible (`anyOf`) y, si
- * aplica, los módulos del catálogo de permisos cuyo acceso se resume como
- * «Tu acceso» (`catalogo`). Las claves de permiso solo se usan para filtrar:
- * la interfaz muestra siempre textos humanos.
+ * Cada módulo declara qué lo hace visible: poder ver el módulo (`views`,
+ * alcance resuelto en el servidor) o alguno de los permisos (`anyOf`). Si
+ * aplica, indica los módulos del catálogo cuyo acceso se resume como «Tu
+ * acceso» (`catalogo`) y el recorrido interactivo asociado (`tour`). Las
+ * claves solo se usan para filtrar: la interfaz muestra siempre textos humanos.
  *
  * Los textos describen el comportamiento real del sistema; si cambia una
  * regla de negocio, actualiza el módulo correspondiente y el PDF
  * (`npm run guia:pdf`).
  */
 
-/** Texto que solo aparece a quien tiene alguno de los permisos. */
-export type Condicional = { texto: string; anyOf: string[] }
+/** Texto que solo aparece a quien tiene alguno de los permisos o puede ver alguno de los módulos. */
+export type Condicional = { texto: string; anyOf?: string[]; views?: string[] }
 export type Item = string | Condicional
 
-export type Paso = { titulo: string; texto: string; anyOf?: string[] }
+export type Paso = { titulo: string; texto: string; anyOf?: string[]; views?: string[] }
 export type Estado = { nombre: string; texto: string; tono: Tono }
 export type Tono = 'gris' | 'azul' | 'ambar' | 'verde' | 'rojo' | 'violeta'
 
@@ -52,8 +55,12 @@ export type GuiaModulo = {
     grupo: string
     icono: Component
     resumen: string
-    /** Visible si el usuario tiene alguno; vacío = visible para todos. */
+    /** Visible si el usuario tiene alguno de estos permisos… */
     anyOf: string[]
+    /** …o puede ver alguno de estos módulos. Sin ninguno = visible para todos. */
+    views?: string[]
+    /** Recorrido interactivo del módulo (registro de recorridos). */
+    tour?: string
     /** Ruta del módulo (se enlaza solo si el usuario puede abrirlo). */
     ruta?: string
     /** Módulos del catálogo de permisos para el resumen «Tu acceso». */
@@ -73,16 +80,15 @@ export type GuiaModulo = {
 
 export const GRUPOS = ['General', 'Operación', 'Organización', 'Personas y accesos', 'Catálogos', 'Sistema', 'Tu cuenta y la app'] as const
 
-const REQ_VER = ['requisiciones.ver_todos', 'requisiciones.ver_propios']
-
 export const ESTADOS_REQUISICION: Estado[] = [
-    { nombre: 'Borrador', tono: 'gris', texto: 'Guardada sin enviar. Solo quien la creó (o quien ve todas) puede editarla o enviarla.' },
+    { nombre: 'Borrador', tono: 'gris', texto: 'Guardada sin enviar. La edita y envía quien la creó, o quien puede editar cualquier borrador dentro de su alcance.' },
     { nombre: 'Capturada', tono: 'azul', texto: 'Enviada a revisión. Espera la autorización del pago; aquí todavía puede solicitarse su eliminación.' },
     { nombre: 'Pago autorizado', tono: 'violeta', texto: 'Se autorizó y programó la fecha de pago. Sigue así mientras haya pagos parciales.' },
     { nombre: 'Pagada', tono: 'verde', texto: 'Se registró el pago total. El solicitante ya puede cargar comprobantes.' },
     { nombre: 'Por comprobar', tono: 'ambar', texto: 'Tiene comprobantes cargados, pero lo aprobado aún no cubre el total.' },
     { nombre: 'Comprobación aceptada', tono: 'verde', texto: 'Los comprobantes aprobados cubren el total. El ciclo está completo.' },
-    { nombre: 'Pago rechazado / Comprobación rechazada', tono: 'rojo', texto: 'Pueden aparecer en requisiciones anteriores. Hoy, un comprobante rechazado regresa la requisición a «Por comprobar».' },
+    { nombre: 'Pago rechazado', tono: 'rojo', texto: 'Quien autoriza pagos rechazó el pago de una requisición capturada; el motivo queda en la bitácora y se avisa al solicitante.' },
+    { nombre: 'Comprobación rechazada', tono: 'rojo', texto: 'Puede aparecer en requisiciones anteriores. Hoy, un comprobante rechazado regresa la requisición a «Por comprobar».' },
     { nombre: 'Eliminada', tono: 'rojo', texto: 'Baja lógica: no se borra, se conserva en la pestaña «Eliminadas» y en la bitácora.' },
 ]
 
@@ -93,27 +99,31 @@ export const MODULOS: GuiaModulo[] = [
         nombre: 'Dashboard',
         grupo: 'General',
         icono: LayoutDashboard,
-        resumen: 'Indicadores, gráficas y actividad del periodo, con exportación a PDF y Excel.',
-        anyOf: ['dashboard.ver'],
+        resumen: 'Indicadores y gráficas de gasto en cuatro vistas: mi dashboard, mi sucursal, mi corporativo y general.',
+        anyOf: [],
+        views: ['dashboard'],
+        tour: 'dashboard',
         ruta: 'dashboard',
         catalogo: ['dashboard', 'reportes'],
-        paraQue: 'Es la vista inicial del sistema: resume montos, conteos por estatus, tendencias y la actividad reciente de las requisiciones que puedes ver.',
-        quien: 'Personas con permiso para ver el dashboard. Las cifras respetan tu alcance: si solo ves tus requisiciones, el dashboard solo cuenta las tuyas.',
+        paraQue: 'Es la vista inicial del sistema: resume montos, conteos por estatus y tendencias del alcance que elijas.',
+        quien: 'El dashboard tiene sus propios permisos: «Ver mi dashboard de gastos» (solo lo tuyo), «Ver dashboard de mi sucursal», «Ver dashboard de mi corporativo» y «Ver dashboard general». Si tienes varios, cambias de vista con las pestañas superiores; la inicial es la más amplia.',
         pasos: [
+            { titulo: 'Elige la vista', texto: 'Mi dashboard, Mi sucursal, Mi corporativo o General, según tus permisos.' },
             { titulo: 'Elige el periodo', texto: 'Usa «Este mes», «Mes anterior», «Últimos 30 o 90 días», «Este año» o un rango personalizado.' },
             { titulo: 'Aplica filtros', texto: 'Acota por corporativo, sucursal u otros filtros disponibles; los indicadores y gráficas se recalculan.' },
             { titulo: 'Revisa indicadores y gráficas', texto: 'Compara montos por estatus, tendencias y actividad para detectar pendientes.' },
-            { titulo: 'Exporta si lo necesitas', texto: 'Descarga el reporte en PDF (para compartir) o Excel (para analizar).', anyOf: ['reportes.dashboard'] },
+            { titulo: 'Exporta si lo necesitas', texto: 'El PDF o Excel contiene exactamente la vista y los filtros que estás viendo.', anyOf: ['reportes.dashboard'] },
         ],
         acciones: [
             'Cambiar periodo y filtros.',
             'Abrir el detalle desde los indicadores y la actividad reciente.',
             { texto: 'Exportar el reporte del dashboard en PDF o Excel.', anyOf: ['reportes.dashboard'] },
         ],
-        filtros: ['Periodo (predefinido o rango de fechas).', 'Corporativo y sucursal.'],
+        filtros: ['Periodo (predefinido o rango de fechas).', 'Corporativo y sucursal (solo los de tu vista).', 'Concepto y estatus.'],
         errores: [
             'Ver cifras «en cero»: normalmente el periodo no tiene movimientos; amplía el rango.',
             'Comparar reportes con filtros distintos: anota siempre el periodo y los filtros usados.',
+            'No ver la pestaña de sucursal o corporativo: tu cuenta necesita un colaborador con sucursal asignada.',
         ],
         advertencias: ['Los borradores y las requisiciones eliminadas no se suman como gasto pagado.'],
         consejos: ['Para cierres y auditoría usa meses completos.', 'Los colores de las gráficas se ajustan en Configuración.'],
@@ -124,12 +134,14 @@ export const MODULOS: GuiaModulo[] = [
         nombre: 'Notificaciones',
         grupo: 'General',
         icono: Bell,
-        resumen: 'Avisos en tiempo real de requisiciones, pagos, comprobantes, ajustes y seguridad.',
-        anyOf: ['notificaciones.ver'],
+        resumen: 'Tus avisos en tiempo real de requisiciones, pagos, comprobantes, ajustes y seguridad.',
+        anyOf: [],
+        views: ['notificaciones'],
+        tour: 'notificaciones',
         ruta: 'notificaciones.index',
         catalogo: ['notificaciones'],
         paraQue: 'Te avisa de lo que requiere tu atención: requisiciones enviadas, pagos autorizados o completados, comprobantes revisados, ajustes y cambios de cuentas.',
-        quien: 'Personas con permiso para ver notificaciones. Qué temas recibe cada quien se define por rol en «Roles y permisos». Si tu rol tiene un tema activo, recibes todos sus avisos, sin importar quién hizo la acción (incluido tú). Además recibes las resoluciones de tus propias solicitudes.',
+        quien: 'Personas con «Ver mis notificaciones»: la campana y este centro muestran solo tus avisos. Los temas que recibe cada rol se eligen en «Roles y permisos»; un tema nunca te deja abrir registros fuera de tu alcance. Además recibes las resoluciones de tus propias solicitudes.',
         pasos: [
             { titulo: 'Revisa la campana', texto: 'El contador de la barra superior muestra los avisos sin leer; ábrela para ver los más recientes.' },
             { titulo: 'Abre el centro de notificaciones', texto: 'Consulta el historial completo, filtrado por categoría y estado de lectura.' },
@@ -154,22 +166,26 @@ export const MODULOS: GuiaModulo[] = [
         grupo: 'Operación',
         icono: FileText,
         resumen: 'Solicitudes de compra o gasto: listado, búsqueda, detalle, estatus y PDF.',
-        anyOf: REQ_VER,
+        anyOf: [],
+        views: ['requisiciones'],
+        tour: 'requisiciones',
         ruta: 'requisiciones.index',
         catalogo: ['requisiciones'],
         paraQue: 'Concentra todas las solicitudes de gasto y su avance: desde el borrador hasta la comprobación completa.',
-        quien: 'Quien puede ver requisiciones. Con «Ver todas las requisiciones» se listan las de toda la organización; con «Ver requisiciones propias», solo las que creaste o en las que eres el solicitante.',
+        quien: 'Depende de tu alcance: «Ver mis requisiciones» (las que creaste o solicitaste), «de mi sucursal», «de mi corporativo» o «Ver todas las requisiciones». Un alcance mayor incluye lo tuyo.',
         pasos: [
             { titulo: 'Elige la pestaña', texto: '«Activas», «Borradores», «Capturadas» o «Eliminadas». Por defecto se muestran 20 registros por página.' },
             { titulo: 'Busca y filtra', texto: 'Busca por folio, proveedor, concepto, sucursal u observaciones y combina filtros.' },
             { titulo: 'Abre el detalle', texto: 'Desde el folio ves items, proveedor, pagos, comprobantes, ajustes e historial.' },
-            { titulo: 'Da seguimiento', texto: 'Según el estatus y tus permisos verás acciones como enviar, pagar, comprobar o ajustar.' },
+            { titulo: 'Da seguimiento', texto: 'Los botones de cada tarjeta (Ver, Pagos, Comprobaciones, Ajustes, PDF) son enlaces: con clic derecho → «Abrir en otra pestaña» o Ctrl + clic abres varias requisiciones a la vez.' },
         ],
         acciones: [
             'Ver el detalle y copiar el folio.',
-            'Descargar el PDF de una requisición.',
+            'Abrir varias requisiciones en pestañas distintas.',
+            { texto: 'Descargar o imprimir el PDF de una requisición.', anyOf: ['requisiciones.imprimir'] },
             { texto: 'Crear una requisición nueva.', anyOf: ['requisiciones.registrar'] },
-            { texto: 'Editar y enviar borradores.', anyOf: ['requisiciones.editar'] },
+            { texto: 'Editar y enviar tus borradores.', anyOf: ['requisiciones.editar'] },
+            { texto: 'Editar y enviar borradores de otras personas dentro de tu alcance.', anyOf: ['requisiciones.editar_cualquiera'] },
             { texto: 'Exportar el listado filtrado a PDF o Excel.', anyOf: ['requisiciones.exportar'] },
             { texto: 'Eliminar requisiciones (baja lógica).', anyOf: ['requisiciones.eliminar'] },
             { texto: 'Solicitar la eliminación de una requisición capturada.', anyOf: ['requisiciones.solicitar_eliminacion'] },
@@ -199,17 +215,21 @@ export const MODULOS: GuiaModulo[] = [
         ruta: 'requisiciones.registrar',
         catalogo: ['requisiciones'],
         paraQue: 'Registrar un gasto con todos sus datos para que pueda autorizarse y pagarse.',
-        quien: 'Personas con permiso para registrar requisiciones.',
+        quien: 'Personas con permiso para registrar requisiciones. Guardar borradores y enviar son permisos aparte. Sin permisos especiales, el solicitante es tu colaborador y la sucursal y el comprador son los suyos (se muestran bloqueados).',
         pasos: [
             { titulo: 'Abre «Nueva»', texto: 'Desde Requisiciones, o desde una plantilla para precargar datos.' },
-            { titulo: 'Completa el encabezado', texto: 'Corporativo, sucursal, solicitante, concepto y proveedor son obligatorios. La fecha de requisición es hoy o posterior.' },
+            { titulo: 'Revisa solicitante, sucursal y comprador', texto: 'Se cargan solos con los datos de tu colaborador.' },
+            { titulo: 'Elige otra sucursal de tu corporativo', texto: 'Solo aparecen las sucursales activas de tu corporativo.', anyOf: ['requisiciones.elegir_sucursal_corporativo'] },
+            { titulo: 'Elige otro corporativo', texto: 'Al cambiar de corporativo se limpia la sucursal si ya no le pertenece.', anyOf: ['requisiciones.elegir_corporativo'] },
+            { titulo: 'Captura a nombre de otra persona', texto: 'Elige el solicitante entre los colaboradores de las sucursales que puedes elegir. Si es de otra sucursal, usa «Usar datos del solicitante». Quedas registrado como quien capturó.', anyOf: ['requisiciones.elegir_solicitante'] },
+            { titulo: 'Completa el encabezado', texto: 'Concepto y proveedor activo son obligatorios. La fecha de requisición es hoy o posterior.' },
             { titulo: 'Fecha esperada de pago (opcional)', texto: 'Si la indicas, no puede ser anterior a la fecha de requisición.' },
             { titulo: 'Agrega los items', texto: 'Al menos una, con cantidad mayor a 0, descripción, precio unitario e indicación de si genera IVA. Los totales se calculan solos.' },
             { titulo: 'Guarda o envía', texto: '«Guardar» la deja como Borrador para seguir después. «Enviar» la pasa a Capturada y avisa a quien revisa.' },
         ],
         acciones: [
-            'Guardar como borrador.',
-            'Enviar a revisión.',
+            { texto: 'Guardar como borrador.', anyOf: ['requisiciones.guardar_borrador'] },
+            { texto: 'Enviar a revisión.', anyOf: ['requisiciones.enviar'] },
             'Partir de una plantilla.',
             { texto: 'Editar un borrador antes de enviarlo.', anyOf: ['requisiciones.editar'] },
         ],
@@ -218,6 +238,7 @@ export const MODULOS: GuiaModulo[] = [
             'Fecha de requisición en el pasado: el sistema solo acepta hoy o fechas posteriores.',
             'Fecha esperada de pago anterior a la fecha de requisición.',
             'Items sin descripción o con cantidad en cero.',
+            '«Tu usuario no está vinculado a un colaborador»: pide a un administrador que vincule tu cuenta.',
         ],
         advertencias: [
             'Una vez enviada ya no se edita: los cambios de monto se piden con un ajuste.',
@@ -236,21 +257,24 @@ export const MODULOS: GuiaModulo[] = [
         grupo: 'Operación',
         icono: ArrowLeftRight,
         resumen: 'Devoluciones, faltantes e incrementos autorizados sobre el monto de una requisición.',
-        anyOf: ['ajustes.ver', 'ajustes.solicitar', 'ajustes.revisar', 'ajustes.aplicar'],
+        anyOf: ['ajustes.solicitar', 'ajustes.solicitar_cualquiera', 'ajustes.autorizar', 'ajustes.rechazar', 'ajustes.aplicar'],
+        views: ['ajustes'],
         ruta: 'requisiciones.index',
         catalogo: ['ajustes'],
         paraQue: 'Corregir el total de una requisición ya enviada sin editarla, con autorización y rastro completo.',
-        quien: 'Quien puede ver ajustes los consulta desde el detalle de la requisición. Solicitar, autorizar/rechazar y aplicar son permisos separados.',
+        quien: 'Los ajustes heredan el alcance de la requisición: de tus requisiciones, de tu sucursal, de tu corporativo o todos. Solicitar, autorizar, rechazar y aplicar son permisos separados.',
         pasos: [
             { titulo: 'Abre la requisición', texto: 'En el detalle entra a «Ajustes».' },
-            { titulo: 'Solicita el ajuste', texto: 'Elige el tipo (devolución, faltante o incremento autorizado), el monto y el motivo.', anyOf: ['ajustes.solicitar'] },
-            { titulo: 'Autoriza o rechaza', texto: 'Quien revisa aprueba o rechaza; al rechazar debe escribir el motivo.', anyOf: ['ajustes.revisar'] },
+            { titulo: 'Solicita el ajuste', texto: 'Elige el tipo (devolución, faltante o incremento autorizado), el monto y el motivo.', anyOf: ['ajustes.solicitar', 'ajustes.solicitar_cualquiera'] },
+            { titulo: 'Autoriza o rechaza', texto: 'Quien revisa aprueba o rechaza; al rechazar debe escribir el motivo.', anyOf: ['ajustes.autorizar', 'ajustes.rechazar'] },
             { titulo: 'Aplica el ajuste', texto: 'Un ajuste aprobado se aplica y cambia el total de la requisición.', anyOf: ['ajustes.aplicar'] },
         ],
         acciones: [
             'Consultar el historial de ajustes con monto anterior y nuevo.',
-            { texto: 'Solicitar un ajuste o cancelar uno pendiente propio.', anyOf: ['ajustes.solicitar'] },
-            { texto: 'Autorizar o rechazar ajustes.', anyOf: ['ajustes.revisar'] },
+            { texto: 'Solicitar ajustes en tus requisiciones o cancelar uno pendiente propio.', anyOf: ['ajustes.solicitar'] },
+            { texto: 'Solicitar ajustes en requisiciones de otras personas dentro de tu alcance.', anyOf: ['ajustes.solicitar_cualquiera'] },
+            { texto: 'Autorizar ajustes.', anyOf: ['ajustes.autorizar'] },
+            { texto: 'Rechazar ajustes.', anyOf: ['ajustes.rechazar'] },
             { texto: 'Aplicar ajustes aprobados.', anyOf: ['ajustes.aplicar'] },
         ],
         estados: [
@@ -308,11 +332,13 @@ export const MODULOS: GuiaModulo[] = [
         grupo: 'Operación',
         icono: ClipboardList,
         resumen: 'Requisiciones frecuentes guardadas para crearlas en segundos.',
-        anyOf: ['plantillas.ver_todos', 'plantillas.ver_propios'],
+        anyOf: [],
+        views: ['plantillas'],
+        tour: 'plantillas',
         ruta: 'plantillas.index',
         catalogo: ['plantillas'],
         paraQue: 'Guardar encabezado e items de gastos recurrentes (renta, servicios, insumos) para no capturarlos cada vez.',
-        quien: 'Quien puede ver plantillas: las propias o las de todos, según su permiso.',
+        quien: 'Con «Ver mis plantillas» solo las tuyas; con «Ver todas las plantillas», las de todas las personas. Al crear o editar se aplican tus mismos permisos de captura: una plantilla no permite elegir solicitante, sucursal o corporativo que no podrías elegir en una requisición.',
         pasos: [
             { titulo: 'Crea la plantilla', texto: 'Captura corporativo, sucursal, solicitante, proveedor, concepto e items.', anyOf: ['plantillas.registrar'] },
             { titulo: 'Úsala', texto: 'Desde el listado elige «Usar» para abrir una requisición nueva con los datos precargados.' },
@@ -321,8 +347,9 @@ export const MODULOS: GuiaModulo[] = [
         acciones: [
             'Usar una plantilla para crear una requisición.',
             { texto: 'Crear plantillas.', anyOf: ['plantillas.registrar'] },
-            { texto: 'Editar plantillas.', anyOf: ['plantillas.editar'] },
-            { texto: 'Dar de baja y reactivar plantillas.', anyOf: ['plantillas.eliminar'] },
+            { texto: 'Editar tus plantillas.', anyOf: ['plantillas.editar'] },
+            { texto: 'Dar de baja y reactivar tus plantillas.', anyOf: ['plantillas.eliminar'] },
+            { texto: 'Editar o dar de baja plantillas de otras personas.', anyOf: ['plantillas.editar_cualquiera', 'plantillas.eliminar_cualquiera'] },
         ],
         errores: ['La requisición creada desde una plantilla valida todo de nuevo: si el proveedor ya no está activo, elige otro.'],
         advertencias: ['Cambiar una plantilla no modifica las requisiciones creadas antes con ella.'],
@@ -334,21 +361,26 @@ export const MODULOS: GuiaModulo[] = [
         nombre: 'Pagos',
         grupo: 'Operación',
         icono: Banknote,
-        resumen: 'Autorización, registro y consulta de pagos con su comprobante.',
-        anyOf: ['pagos.ver'],
+        resumen: 'Autorización, rechazo, registro y consulta de pagos con su comprobante.',
+        anyOf: [],
+        views: ['pagos'],
+        tour: 'pagos',
         ruta: 'pagos.index',
         catalogo: ['pagos'],
         paraQue: 'Programar y registrar los pagos de cada requisición y consultar todos los pagos con su comprobante bancario.',
-        quien: 'Quien puede ver pagos consulta los de las requisiciones a las que tiene acceso. Autorizar y registrar son permisos aparte.',
+        quien: 'Los pagos heredan el alcance de la requisición: «Ver pagos de mis requisiciones», «de mi sucursal», «de mi corporativo» o «Ver todos los pagos». Autorizar, rechazar, registrar y descargar comprobantes son permisos aparte.',
         pasos: [
             { titulo: 'Autoriza el pago', texto: 'En una requisición «Capturada», indica la fecha programada y autoriza. Queda registrado quién autorizó.', anyOf: ['pagos.autorizar'] },
+            { titulo: 'O recházalo', texto: 'Si no procede, rechaza con un motivo; el solicitante recibe el aviso.', anyOf: ['pagos.rechazar'] },
             { titulo: 'Registra el pago', texto: 'En «Pagar», captura tipo, monto, fecha real, referencia y sube el comprobante (PDF o imagen, hasta 12 MB). Se permiten pagos parciales.', anyOf: ['pagos.registrar'] },
             { titulo: 'Consulta', texto: 'En el módulo Pagos filtra, abre la vista previa del comprobante o descárgalo.' },
         ],
         acciones: [
-            'Ver la vista previa y descargar el comprobante del pago.',
+            { texto: 'Ver la vista previa y descargar el comprobante del pago.', anyOf: ['pagos.descargar'] },
             'Abrir la requisición relacionada.',
             { texto: 'Autorizar pagos.', anyOf: ['pagos.autorizar'] },
+            { texto: 'Rechazar pagos con motivo.', anyOf: ['pagos.rechazar'] },
+            { texto: 'Definir la fecha general de pago cuando el total está cubierto.', anyOf: ['pagos.editar'] },
             { texto: 'Registrar pagos totales o parciales.', anyOf: ['pagos.registrar'] },
             { texto: 'Exportar el listado a PDF o Excel.', anyOf: ['pagos.exportar'] },
         ],
@@ -373,23 +405,28 @@ export const MODULOS: GuiaModulo[] = [
         grupo: 'Operación',
         icono: Receipt,
         resumen: 'Facturas, tickets y notas que justifican cada gasto, con su revisión.',
-        anyOf: ['comprobaciones.ver'],
+        anyOf: [],
+        views: ['comprobaciones'],
+        tour: 'comprobantes',
         ruta: 'comprobantes.index',
         catalogo: ['comprobaciones'],
         paraQue: 'Comprobar en qué se gastó el dinero de cada requisición y llevar el control de lo aprobado y lo pendiente.',
-        quien: 'Quien puede ver comprobaciones consulta los de las requisiciones a las que tiene acceso. Solo puedes abrir archivos de requisiciones que puedes ver.',
+        quien: 'Las comprobaciones heredan el alcance de la requisición (mis requisiciones, mi sucursal, mi corporativo o todas). Subir, aceptar, rechazar y eliminar son permisos aparte.',
         pasos: [
-            { titulo: 'Abre «Comprobar»', texto: 'En el detalle de una requisición pagada entra a la pantalla de comprobación.', anyOf: ['comprobaciones.subir'] },
-            { titulo: 'Sube el archivo', texto: 'Elige tipo (factura, ticket, nota u otro), fecha de emisión y monto. Formatos: PDF, imagen, Excel o Word, hasta 10 MB.', anyOf: ['comprobaciones.subir'] },
-            { titulo: 'Revisa', texto: 'Aprueba o rechaza cada comprobante; al rechazar escribe el motivo para que el solicitante lo corrija.', anyOf: ['comprobaciones.revisar'] },
+            { titulo: 'Abre «Comprobar»', texto: 'En el detalle de una requisición pagada entra a la pantalla de comprobación.', anyOf: ['comprobaciones.subir', 'comprobaciones.subir_cualquiera'] },
+            { titulo: 'Sube el archivo', texto: 'Elige tipo (factura, ticket, nota u otro), fecha de emisión y monto. Formatos: PDF, imagen, Excel o Word, hasta 10 MB.', anyOf: ['comprobaciones.subir', 'comprobaciones.subir_cualquiera'] },
+            { titulo: 'Revisa', texto: 'Acepta o rechaza cada comprobante; al rechazar escribe el motivo para que el solicitante lo corrija.', anyOf: ['comprobaciones.aceptar', 'comprobaciones.rechazar'] },
             { titulo: 'Consulta', texto: 'En el módulo Comprobantes ve la vista previa en tarjeta o en grande, descarga y filtra.' },
         ],
         acciones: [
             'Vista previa (imágenes y PDF) y descarga.',
             'Abrir la requisición relacionada.',
-            { texto: 'Subir comprobantes.', anyOf: ['comprobaciones.subir'] },
-            { texto: 'Aprobar o rechazar comprobantes.', anyOf: ['comprobaciones.revisar'] },
-            { texto: 'Eliminar comprobantes.', anyOf: ['comprobaciones.eliminar'] },
+            { texto: 'Subir comprobantes a tus requisiciones.', anyOf: ['comprobaciones.subir'] },
+            { texto: 'Subir comprobantes a requisiciones de otras personas dentro de tu alcance.', anyOf: ['comprobaciones.subir_cualquiera'] },
+            { texto: 'Aceptar comprobantes.', anyOf: ['comprobaciones.aceptar'] },
+            { texto: 'Rechazar comprobantes.', anyOf: ['comprobaciones.rechazar'] },
+            { texto: 'Eliminar los comprobantes que cargaste y aún no se aprueban.', anyOf: ['comprobaciones.eliminar_propios'] },
+            { texto: 'Eliminar cualquier comprobante dentro de tu alcance.', anyOf: ['comprobaciones.eliminar'] },
             { texto: 'Editar folios de factura.', anyOf: ['comprobaciones.administrar_folios'] },
             { texto: 'Exportar el listado a PDF o Excel.', anyOf: ['comprobaciones.exportar'] },
         ],
@@ -427,11 +464,13 @@ export const MODULOS: GuiaModulo[] = [
         grupo: 'Personas y accesos',
         icono: Users,
         resumen: 'Personas de la organización, con o sin cuenta de acceso.',
-        anyOf: ['colaboradores.ver'],
+        anyOf: [],
+        views: ['colaboradores'],
+        tour: 'colaboradores',
         ruta: 'colaboradores.index',
         catalogo: ['colaboradores'],
         paraQue: 'Registrar a las personas que solicitan gastos. Un colaborador puede existir sin cuenta; la cuenta se crea en Usuarios.',
-        quien: 'Personas con permiso para ver colaboradores.',
+        quien: 'Según tu alcance: tu propio registro, tu sucursal, tu corporativo o todos. Búsquedas, contadores y exportaciones usan el mismo alcance.',
         pasos: [
             { titulo: 'Registra', texto: 'Nombre, apellidos, correo, puesto, sucursal y área.', anyOf: ['colaboradores.registrar'] },
             { titulo: 'Vincula una cuenta (opcional)', texto: 'Si la persona usará el sistema, créale un usuario en Usuarios y vincúlalo.' },
@@ -460,20 +499,24 @@ export const MODULOS: GuiaModulo[] = [
         grupo: 'Personas y accesos',
         icono: UserCog,
         resumen: 'Cuentas de acceso: alta, rol, activación y contraseñas.',
-        anyOf: ['usuarios.ver'],
+        anyOf: [],
+        views: ['usuarios'],
+        tour: 'usuarios',
         ruta: 'usuarios.index',
         catalogo: ['usuarios'],
         paraQue: 'Dar y quitar acceso al sistema. Cada cuenta tiene un rol que define qué puede ver y hacer.',
-        quien: 'Personas con permiso para ver usuarios. Registrar, editar, desactivar, reactivar y restablecer contraseñas son permisos aparte.',
+        quien: 'Según tu alcance: usuarios de tu sucursal, de tu corporativo o todos. Registrar, editar, cambiar el rol, desactivar, reactivar y restablecer contraseñas son permisos aparte. Solo puedes asignar roles con permisos que tú también tienes.',
         pasos: [
             { titulo: 'Crea la cuenta', texto: 'Nombre, correo, rol y, si aplica, el colaborador vinculado. La persona recibe su acceso por correo.', anyOf: ['usuarios.registrar'] },
-            { titulo: 'Cambia el rol', texto: 'Edita la cuenta y elige otro rol; el cambio aplica en su siguiente acción.', anyOf: ['usuarios.editar'] },
+            { titulo: 'Cambia el rol', texto: 'Edita la cuenta y elige otro rol; el cambio aplica en su siguiente acción.', anyOf: ['usuarios.cambiar_rol'] },
             { titulo: 'Desactiva', texto: 'La persona deja de poder entrar de inmediato y se cierran sus sesiones abiertas.', anyOf: ['usuarios.desactivar'] },
         ],
         acciones: [
             'Buscar y filtrar por estado y rol.',
             { texto: 'Registrar cuentas.', anyOf: ['usuarios.registrar'] },
-            { texto: 'Editar nombre, correo, rol y colaborador vinculado.', anyOf: ['usuarios.editar'] },
+            { texto: 'Editar nombre, correo y colaborador vinculado.', anyOf: ['usuarios.editar'] },
+            { texto: 'Cambiar el rol de una cuenta.', anyOf: ['usuarios.cambiar_rol'] },
+            { texto: 'Consultar qué colaborador tiene cada cuenta.', anyOf: ['usuarios.ver_vinculo'] },
             { texto: 'Desactivar cuentas.', anyOf: ['usuarios.desactivar'] },
             { texto: 'Reactivar cuentas.', anyOf: ['usuarios.reactivar'] },
             { texto: 'Enviar una contraseña temporal por correo.', anyOf: ['usuarios.restablecer_contrasena'] },
@@ -499,13 +542,16 @@ export const MODULOS: GuiaModulo[] = [
         icono: KeyRound,
         resumen: 'Qué puede ver y hacer cada rol, y qué notificaciones recibe.',
         anyOf: ['roles.ver'],
+        tour: 'roles',
         ruta: 'roles.index',
         catalogo: ['roles'],
         paraQue: 'Definir permisos por módulo para cada rol, incluidos roles personalizados, y los temas de notificación que recibe.',
         quien: 'Personas con permiso para ver roles. Crear, editar y eliminar roles son permisos aparte.',
         pasos: [
             { titulo: 'Crea o abre un rol', texto: 'Dale un nombre y una descripción clara.', anyOf: ['roles.registrar', 'roles.editar'] },
-            { titulo: 'Marca permisos por módulo', texto: 'Usa el buscador de permisos; cada permiso está escrito en lenguaje claro.', anyOf: ['roles.editar'] },
+            { titulo: 'Elige el alcance de cada módulo', texto: 'Sin acceso, Propio, Sucursal, Corporativo o Global. Elegir uno incluye los inferiores.', anyOf: ['roles.editar', 'roles.registrar'] },
+            { titulo: 'Marca las acciones', texto: 'Agrupadas en operación, captura especial, administración y exportación. Las sensibles están señaladas.', anyOf: ['roles.editar', 'roles.registrar'] },
+            { titulo: 'Revisa el resumen', texto: 'Antes de guardar verás módulos, alcances globales, acciones sensibles y qué perderán los usuarios del rol.', anyOf: ['roles.editar', 'roles.registrar'] },
             { titulo: 'Elige notificaciones', texto: 'Indica qué temas recibe el rol o si recibe todos.', anyOf: ['roles.editar'] },
             { titulo: 'Asigna el rol', texto: 'Desde Usuarios, a cada cuenta.' },
         ],
@@ -517,7 +563,7 @@ export const MODULOS: GuiaModulo[] = [
         ],
         errores: ['El sistema impide quitar permisos de administración si nadie más los conserva.'],
         advertencias: ['Los cambios afectan a todas las cuentas con ese rol.', 'Ocultar un botón no es seguridad: el sistema vuelve a validar cada acción con estos permisos.'],
-        consejos: ['Da el mínimo necesario y amplía después.', '«Ver todas» y «ver propias» cambian el alcance de la información; elige con cuidado.'],
+        consejos: ['Da el mínimo necesario y amplía después.', 'Una acción nunca da acceso global por sí sola: si necesita ver registros, se asigna el alcance mínimo.', 'Usa el filtro «Con advertencias» para revisar accesos globales y acciones sensibles.'],
         claves: 'permisos rol perfil acceso personalizado',
     },
 
@@ -531,11 +577,13 @@ export const MODULOS: GuiaModulo[] = [
         grupo: 'Catálogos',
         icono: Truck,
         resumen: 'A quién se paga: razón social, RFC y datos bancarios.',
-        anyOf: ['proveedores.ver'],
+        anyOf: [],
+        views: ['proveedores'],
+        tour: 'proveedores',
         ruta: 'proveedores.index',
         catalogo: ['proveedores'],
         paraQue: 'Mantener los datos de pago de cada proveedor. Toda requisición necesita un proveedor activo.',
-        quien: 'Personas con permiso para ver proveedores: los propios o, con el permiso correspondiente, los de todos los usuarios.',
+        quien: 'Con «Ver mis proveedores», los que registraste; con «Ver todos los proveedores», los de todas las personas. «Utilizar cualquier proveedor activo» permite elegirlos al capturar sin poder administrarlos.',
         pasos: [
             { titulo: 'Busca primero', texto: 'Por razón social o RFC, para no duplicar.' },
             { titulo: 'Registra', texto: 'Razón social, RFC, banco y CLABE interbancaria.', anyOf: ['proveedores.registrar'] },
@@ -562,6 +610,7 @@ export const MODULOS: GuiaModulo[] = [
         icono: Settings,
         resumen: 'Colores, logo, paleta de gráficas e instalación de la aplicación.',
         anyOf: ['configuracion.ver', 'configuracion.administrar'],
+        tour: 'configuracion',
         ruta: 'configuracion.edit',
         catalogo: ['configuracion'],
         paraQue: 'Adaptar la apariencia del ERP a la marca y definir cómo se instala la aplicación.',
@@ -585,11 +634,13 @@ export const MODULOS: GuiaModulo[] = [
         grupo: 'Sistema',
         icono: ScrollText,
         resumen: 'Quién hizo qué, cuándo y qué cambió, campo por campo.',
-        anyOf: ['logs.ver'],
+        anyOf: [],
+        views: ['logs'],
+        tour: 'bitacora',
         ruta: 'systemlogs.index',
         catalogo: ['logs'],
         paraQue: 'Auditar altas, cambios, bajas lógicas, reactivaciones y cambios de estatus en todo el sistema.',
-        quien: 'Personas con permiso para ver la bitácora del sistema.',
+        quien: 'Según tu alcance: tu actividad, la de tu sucursal, la de tu corporativo o toda la bitácora. Los datos sensibles (contraseñas, tokens) nunca se muestran.',
         pasos: [
             { titulo: 'Filtra', texto: 'Por módulo, acción, usuario, fechas o texto.' },
             { titulo: 'Abre el detalle', texto: 'Muestra cada campo con su valor «Antes» y «Después».' },
@@ -603,7 +654,53 @@ export const MODULOS: GuiaModulo[] = [
         claves: 'auditoria historial log cambios trazabilidad',
     },
 
+    {
+        id: 'notificaciones-todas',
+        nombre: 'Todas las notificaciones',
+        grupo: 'Sistema',
+        icono: BellRing,
+        resumen: 'Consulta administrativa de los avisos de todas las personas.',
+        anyOf: ['notificaciones.ver_todas'],
+        ruta: 'notificaciones.all',
+        catalogo: ['notificaciones'],
+        tour: 'notificaciones-todas',
+        paraQue: 'Revisar qué avisos se enviaron, a quién y si ya los leyeron, sin entrar a la cuenta de nadie.',
+        quien: 'Solo quien tiene «Ver todas las notificaciones».',
+        pasos: [
+            { titulo: 'Filtra', texto: 'Por destinatario, categoría, estado de lectura o texto.' },
+            { titulo: 'Revisa', texto: 'Cada tarjeta muestra destinatario, categoría, título, mensaje, estado y fecha.' },
+            { titulo: 'Abre el registro', texto: 'El enlace lleva a la pantalla relacionada; el sistema vuelve a validar tu acceso.' },
+        ],
+        acciones: ['Filtrar por destinatario, categoría y estado.', 'Abrir el registro relacionado.'],
+        errores: ['No poder abrir un registro: el enlace respeta tu propio alcance.'],
+        advertencias: ['Es de solo lectura: abrir un aviso desde aquí no lo marca como leído para su destinatario.'],
+        consejos: ['Úsala para confirmar si una persona recibió un aviso importante.'],
+        claves: 'auditoria avisos destinatario leidas',
+    },
+
     /* --------------------------------------------------------- Tu cuenta y app */
+    {
+        id: 'ayuda',
+        nombre: 'Ayuda y recorridos',
+        grupo: 'Tu cuenta y la app',
+        icono: CircleHelp,
+        resumen: 'Esta guía y los recorridos interactivos dentro del sistema.',
+        anyOf: [],
+        ruta: 'ayuda.guia',
+        tour: 'general',
+        paraQue: 'Aprender a usar cada módulo con un recorrido que resalta los controles reales de la pantalla.',
+        quien: 'Cualquier cuenta. Solo se muestran los módulos y acciones a los que tienes acceso.',
+        pasos: [
+            { titulo: 'Abre el botón de ayuda', texto: 'El botón con la brújula (abajo a la derecha) muestra los recorridos de la pantalla actual.' },
+            { titulo: 'Inicia un recorrido', texto: 'Avanza con «Siguiente» o la flecha derecha; regresa con «Atrás» o la flecha izquierda; sal con Escape.' },
+            { titulo: 'Recorrido completo', texto: 'Recorre todos tus módulos; al terminar vuelves a la pantalla donde estabas.' },
+        ],
+        acciones: ['Iniciar el recorrido completo o el de un módulo.', 'Saltar un paso o un módulo.', 'Leer la guía escrita de cada módulo.'],
+        errores: ['Un paso se salta solo si el control no existe en tu pantalla (por permisos o por el tamaño de pantalla).'],
+        advertencias: ['Los recorridos navegan entre módulos; guarda tus cambios antes de iniciar uno.'],
+        consejos: ['Los recorridos que ya viste se marcan en esta página.'],
+        claves: 'tour recorrido tutorial ayuda guia',
+    },
     {
         id: 'perfil',
         nombre: 'Perfil',
@@ -708,11 +805,15 @@ function catalogoSimple(id: string, nombre: string, grupo: string, icono: Compon
         grupo,
         icono,
         resumen,
-        anyOf: [p('ver')],
+        anyOf: [],
+        views: [id],
+        tour: id,
         ruta: `${id}.index`,
         catalogo: [id],
         paraQue,
-        quien: `Personas con permiso para ver ${minus}. Registrar, editar, dar de baja, reactivar y exportar son permisos aparte.`,
+        quien: id === 'conceptos'
+            ? 'Personas con permiso para ver conceptos. Registrar, editar, dar de baja, reactivar y exportar son permisos aparte.'
+            : `Según tu alcance: solo lo tuyo, lo de tu corporativo o todo. Editar, dar de baja, reactivar y exportar solo aplican a ${minus} que puedes ver.`,
         pasos: [
             { titulo: 'Busca', texto: 'Antes de registrar, confirma que no exista.' },
             { titulo: 'Registra', texto: 'Completa los datos obligatorios y guarda.', anyOf: [p('registrar')] },

@@ -62,8 +62,9 @@ class RequisicionComprobanteController extends Controller
                 ->get(),
 
             'comprobantes' => [
-                'data' => collect($comprobantes)->map(function ($c) {
-                    $url = ! empty($c->archivo_path) ? Storage::disk('public')->url($c->archivo_path) : null;
+                'data' => collect($comprobantes)->map(function ($c) use ($user, $requisicion) {
+                    // Archivo por la ruta protegida (valida el alcance en cada descarga).
+                    $url = ! empty($c->archivo_path) ? route('comprobantes.archivo', $c->id) : null;
 
                     return [
                         'id' => (int) $c->id,
@@ -72,6 +73,7 @@ class RequisicionComprobanteController extends Controller
                         'monto' => (float) ($c->monto ?? 0),
                         'estatus' => $c->estatus ?? 'PENDIENTE',
                         'comentario_revision' => $c->comentario_revision,
+                        'can_delete' => $user->can('deleteComprobante', [$requisicion, (new Comprobante)->forceFill((array) $c)]),
                         'archivo' => $url ? [
                             'label' => $c->archivo_original ?: 'Ver archivo',
                             'url' => $url,
@@ -91,11 +93,13 @@ class RequisicionComprobanteController extends Controller
                 ['id' => 'NOTA',    'nombre' => 'Nota'],
                 ['id' => 'OTRO',    'nombre' => 'Otro'],
             ],
-            'canReview' => $user->can('comprobaciones.revisar'),
+            'canReview' => $user->can('reviewComprobante', $requisicion),
             'can' => [
-                'revisar' => $user->can('comprobaciones.revisar'),
+                'revisar' => $user->can('reviewComprobante', $requisicion),
+                'aceptar' => $user->can('reviewComprobante', [$requisicion, 'APROBADO']),
+                'rechazar' => $user->can('reviewComprobante', [$requisicion, 'RECHAZADO']),
                 'subir' => $user->can('uploadComprobante', $requisicion),
-                'eliminar' => $user->can('comprobaciones.eliminar'),
+                'eliminar' => $user->can('deleteComprobante', $requisicion),
                 'administrar_folios' => $user->can('comprobaciones.administrar_folios'),
                 'ver_ajustes' => $user->can('viewAjustes', $requisicion),
                 'solicitar_ajuste' => $user->can('requestAdjustment', $requisicion),
@@ -164,7 +168,7 @@ class RequisicionComprobanteController extends Controller
     public function destroy(Request $request, Comprobante $comprobante)
     {
         $requisicion = $comprobante->requisicion()->first();
-        abort_unless($requisicion && $request->user()->can('view', $requisicion), 403);
+        abort_unless($requisicion && $request->user()->can('deleteComprobante', [$requisicion, $comprobante]), 403);
 
         DB::transaction(function () use ($comprobante, $requisicion) {
             $path = $comprobante->archivo_path;
@@ -193,7 +197,7 @@ class RequisicionComprobanteController extends Controller
     public function review(Request $request, Comprobante $comprobante)
     {
         $requisicion = $comprobante->requisicion()->first();
-        abort_unless($requisicion && $request->user()->can('view', $requisicion), 403);
+        abort_unless($requisicion && $request->user()->can('reviewComprobante', $requisicion), 403);
 
         $data = $request->validate([
             'estatus' => ['required', 'in:APROBADO,RECHAZADO'],
@@ -203,6 +207,9 @@ class RequisicionComprobanteController extends Controller
             'comentario_revision.required_if' => 'Escribe el motivo del rechazo.',
             'comentario_revision.max' => 'El comentario no debe exceder 2,000 caracteres.',
         ]);
+
+        // La decisión concreta exige su permiso: aceptar o rechazar.
+        abort_unless($request->user()->can('reviewComprobante', [$requisicion, $data['estatus']]), 403);
 
         [$req, $statusAnteriorReq] = DB::transaction(function () use ($data, $comprobante, $request) {
             $comprobante->forceFill([
@@ -318,6 +325,7 @@ class RequisicionComprobanteController extends Controller
                 severity: 'info',
                 url: route('requisiciones.comprobar', $requisicion->id, false),
                 actor: $user,
+                canSee: fn ($u) => $u->can('viewComprobaciones', $requisicion),
             );
 
             return redirect()->back(303)->with(

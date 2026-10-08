@@ -53,7 +53,7 @@ const totalRows   = props.plantillas?.meta?.total        ?? 0
                         Base reutilizable de requisiciones frecuentes
                     </p>
                 </div>
-                <button v-if="props.can?.registrar" @click="goCreatePlantilla" class="erp-button erp-button-primary h-11 px-5 flex-shrink-0">
+                <button data-tour="plantillas-nueva" v-if="props.can?.registrar" @click="goCreatePlantilla" class="erp-button erp-button-primary h-11 px-5 flex-shrink-0">
                     <Plus class="h-4 w-4" />
                     Nueva plantilla
                 </button>
@@ -132,7 +132,7 @@ const totalRows   = props.plantillas?.meta?.total        ?? 0
             </div>
 
             <!-- ── Grid de cards ── -->
-            <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div data-tour="plantillas-lista" v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 <div
                     v-for="row in rows"
                     :key="row.id"
@@ -211,7 +211,7 @@ const totalRows   = props.plantillas?.meta?.total        ?? 0
                         </a>
 
                         <a
-                            v-if="props.can?.editar"
+                            v-if="(row as any).can?.editar ?? props.can?.editar"
                             :href="route('plantillas.edit', { plantilla: row.id })"
                             target="_blank"
                             rel="noopener noreferrer"
@@ -222,7 +222,7 @@ const totalRows   = props.plantillas?.meta?.total        ?? 0
                         </a>
 
                         <button
-                            v-if="props.can?.eliminar && row.status !== 'ELIMINADA'"
+                            v-if="((row as any).can?.eliminar ?? props.can?.eliminar) && row.status !== 'ELIMINADA'"
                             type="button"
                             @click="destroyRow(row)"
                             class="erp-button erp-button-danger h-9 px-3 text-xs flex-1 min-w-[5rem] justify-center"
@@ -232,7 +232,7 @@ const totalRows   = props.plantillas?.meta?.total        ?? 0
                         </button>
 
                         <button
-                            v-else-if="props.can?.eliminar"
+                            v-else-if="(row as any).can?.eliminar ?? props.can?.eliminar"
                             type="button"
                             @click="reactivateRow(row)"
                             class="erp-button h-9 px-3 text-xs flex-1 min-w-[5rem] justify-center

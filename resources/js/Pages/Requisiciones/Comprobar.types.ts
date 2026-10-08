@@ -9,6 +9,8 @@ export interface ComprobanteRow {
   revisado_at?: string | null
   user_carga?: { id?: number | null; name?: string | null } | null
   user_revision?: { id?: number | null; name?: string | null } | null
+  /** El servidor indica si este comprobante se puede eliminar. */
+  can_delete?: boolean
 }
 
 export interface FolioOption {
@@ -42,6 +44,8 @@ export interface RequisicionComprobarPageProps {
   canReview: boolean
   can?: {
     revisar: boolean
+    aceptar?: boolean
+    rechazar?: boolean
     subir: boolean
     eliminar: boolean
     administrar_folios: boolean

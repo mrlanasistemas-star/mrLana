@@ -67,6 +67,7 @@ class RequisicionAjusteController extends Controller
             severity: 'warning',
             url: route('requisiciones.ajustes', $requisicion->id, false),
             actor: $user,
+            canSee: fn (User $u) => $u->can('viewAjustes', $requisicion),
         );
 
         // Correo como canal secundario; un fallo SMTP no revierte el ajuste.
@@ -89,8 +90,8 @@ class RequisicionAjusteController extends Controller
     {
         $data = $request->validated();
         $user = $request->user();
-        abort_unless($user->can('view', $ajuste->requisicion), 403);
         $aprobar = $data['accion'] === 'APROBAR';
+        abort_unless($user->can($aprobar ? 'approveAdjustment' : 'rejectAdjustment', $ajuste->requisicion), 403);
 
         $resultado = DB::transaction(function () use ($ajuste, $aprobar, $data, $user) {
             $locked = Ajuste::query()->whereKey($ajuste->id)->lockForUpdate()->first();
@@ -134,7 +135,7 @@ class RequisicionAjusteController extends Controller
     public function apply(Request $request, Ajuste $ajuste): RedirectResponse
     {
         $user = $request->user();
-        abort_unless($user->can('view', $ajuste->requisicion), 403);
+        abort_unless($user->can('applyAdjustment', $ajuste->requisicion), 403);
 
         $resultado = DB::transaction(function () use ($ajuste, $user) {
             $locked = Ajuste::query()->whereKey($ajuste->id)->lockForUpdate()->first();
@@ -202,8 +203,9 @@ class RequisicionAjusteController extends Controller
     {
         $user = $request->user();
         $isOwner = (int) $ajuste->user_registro_id === (int) $user->id;
-        abort_unless($isOwner || $user->can('ajustes.revisar'), 403);
-        abort_unless($user->can('view', $ajuste->requisicion), 403);
+        $req = $ajuste->requisicion;
+        abort_unless($user->can('viewAjustes', $req), 403);
+        abort_unless($isOwner || $user->can('approveAdjustment', $req) || $user->can('rejectAdjustment', $req), 403);
 
         $cancelado = DB::transaction(function () use ($ajuste, $user) {
             $locked = Ajuste::query()->whereKey($ajuste->id)->lockForUpdate()->first();
@@ -233,6 +235,7 @@ class RequisicionAjusteController extends Controller
             url: route('requisiciones.ajustes', $cancelado->requisicion_id, false),
             direct: [$cancelado->solicitadoPor],
             actor: $user,
+            canSee: fn (User $u) => $u->can('viewAjustes', $req),
         );
 
         return back()->with('success', 'Ajuste cancelado.');
