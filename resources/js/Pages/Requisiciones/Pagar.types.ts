@@ -2,6 +2,8 @@
 export type FileLink = {
   label: string
   url: string
+  /** Tipo para la vista previa (la URL protegida no tiene extensión). */
+  kind?: 'image' | 'pdf' | 'file' | 'none'
 }
 
 export type Beneficiario = {

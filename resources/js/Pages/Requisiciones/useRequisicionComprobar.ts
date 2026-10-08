@@ -327,8 +327,16 @@ const canUploadMore = computed(() => {
   const preview = ref<PreviewState>(null)
   const previewWrapRef = ref<HTMLElement | null>(null)
 
-  const detectKindByUrl = (url: string, label: string): PreviewKind => {
-    const ext = extOf(url) || extOf(label)
+  const detectKindByUrl = (url: string, label: string, serverKind?: string): PreviewKind => {
+    if (serverKind === 'pdf' || serverKind === 'image') return serverKind
+    // La URL protegida (/comprobantes/5/archivo) no tiene extensión: primero el nombre del archivo.
+    let path = url
+    try {
+      path = new URL(url, window.location.origin).pathname
+    } catch {
+      /* URL relativa */
+    }
+    const ext = extOf(label) || extOf(path.split('/').pop() ?? '')
     if (ext === 'pdf') return 'pdf'
     if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'].includes(ext)) return 'image'
     return 'other'
@@ -339,7 +347,7 @@ const canUploadMore = computed(() => {
     const label = row?.archivo?.label || 'Archivo'
     if (!url) return
 
-    preview.value = { url, label, kind: detectKindByUrl(url, label) }
+    preview.value = { url, label, kind: detectKindByUrl(url, label, row?.archivo?.kind) }
     await nextTick()
 
     if (previewWrapRef.value && window.matchMedia('(max-width: 1279px)').matches) {

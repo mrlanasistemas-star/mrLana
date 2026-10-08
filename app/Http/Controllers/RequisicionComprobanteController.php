@@ -77,6 +77,7 @@ class RequisicionComprobanteController extends Controller
                         'archivo' => $url ? [
                             'label' => $c->archivo_original ?: 'Ver archivo',
                             'url' => $url,
+                            'kind' => \App\Support\FileKind::of($c->archivo_original ?: $c->archivo_path),
                         ] : null,
                     ];
                 })->values(),

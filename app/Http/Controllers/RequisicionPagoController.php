@@ -50,6 +50,7 @@ class RequisicionPagoController extends Controller
                 'archivo' => $url ? [
                     'label' => $p->archivo_original ?: 'Ver archivo',
                     'url' => $url,
+                    'kind' => \App\Support\FileKind::of($p->archivo_original ?: $p->archivo_path),
                 ] : null,
                 // NO sale de pagos (porque no existe en pagos). Sale de la requisición/proveedor.
                 'beneficiario' => [

@@ -87,7 +87,7 @@ Route::middleware('auth')->group(function () use ($scope, $any) {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // =========================
-    // Notificaciones: las propias (campana) y la consulta administrativa de todas
+    // Notificaciones: un solo módulo; con "Ver todas" muestra las de todos
     // =========================
     Route::middleware($scope('notificaciones'))->group(function () {
         Route::get('/notificaciones', [NotificationController::class, 'index'])->name('notificaciones.index');
@@ -95,8 +95,8 @@ Route::middleware('auth')->group(function () use ($scope, $any) {
         Route::patch('/notificaciones/{notification}/leer', [NotificationController::class, 'markAsRead'])->name('notificaciones.read');
         Route::post('/notificaciones/leer-todas', [NotificationController::class, 'markAllAsRead'])->name('notificaciones.readAll');
     });
-    Route::get('/notificaciones/todas', [NotificationController::class, 'all'])
-        ->middleware('permission:notificaciones.ver_todas')->name('notificaciones.all');
+    // Compatibilidad: la consulta de todas ahora vive en el mismo módulo.
+    Route::permanentRedirect('/notificaciones/todas', '/notificaciones');
 
     // =========================
     // Catálogos organizacionales

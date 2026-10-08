@@ -120,7 +120,7 @@ final class PermissionCatalog
                 'scope' => ['own' => 'notificaciones.ver', 'global' => 'notificaciones.ver_todas'],
                 'permissions' => [
                     'notificaciones.ver' => self::p('Ver mis notificaciones', 'alcance', 'Tu campana: ver, filtrar y marcar como leídas tus avisos.'),
-                    'notificaciones.ver_todas' => self::p('Ver todas las notificaciones', 'alcance', 'Consulta de solo lectura de los avisos de todas las personas.', sensitive: true),
+                    'notificaciones.ver_todas' => self::p('Ver todas las notificaciones', 'alcance', 'En el mismo módulo de Notificaciones también ve los avisos de todas las personas (solo lectura).', sensitive: true),
                 ],
             ],
             'requisiciones' => [

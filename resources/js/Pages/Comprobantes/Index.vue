@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import {
-    CheckCircle2, Clock, Download, ExternalLink, Eye, FileStack, Loader2, MessageSquareText, Receipt, RotateCcw, Search,
+    CheckCircle2, Clock, Download, ExternalLink, Eye, SquareArrowOutUpRight, FileStack, Loader2, MessageSquareText, Receipt, RotateCcw, Search,
     ShieldCheck, Upload, Wallet, XCircle,
 } from 'lucide-vue-next'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
@@ -231,7 +231,8 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
                         </p>
 
                         <div class="mt-auto flex flex-wrap gap-1.5 border-t border-slate-100 pt-3 dark:border-white/[0.06]">
-                            <button type="button" class="ui-btn-sm" :disabled="c.kind === 'none'" @click="previewIndex = i"><Eye class="h-3.5 w-3.5" aria-hidden="true" /> Ver</button>
+                            <button type="button" class="ui-btn-sm" :disabled="c.kind === 'none'" title="Ver en grande en esta pantalla" @click="previewIndex = i"><Eye class="h-3.5 w-3.5" aria-hidden="true" /> Abrir</button>
+                            <a v-if="c.preview_url" :href="c.preview_url" target="_blank" rel="noopener" class="ui-btn-sm" title="Abrir en otra pestaña"><SquareArrowOutUpRight class="h-3.5 w-3.5" aria-hidden="true" /> Otra pestaña</a>
                             <a v-if="c.download_url" :href="c.download_url" class="ui-btn-sm"><Download class="h-3.5 w-3.5" aria-hidden="true" /> Descargar</a>
                             <Link v-if="c.requisicion" :href="route('requisiciones.comprobar', c.requisicion.id)" class="ui-btn-sm ml-auto">
                                 {{ can.revisar && c.estatus === 'PENDIENTE' ? 'Revisar' : 'Requisición' }} <ExternalLink class="h-3.5 w-3.5" aria-hidden="true" />

@@ -2,7 +2,6 @@ import type { Component } from 'vue'
 import {
     Banknote,
     Bell,
-    BellRing,
     Building2,
     CircleHelp,
     ClipboardList,
@@ -44,7 +43,7 @@ export const NAVIGATION: NavGroup[] = [
         title: 'General',
         items: [
             { key: 'dashboard', label: 'Dashboard', routeName: 'dashboard', activePattern: 'dashboard*', icon: LayoutDashboard, views: ['dashboard'] },
-            { key: 'notificaciones', label: 'Notificaciones', routeName: 'notificaciones.index', activePattern: 'notificaciones.index', icon: Bell, views: ['notificaciones'] },
+            { key: 'notificaciones', label: 'Notificaciones', routeName: 'notificaciones.index', activePattern: 'notificaciones.*', icon: Bell, views: ['notificaciones'] },
         ],
     },
     {
@@ -82,7 +81,6 @@ export const NAVIGATION: NavGroup[] = [
     {
         title: 'Sistema',
         items: [
-            { key: 'notificaciones-todas', label: 'Todas las notificaciones', routeName: 'notificaciones.all', activePattern: 'notificaciones.all', icon: BellRing, anyOf: ['notificaciones.ver_todas'] },
             { key: 'configuracion', label: 'Configuración', routeName: 'configuracion.edit', activePattern: 'configuracion.*', icon: Settings, anyOf: ['configuracion.ver', 'configuracion.administrar'] },
             { key: 'bitacora', label: 'Bitácora', routeName: 'systemlogs.index', activePattern: 'systemlogs.*', icon: ScrollText, views: ['logs'] },
         ],

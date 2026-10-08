@@ -76,7 +76,7 @@ class GuiaTest extends TestCase
     public function test_temas_obligatorios_y_sin_terminos_antiguos(): void
     {
         $contenido = $this->contenido();
-        foreach (['ajustes', 'eliminaciones', 'requisiciones-crear', 'perfil', 'app-escritorio', 'app-android', 'exportaciones', 'notificaciones-todas', 'ayuda'] as $id) {
+        foreach (['ajustes', 'eliminaciones', 'requisiciones-crear', 'perfil', 'app-escritorio', 'app-android', 'exportaciones', 'ayuda'] as $id) {
             $this->assertStringContainsString("id: '{$id}'", $contenido);
         }
 

@@ -3,7 +3,7 @@ export interface ComprobanteRow {
   fecha_emision: string | null
   tipo_doc: 'FACTURA' | 'TICKET' | 'NOTA' | 'OTRO'
   monto: number
-  archivo: null | { label: string; url: string }
+  archivo: null | { label: string; url: string; kind?: 'image' | 'pdf' | 'file' | 'none' }
   estatus: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO'
   comentario_revision?: string | null
   revisado_at?: string | null

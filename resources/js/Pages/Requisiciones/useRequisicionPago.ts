@@ -207,7 +207,10 @@ export function useRequisicionPago(props: RequisicionPagoPageProps) {
     const url = p?.archivo?.url
     if (!url) return
     const name = p?.archivo?.label ?? 'Archivo'
-    const kind = detectKindFromUrl(url) || detectKindFromName(name)
+    // Tipo del servidor; si no, por nombre del archivo y al final por la URL.
+    const serverKind = p?.archivo?.kind
+    const byName = detectKindFromName(name)
+    const kind: PreviewKind = serverKind === 'pdf' || serverKind === 'image' ? serverKind : byName !== 'other' ? byName : detectKindFromUrl(url)
     preview.value = { url, name, kind }
   }
 

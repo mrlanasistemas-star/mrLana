@@ -106,4 +106,23 @@ class ComprobantesPagosModulosTest extends TestCase
             $this->assertStringStartsWith('PK', (string) file_get_contents($xlsx->baseResponse->getFile()->getPathname()));
         }
     }
+
+    public function test_pantallas_de_comprobar_y_pagar_reciben_el_tipo_para_la_vista_previa(): void
+    {
+        $ana = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
+        $req = $this->makeRequisicion($ana);
+        $c = $this->comprobante($req, $ana);
+        $this->pago($req, $ana);
+
+        // La URL protegida no tiene extensión: el tipo viaja aparte para mostrar la vista previa al momento.
+        $this->actingAs($ana)->get(route('requisiciones.comprobar', $req))
+            ->assertInertia(fn (AssertableInertia $p) => $p
+                ->where('comprobantes.data.0.archivo.kind', 'image')
+                ->where('comprobantes.data.0.archivo.url', route('comprobantes.archivo', $c->id)));
+        $this->actingAs($ana)->get(route('requisiciones.pagar', $req))
+            ->assertInertia(fn (AssertableInertia $p) => $p->where('pagos.data.0.archivo.kind', 'pdf'));
+
+        // El archivo se sirve en línea (para el visor), no como descarga.
+        $this->actingAs($ana)->get(route('comprobantes.archivo', $c))->assertOk()->assertHeader('content-type', 'image/jpeg');
+    }
 }

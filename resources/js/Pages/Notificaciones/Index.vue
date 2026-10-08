@@ -3,8 +3,9 @@ import { computed, reactive, ref, watch } from 'vue'
 import { Head, router } from '@inertiajs/vue3'
 import {
     AlertTriangle, Banknote, Bell, BellOff, CheckCheck, CheckCircle2, ChevronRight, FileText, Inbox, Info, Loader2,
-    Mail, MailOpen, Receipt, Scale, Settings, ShieldCheck, XCircle,
+    Mail, MailOpen, Receipt, Scale, Search, Settings, ShieldCheck, UserRound, XCircle,
 } from 'lucide-vue-next'
+import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { ConfirmDialog } from '@/Components/ui/dialog'
 import { safeInternalUrl, useNotifications } from '@/Composables/useNotifications'
@@ -12,9 +13,15 @@ import { useFlashSuccess } from '@/Composables/useFlashSuccess'
 import { formatDateTime, formatRelative } from '@/Utils/date'
 import type { ErpNotificationItem, Paginated } from '@/types/shared'
 
+/** Con "Ver todas las notificaciones" llegan también las de otras personas (solo lectura). */
+type Row = ErpNotificationItem & { own?: boolean; recipient?: { id: number | null; name: string; email: string | null } | null }
+
 const props = defineProps<{
-    notifications: Paginated<ErpNotificationItem>
-    filters: { filtro: 'todas' | 'no_leidas'; categoria: string | null }
+    notifications: Paginated<Row>
+    /** El módulo se ajusta solo según el permiso del rol. */
+    alcance: 'propias' | 'todas'
+    destinatarios: { id: number; nombre: string }[]
+    filters: { filtro: 'todas' | 'no_leidas'; categoria: string | null; q?: string; destinatario?: number | null }
     categorias: { value: string; label: string }[]
     unreadCount: number
     unreadByCategory: Record<string, number>
@@ -29,7 +36,8 @@ watch(() => props.unreadCount, (n) => {
     void bell.refresh()
 })
 
-const f = reactive({ filtro: props.filters.filtro, categoria: props.filters.categoria })
+const todas = computed(() => props.alcance === 'todas')
+const f = reactive({ filtro: props.filters.filtro, categoria: props.filters.categoria, q: props.filters.q ?? '', destinatario: props.filters.destinatario ?? null })
 const loading = ref(false)
 const visitOpts = {
     preserveScroll: true,
@@ -38,12 +46,23 @@ const visitOpts = {
     onFinish: () => (loading.value = false),
 }
 
-watch(() => [f.filtro, f.categoria], () => {
+function apply() {
     router.get(
         route('notificaciones.index'),
-        { filtro: f.filtro !== 'todas' ? f.filtro : undefined, categoria: f.categoria || undefined },
+        {
+            filtro: f.filtro !== 'todas' ? f.filtro : undefined,
+            categoria: f.categoria || undefined,
+            q: f.q || undefined,
+            destinatario: f.destinatario || undefined,
+        },
         { ...visitOpts, replace: true },
     )
+}
+watch(() => [f.filtro, f.categoria, f.destinatario], apply)
+let qTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => f.q, () => {
+    clearTimeout(qTimer)
+    qTimer = setTimeout(apply, 350)
 })
 
 const categoryIcon: Record<string, unknown> = {
@@ -61,7 +80,9 @@ const severity = {
     warning: { icon: AlertTriangle, chip: 'text-brand-warning bg-brand-warning/10 ring-brand-warning/20', bar: 'bg-brand-warning', label: 'Atención' },
     danger: { icon: XCircle, chip: 'text-brand-danger bg-brand-danger/10 ring-brand-danger/20', bar: 'bg-brand-danger', label: 'Importante' },
 } as const
-const sev = (n: ErpNotificationItem) => severity[n.severity] ?? severity.info
+const sev = (n: Row) => severity[n.severity] ?? severity.info
+/** Las ajenas se consultan sin marcarlas como leídas. */
+const isOwn = (n: Row) => n.own !== false
 
 /* Agrupación por día: Hoy, Ayer o la fecha. */
 const dayLabel = (iso: string | null) => {
@@ -75,7 +96,7 @@ const dayLabel = (iso: string | null) => {
     return new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' }).format(d)
 }
 const groups = computed(() => {
-    const out: { label: string; items: ErpNotificationItem[] }[] = []
+    const out: { label: string; items: Row[] }[] = []
     for (const n of props.notifications.data) {
         const label = dayLabel(n.created_at)
         const last = out[out.length - 1]
@@ -86,8 +107,8 @@ const groups = computed(() => {
 })
 
 const busyId = ref<string | null>(null)
-function markRead(n: ErpNotificationItem, then?: () => void) {
-    if (n.read_at) return then?.()
+function markRead(n: Row, then?: () => void) {
+    if (n.read_at || !isOwn(n)) return then?.()
     busyId.value = n.id
     router.patch(route('notificaciones.read', n.id), {}, {
         preserveScroll: true,
@@ -97,7 +118,7 @@ function markRead(n: ErpNotificationItem, then?: () => void) {
     })
 }
 
-function open(n: ErpNotificationItem) {
+function open(n: Row) {
     const url = safeInternalUrl(n.url)
     markRead(n, () => url && router.visit(url))
 }
@@ -147,7 +168,8 @@ const navItem = (on: boolean) => [
                     <div class="min-w-0">
                         <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">Centro de notificaciones</h2>
                         <p class="text-sm text-slate-500 dark:text-zinc-400" aria-live="polite">
-                            {{ unreadCount === 0 ? 'Estás al día.' : `${unreadCount} sin leer de ${notifications.total} en esta vista.` }}
+                            <template v-if="todas">Avisos de todas las personas · tú tienes {{ unreadCount }} sin leer.</template>
+                            <template v-else>{{ unreadCount === 0 ? 'Estás al día.' : `${unreadCount} sin leer de ${notifications.total} en esta vista.` }}</template>
                         </p>
                     </div>
                 </div>
@@ -159,6 +181,25 @@ const navItem = (on: boolean) => [
             <div class="grid grid-cols-1 gap-5 lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[19rem_minmax(0,1fr)]">
                 <!-- Panel de filtros -->
                 <aside class="ui-card h-fit space-y-4 p-3 lg:sticky lg:top-20" aria-label="Filtros">
+                    <div class="relative">
+                        <label for="not-q" class="sr-only">Buscar</label>
+                        <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                        <input id="not-q" v-model="f.q" type="search" class="ui-input pl-9" placeholder="Buscar en título o mensaje…" autocomplete="off" />
+                    </div>
+                    <div v-if="todas" data-tour="notificaciones-destinatario">
+                        <SearchableSelect
+                            id="not-dest"
+                            v-model="f.destinatario"
+                            :options="destinatarios"
+                            label="Destinatario"
+                            placeholder="Todas las personas"
+                            search-placeholder="Buscar persona…"
+                            nullable
+                            null-label="Todas las personas"
+                            label-key="nombre"
+                            value-key="id"
+                        />
+                    </div>
                     <div class="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/[0.04]" role="group" aria-label="Estado de lectura">
                         <button
                             v-for="opt in ([['todas', 'Todas', Inbox], ['no_leidas', 'No leídas', Mail]] as const)"
@@ -215,7 +256,7 @@ const navItem = (on: boolean) => [
                         </span>
                         <p class="text-base font-semibold text-slate-700 dark:text-zinc-200">{{ emptyText }}</p>
                         <p class="max-w-sm text-sm text-slate-500 dark:text-zinc-400">Aquí verás avisos de requisiciones, pagos, comprobaciones, ajustes y cambios de seguridad.</p>
-                        <button v-if="f.categoria || f.filtro !== 'todas'" type="button" class="ui-btn-secondary" @click="Object.assign(f, { filtro: 'todas', categoria: null })">
+                        <button v-if="f.categoria || f.filtro !== 'todas' || f.q || f.destinatario" type="button" class="ui-btn-secondary" @click="Object.assign(f, { filtro: 'todas', categoria: null, q: '', destinatario: null })">
                             Ver todas
                         </button>
                     </div>
@@ -256,10 +297,13 @@ const navItem = (on: boolean) => [
                                     <p class="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 [overflow-wrap:anywhere] dark:text-zinc-300">{{ n.message }}</p>
                                     <div class="mt-3 flex flex-wrap items-center gap-2">
                                         <span class="ui-badge" :class="sev(n).chip">{{ n.category_label }}</span>
+                                        <span v-if="n.recipient" class="inline-flex max-w-full items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-white/10 dark:text-zinc-300" :title="n.recipient.email ?? undefined">
+                                            <UserRound class="h-3 w-3 shrink-0" aria-hidden="true" /> <span class="truncate">Para {{ n.recipient.name }}</span> · {{ n.read_at ? 'leída' : 'sin leer' }}
+                                        </span>
                                         <button v-if="safeInternalUrl(n.url)" type="button" class="ui-btn-sm" :disabled="busyId === n.id" @click="open(n)">
                                             Ver detalle <ChevronRight class="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transform-none" aria-hidden="true" />
                                         </button>
-                                        <button v-if="!n.read_at" type="button" class="ui-btn-sm" :disabled="busyId === n.id" @click="markRead(n)">
+                                        <button v-if="!n.read_at && isOwn(n)" type="button" class="ui-btn-sm" :disabled="busyId === n.id" @click="markRead(n)">
                                             <Loader2 v-if="busyId === n.id" class="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
                                             <MailOpen v-else class="h-3.5 w-3.5" aria-hidden="true" />
                                             Marcar como leída

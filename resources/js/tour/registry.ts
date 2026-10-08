@@ -1,5 +1,5 @@
 import {
-    Banknote, Bell, BellRing, Building2, CircleHelp, ClipboardList, Compass, FileText, KeyRound, Layers3,
+    Banknote, Bell, Building2, CircleHelp, ClipboardList, Compass, FileText, KeyRound, Layers3,
     LayoutDashboard, MapPin, Receipt, ScrollText, Send, Settings, Tags, Truck, UserCog, Users,
 } from 'lucide-vue-next'
 import type { TourDefinition, TourStep } from './types'
@@ -134,27 +134,15 @@ export const TOURS: TourDefinition[] = [
     {
         id: 'notificaciones',
         module: 'Notificaciones',
-        title: 'Recorrido: Mis notificaciones',
-        description: 'Tus avisos, filtros y marcar como leídas.',
+        title: 'Recorrido: Notificaciones',
+        description: 'Avisos, filtros y marcar como leídas.',
         icon: Bell,
-        match: 'notificaciones.index',
+        match: 'notificaciones.*',
         visibility: { views: ['notificaciones'] },
         steps: [
-            { id: 'not-encabezado', route: 'notificaciones.index', target: 'notificaciones-encabezado', title: 'Centro de notificaciones', body: 'Aquí solo están tus avisos. Puedes marcarlos todos como leídos.' },
+            { id: 'not-encabezado', route: 'notificaciones.index', target: 'notificaciones-encabezado', title: 'Centro de notificaciones', body: 'Muestra tus avisos o, si tu rol tiene «Ver todas las notificaciones», los de todas las personas. Se ajusta solo.' },
+            { id: 'not-destinatario', route: 'notificaciones.index', target: 'notificaciones-destinatario', title: 'Filtrar por persona', body: 'Elige un destinatario para ver solo sus avisos. Los ajenos son de solo lectura.', visibility: { anyOf: ['notificaciones.ver_todas'] } },
             { id: 'not-lista', route: 'notificaciones.index', target: 'notificaciones-lista', title: 'Avisos', body: 'Abre un aviso para ir al registro relacionado; se marca como leído.' },
-        ],
-    },
-    {
-        id: 'notificaciones-todas',
-        module: 'Todas las notificaciones',
-        title: 'Recorrido: Todas las notificaciones',
-        description: 'Consulta administrativa de solo lectura.',
-        icon: BellRing,
-        match: 'notificaciones.all',
-        visibility: { anyOf: ['notificaciones.ver_todas'] },
-        steps: [
-            { id: 'nt-encabezado', route: 'notificaciones.all', target: 'notificaciones-todas-header', title: 'Solo lectura', body: 'Abrir un aviso desde aquí no lo marca como leído para su destinatario.' },
-            { id: 'nt-filtros', route: 'notificaciones.all', target: 'notificaciones-todas-filtros', title: 'Filtros', body: 'Por destinatario, categoría, estado de lectura o texto.' },
         ],
     },
     listado('corporativos', 'Corporativos', 'corporativos.index', Building2, 'Empresas del grupo que compran.', 'Corporativos de tu alcance: el tuyo o todos.'),

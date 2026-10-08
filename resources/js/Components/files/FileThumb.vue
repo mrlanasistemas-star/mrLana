@@ -2,7 +2,10 @@
 import { ref } from 'vue'
 import { Eye, FileText, FileX, ImageOff } from 'lucide-vue-next'
 
-/** Miniatura de archivo para tarjetas: imagen real o portada de PDF. Clic → vista previa. */
+/**
+ * Miniatura de archivo para tarjetas: la imagen o el PDF se ven directamente
+ * (sin tener que abrirlos). Clic → vista previa grande en la misma pantalla.
+ */
 const props = defineProps<{
     kind: 'image' | 'pdf' | 'file' | 'none'
     url: string | null
@@ -30,12 +33,18 @@ const broken = ref(false)
             class="h-full w-full object-contain p-1.5 transition duration-300 group-hover/thumb:scale-[1.03] motion-reduce:transform-none"
             @error="broken = true"
         />
-        <div v-else-if="kind === 'pdf'" class="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-rose-50 to-white dark:from-rose-500/10 dark:to-transparent">
-            <span class="relative flex h-16 w-14 items-center justify-center rounded-lg bg-white shadow-md ring-1 ring-slate-200 dark:bg-zinc-900 dark:ring-white/10">
-                <FileText class="h-7 w-7 text-rose-500" aria-hidden="true" />
-                <span class="absolute -bottom-2 rounded bg-rose-500 px-1.5 py-px text-[10px] font-black text-white">PDF</span>
+        <!-- PDF: primera página visible en la tarjeta. El iframe no recibe clics: el clic abre el visor. -->
+        <div v-else-if="kind === 'pdf' && url" class="relative h-full w-full bg-white">
+            <iframe
+                :src="`${url}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`"
+                :title="`Vista previa de ${name ?? 'PDF'}`"
+                loading="lazy"
+                tabindex="-1"
+                class="pointer-events-none absolute inset-0 h-full w-full border-0"
+            />
+            <span class="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-rose-500 px-1.5 py-0.5 text-[10px] font-black text-white shadow">
+                <FileText class="h-3 w-3" aria-hidden="true" /> PDF
             </span>
-            <span class="mt-2 line-clamp-2 max-w-[85%] break-words text-center text-[11px] text-slate-500 dark:text-zinc-400">{{ name }}</span>
         </div>
         <div v-else class="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400 dark:text-zinc-500">
             <component :is="kind === 'none' ? FileX : ImageOff" class="h-8 w-8" aria-hidden="true" />
@@ -48,7 +57,7 @@ const broken = ref(false)
             aria-hidden="true"
         >
             <span class="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-900 shadow">
-                <Eye class="h-3.5 w-3.5" /> Vista previa
+                <Eye class="h-3.5 w-3.5" /> Abrir
             </span>
         </span>
         <slot />

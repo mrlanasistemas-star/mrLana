@@ -55,8 +55,9 @@ class AlcanceNotificacionesTest extends TestCase
         $this->assertSame(0, $ana->unreadNotifications()->count());
         $this->assertSame(1, $beto->unreadNotifications()->count());
 
-        // Sin "Ver todas" no entra a la consulta administrativa.
-        $this->actingAs($ana)->get(route('notificaciones.all'))->assertForbidden();
+        // El mismo módulo solo le muestra las suyas, aunque pida filtrar por otra persona.
+        $this->actingAs($ana)->get(route('notificaciones.index', ['destinatario' => $beto->id]))
+            ->assertInertia(fn (AssertableInertia $p) => $p->where('alcance', 'propias')->has('notifications.data', 1)->where('notifications.data.0.title', 'Para Ana'));
     }
 
     public function test_ver_todas_consulta_sin_cambiar_lectura_ajena(): void
@@ -65,17 +66,21 @@ class AlcanceNotificacionesTest extends TestCase
         $ana = $this->userWith(['notificaciones.ver']);
         $this->directo($ana, 'Para Ana');
 
-        $this->actingAs($auditor)->get(route('notificaciones.all'))
+        $this->actingAs($auditor)->get(route('notificaciones.index'))
             ->assertOk()
-            ->assertInertia(fn (AssertableInertia $p) => $p->component('Notificaciones/Todas')
+            ->assertInertia(fn (AssertableInertia $p) => $p->component('Notificaciones/Index')
+                ->where('alcance', 'todas')
+                ->where('notifications.data.0.own', false)
                 ->has('notifications.data', 1)
                 ->where('notifications.data.0.title', 'Para Ana')
                 ->where('notifications.data.0.recipient.id', $ana->id)
                 ->where('notifications.data.0.read_at', null));
 
         $this->assertSame(1, $ana->unreadNotifications()->count(), 'Consultar no marca como leída.');
-        // "Ver todas" incluye ver las propias (alcance superior).
-        $this->actingAs($auditor)->getJson(route('notificaciones.recent'))->assertOk();
+        // La campana sigue mostrando solo las propias; y no puede marcar ajenas.
+        $this->actingAs($auditor)->getJson(route('notificaciones.recent'))->assertOk()->assertJsonCount(0, 'items');
+        $this->actingAs($auditor)->patchJson(route('notificaciones.read', $ana->notifications()->first()->id))->assertNotFound();
+        $this->assertSame(1, $ana->unreadNotifications()->count());
     }
 
     public function test_un_tema_no_avisa_de_registros_fuera_de_alcance(): void
