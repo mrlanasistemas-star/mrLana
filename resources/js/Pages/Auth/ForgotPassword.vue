@@ -101,7 +101,7 @@ const submit = () => {
              :class="isDark ? 'bg-zinc-800/60' : 'bg-slate-200'">
           <div
             class="h-2 rounded-full transition-all duration-300 ease-out"
-            :class="done ? 'bg-emerald-500' : 'bg-slate-900'"
+            :class="done ? 'bg-emerald-500' : 'bg-brand-primary'"
             :style="{ width: `${progress}%` }"
           />
         </div>

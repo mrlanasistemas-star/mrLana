@@ -134,7 +134,7 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
                 <div v-for="k in kpiCards" :key="k.label" class="ui-card flex flex-col items-start gap-2 p-4 min-[420px]:flex-row min-[420px]:items-center min-[420px]:gap-3">
                     <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent"><component :is="k.icon" class="h-5 w-5" aria-hidden="true" /></span>
                     <span class="min-w-0">
-                        <span class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ k.label }}</span>
+                        <span class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">{{ k.label }}</span>
                         <span class="block break-words text-base font-black leading-tight tabular-nums sm:text-lg text-slate-900 dark:text-zinc-100">{{ k.value }}</span>
                     </span>
                 </div>

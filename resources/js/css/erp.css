@@ -10,32 +10,32 @@
    VARIABLES GLOBALES
 ══════════════════════════════════════════════════════════════ */
 :root {
-  --erp-bg:          #f1f5f9;
+  --erp-bg:          #F7F6FB;
   --erp-surface:     #ffffff;
-  --erp-border:      rgba(148,163,184,0.30);
-  --erp-border-mid:  rgba(148,163,184,0.50);
-  --erp-text:        #0f172a;
-  --erp-muted:       #64748b;
+  --erp-border:      #E6E3F0;
+  --erp-border-mid:  #D3CFE1;
+  --erp-text:        #1C1830;
+  --erp-muted:       #6B6880;
   /* Acento ligado a la marca configurable (Configuración). */
-  --erp-accent:      rgb(var(--brand-accent));
-  --erp-accent-soft: rgb(var(--brand-accent) / 0.14);
+  --erp-accent:      rgb(var(--brand-primary));
+  --erp-accent-soft: rgb(var(--brand-primary) / 0.16);
   --erp-radius-sm:   0.75rem;   /* rounded-xl */
-  --erp-radius-md:   1rem;      /* rounded-2xl */
-  --erp-radius-lg:   1.5rem;    /* rounded-3xl */
-  --erp-shadow-sm:   0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
-  --erp-shadow-md:   0 4px 12px rgba(15,23,42,0.08), 0 1px 3px rgba(15,23,42,0.06);
-  --erp-shadow-lg:   0 10px 30px rgba(15,23,42,0.10), 0 4px 8px rgba(15,23,42,0.07);
+  --erp-radius-md:   0.75rem;   /* controles: rounded-xl */
+  --erp-radius-lg:   1.25rem;   /* tarjetas y paneles */
+  --erp-shadow-sm:   0 1px 2px rgba(40,20,90,0.04);
+  --erp-shadow-md:   0 4px 12px -4px rgba(40,20,90,0.10), 0 1px 3px rgba(40,20,90,0.05);
+  --erp-shadow-lg:   0 12px 28px -12px rgba(40,20,90,0.18), 0 2px 6px -2px rgba(40,20,90,0.06);
 }
 
 .dark {
-  --erp-bg:          #09090b;
-  --erp-surface:     rgba(24,24,27,0.95);
+  --erp-bg:          #141120;
+  --erp-surface:     #1C1830;
   --erp-border:      rgba(255,255,255,0.08);
   --erp-border-mid:  rgba(255,255,255,0.14);
-  --erp-text:        #f4f4f5;
-  --erp-muted:       #a1a1aa;
-  --erp-accent:      rgb(var(--brand-accent));
-  --erp-accent-soft: rgb(var(--brand-accent) / 0.18);
+  --erp-text:        #F1EFF8;
+  --erp-muted:       #A9A4BD;
+  --erp-accent:      rgb(var(--brand-primary));
+  --erp-accent-soft: rgb(var(--brand-primary) / 0.22);
   --erp-shadow-sm:   0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.18);
   --erp-shadow-md:   0 4px 12px rgba(0,0,0,0.30), 0 1px 3px rgba(0,0,0,0.22);
   --erp-shadow-lg:   0 10px 30px rgba(0,0,0,0.35), 0 4px 8px rgba(0,0,0,0.25);
@@ -81,8 +81,7 @@
 }
 
 .erp-card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--erp-shadow-lg);
+  box-shadow: var(--erp-shadow-md);
   border-color: var(--erp-border-mid);
 }
 
@@ -105,8 +104,7 @@
 }
 
 .erp-kpi-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--erp-shadow-lg);
+  box-shadow: var(--erp-shadow-md);
   border-color: var(--erp-border-mid);
 }
 
@@ -115,17 +113,16 @@
 }
 
 .erp-kpi-label {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--erp-muted);
   line-height: 1;
 }
 
 .erp-kpi-value {
   font-size: 1.75rem;
-  font-weight: 900;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--erp-text);
   line-height: 1.1;
   margin-top: 0.5rem;
@@ -133,7 +130,7 @@
 }
 
 .erp-kpi-hint {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--erp-muted);
   margin-top: 0.375rem;
   line-height: 1.4;
@@ -155,7 +152,7 @@
 
 .erp-chart-title {
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--erp-text);
 }
 
@@ -248,7 +245,7 @@
   min-height: 2.5rem;
   padding: 0 1rem;
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 600;
   border-radius: var(--erp-radius-md);
   border: 1px solid transparent;
   cursor: pointer;
@@ -299,7 +296,7 @@
 }
 .erp-button-secondary:hover {
   border-color: var(--erp-border-mid);
-  background: rgba(148,163,184,0.12);
+  background: #F7F6FB;
 }
 .dark .erp-button-secondary:hover {
   background: rgba(255,255,255,0.10);
@@ -334,9 +331,9 @@
 }
 
 .erp-icon-button:hover {
-  color: var(--erp-text);
-  border-color: var(--erp-border-mid);
-  background: rgba(148,163,184,0.14);
+  color: rgb(var(--brand-primary));
+  border-color: rgb(var(--brand-primary) / 0.35);
+  background: rgb(var(--brand-tint) / 0.6);
 }
 .dark .erp-icon-button:hover {
   background: rgba(255,255,255,0.10);
@@ -370,13 +367,11 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--erp-surface);
+  background: #FBFAFD;
   box-shadow: inset 0 -1px 0 var(--erp-border);
   text-align: left;
-  font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--erp-muted);
   border-bottom: 1px solid var(--erp-border);
   white-space: nowrap;
@@ -390,11 +385,15 @@
 }
 
 .erp-table tbody tr:hover td {
-  background: rgba(148,163,184,0.08);
+  background: rgb(var(--brand-tint) / 0.45);
 }
 
 .dark .erp-table tbody tr:hover td {
   background: rgba(255,255,255,0.06);
+}
+
+.dark .erp-table th {
+  background: #1A1630;
 }
 
 .erp-table tbody tr:last-child td {
@@ -411,9 +410,7 @@
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-size: 0.6875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 600;
   border: 1px solid transparent;
   white-space: nowrap;
 }
@@ -423,7 +420,7 @@
 ══════════════════════════════════════════════════════════════ */
 .erp-section-title {
   font-size: 1.125rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--erp-text);
   letter-spacing: -0.01em;
 }
@@ -457,7 +454,7 @@
   width: 3.5rem;
   height: 3.5rem;
   border-radius: 50%;
-  background: rgba(148,163,184,0.12);
+  background: rgb(var(--brand-tint));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -466,7 +463,7 @@
 
 .erp-empty-state-title {
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--erp-text);
 }
 
@@ -515,7 +512,7 @@
 
 .erp-form-section-title {
   font-size: 0.9375rem;
-  font-weight: 800;
+  font-weight: 600;
   color: var(--erp-text);
 }
 
@@ -534,11 +531,9 @@
 ══════════════════════════════════════════════════════════════ */
 .erp-label {
   display: block;
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: var(--erp-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--erp-text);
   margin-bottom: 0.375rem;
 }
 
@@ -574,7 +569,7 @@
   padding: 0 0.625rem;
   border-radius: var(--erp-radius-md);
   font-size: 0.8125rem;
-  font-weight: 700;
+  font-weight: 600;
   border: 1px solid var(--erp-border-mid);
   background: var(--erp-surface);
   color: var(--erp-text);
@@ -584,9 +579,8 @@
 }
 
 .erp-pager-btn:hover {
-  background: rgba(148,163,184,0.14);
+  background: rgb(var(--brand-tint) / 0.6);
   border-color: var(--erp-border-mid);
-  transform: translateY(-1px);
 }
 .dark .erp-pager-btn:hover {
   background: rgba(255,255,255,0.10);
@@ -594,15 +588,15 @@
 }
 
 .erp-pager-btn.active {
-  background: #0f172a;
-  color: #f1f5f9;
-  border-color: #0f172a;
+  background: rgb(var(--brand-primary));
+  color: rgb(var(--brand-primary-fg));
+  border-color: rgb(var(--brand-primary));
 }
 
 .dark .erp-pager-btn.active {
-  background: rgba(255,255,255,0.12);
-  color: #fafafa;
-  border-color: rgba(255,255,255,0.16);
+  background: rgb(var(--brand-primary));
+  color: rgb(var(--brand-primary-fg));
+  border-color: rgb(var(--brand-primary));
 }
 
 .erp-pager-btn:disabled {
@@ -614,7 +608,7 @@
    APEXCHARTS - Dark mode overrides
 ══════════════════════════════════════════════════════════════ */
 .dark .apexcharts-tooltip {
-  background: #27272a !important;
+  background: #221D3A !important;
   border: 1px solid rgba(255,255,255,0.10) !important;
   box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
 }
@@ -622,15 +616,15 @@
 .dark .apexcharts-tooltip-title {
   background: rgba(255,255,255,0.05) !important;
   border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-  color: #f4f4f5 !important;
+  color: #F1EFF8 !important;
 }
 
 .dark .apexcharts-tooltip-text {
-  color: #e4e4e7 !important;
+  color: #DEDAEA !important;
 }
 
 .dark .apexcharts-legend-text {
-  color: #a1a1aa !important;
+  color: #A9A4BD !important;
 }
 
 .apexcharts-tooltip {
@@ -641,7 +635,7 @@
 
 .apexcharts-tooltip-title {
   font-size: 12px !important;
-  font-weight: 700 !important;
+  font-weight: 600 !important;
   padding: 8px 12px !important;
 }
 

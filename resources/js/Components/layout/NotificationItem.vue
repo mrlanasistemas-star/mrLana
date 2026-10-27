@@ -20,7 +20,7 @@ const unread = computed(() => !props.item.read_at)
 <template>
     <div
         class="group relative flex gap-3 px-4 py-3 transition hover:bg-slate-50 dark:hover:bg-white/5"
-        :class="unread ? 'bg-slate-50/60 dark:bg-white/[0.03]' : ''"
+        :class="unread ? 'bg-brand-tint/40 dark:bg-white/[0.03]' : ''"
     >
         <span class="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full" :class="severity.cls">
             <component :is="severity.icon" class="h-4 w-4" aria-hidden="true" />
@@ -29,11 +29,11 @@ const unread = computed(() => !props.item.read_at)
 
         <button
             type="button"
-            class="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 rounded-lg"
+            class="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 rounded-lg"
             @click="emit('open')"
         >
             <span class="flex items-start justify-between gap-2">
-                <span class="break-words text-sm text-slate-900 [overflow-wrap:anywhere] dark:text-zinc-100" :class="unread ? 'font-bold' : 'font-medium'">
+                <span class="break-words text-sm text-slate-900 [overflow-wrap:anywhere] dark:text-zinc-100" :class="unread ? 'font-semibold' : 'font-medium'">
                     {{ item.title }}
                 </span>
                 <span v-if="unread" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-accent" aria-label="Sin leer" />
@@ -54,7 +54,7 @@ const unread = computed(() => !props.item.read_at)
             v-if="unread && !compact"
             type="button"
             class="self-center rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-slate-100
-                   hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
+                   hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
                    dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100"
             @click="emit('read')"
         >

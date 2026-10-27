@@ -26,8 +26,8 @@ watch(
             showCloseButton: true,
             timer: 6000,
             timerProgressBar: true,
-            background: dark ? '#18181b' : '#ffffff',
-            color: dark ? '#e4e4e7' : '#111827',
+            background: dark ? '#1C1830' : '#ffffff',
+            color: dark ? '#F1EFF8' : '#1C1830',
         })
     },
     { immediate: true },

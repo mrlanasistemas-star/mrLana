@@ -63,7 +63,7 @@ const {
                 v-model="state.nombre"
                 type="text"
                 class="mt-1 w-full rounded-2xl px-3 py-2 text-sm border bg-white
-                       border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20
+                       border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/20
                        dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 transition"
                 placeholder="Ej. Insumos de papelería"
               />
@@ -192,7 +192,7 @@ const {
               v-model="state.observaciones"
               type="text"
               class="mt-1 w-full rounded-2xl px-3 py-2 text-sm border bg-white
-                     border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20
+                     border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/20
                      dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 transition"
               placeholder="Opcional"
             />
@@ -210,8 +210,8 @@ const {
             <button
               type="button"
               @click="addItem"
-              class="rounded-2xl px-4 py-2 text-sm font-semibold bg-emerald-600 text-white
-                     hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 transition active:scale-[0.99]"
+              class="rounded-2xl px-4 py-2 text-sm font-semibold bg-brand-button text-brand-button-fg
+                     hover:bg-brand-button/90 transition active:scale-[0.99]"
             >
               Agregar item
             </button>
@@ -232,7 +232,7 @@ const {
                   min="0"
                   step="0.01"
                   class="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-emerald-500/20
+                         focus:outline-none focus:ring-2 focus:ring-brand-primary/20
                          dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-100 transition"
                 />
               </div>
@@ -243,7 +243,7 @@ const {
                   v-model="item.descripcion"
                   type="text"
                   class="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-emerald-500/20
+                         focus:outline-none focus:ring-2 focus:ring-brand-primary/20
                          dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-100 transition"
                   placeholder="Ej. Hojas tamaño carta"
                 />
@@ -257,7 +257,7 @@ const {
                   min="0"
                   step="0.01"
                   class="w-full rounded-xl px-3 py-2 text-sm border border-slate-200 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-emerald-500/20
+                         focus:outline-none focus:ring-2 focus:ring-brand-primary/20
                          dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-100 transition"
                 />
               </div>
@@ -269,7 +269,7 @@ const {
                   <input
                     v-model="item.genera_iva"
                     type="checkbox"
-                    class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    class="h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary/40"
                   />
                   <span class="text-sm font-semibold text-slate-700 dark:text-neutral-200">
                     {{ item.genera_iva ? 'Sí' : 'No' }}
@@ -343,8 +343,8 @@ const {
           <button
             type="submit"
             :disabled="saving"
-            class="rounded-2xl px-4 py-3 text-sm font-extrabold bg-emerald-600 text-white
-                   hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600
+            class="rounded-2xl px-4 py-3 text-sm font-extrabold bg-brand-button text-brand-button-fg
+                   hover:bg-brand-button/90
                    transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {{ saving ? 'Guardando...' : 'Actualizar' }}

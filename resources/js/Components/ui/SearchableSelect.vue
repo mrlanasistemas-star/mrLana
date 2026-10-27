@@ -217,7 +217,7 @@ watch(
 const roundedCls = computed(() => {
   if (props.rounded === 'xl') return 'rounded-xl'
   if (props.rounded === '3xl') return 'rounded-3xl'
-  return 'rounded-2xl'
+  return 'rounded-xl'
 })
 
 const compact = computed(() => !!props.compact)
@@ -230,16 +230,16 @@ const baseButton = computed(() => {
     'w-full min-w-0 px-4 ' +
     py +
     ' text-sm text-left border bg-white text-slate-900 ' +
-    'hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/30 ' +
-    'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:hover:bg-white/5 dark:focus:ring-white/10 ' +
+    'hover:border-slate-300 focus:outline-none focus:ring-[3px] focus:ring-brand-primary/20 focus:border-brand-primary ' +
+    'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:hover:border-white/20 dark:focus:ring-brand-primary/25 ' +
     'transition'
   )
 })
 
 const panelShell = computed(() => {
   return (
-    'pointer-events-auto overflow-hidden border bg-white shadow-2xl ring-1 ring-black/5 ' +
-    'dark:border-white/10 dark:bg-neutral-950 dark:ring-white/5 ' +
+    'pointer-events-auto overflow-hidden border border-slate-200/80 bg-white shadow-2xl ' +
+    'dark:border-white/10 dark:bg-neutral-900 ' +
     'animate-in fade-in-0 zoom-in-95 duration-150'
   )
 })
@@ -247,11 +247,11 @@ const panelShell = computed(() => {
 const searchInputCls = computed(() => {
   const py = compact.value ? 'py-2.5' : 'py-3'
   return (
-    'w-full rounded-2xl px-4 ' +
+    'w-full rounded-xl px-4 ' +
     py +
     ' text-sm border border-slate-200 bg-white text-slate-900 ' +
-    'placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/30 ' +
-    'dark:border-white/10 dark:bg-neutral-900/60 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:ring-white/10'
+    'placeholder:text-slate-400 focus:outline-none focus:ring-[3px] focus:ring-brand-primary/20 focus:border-brand-primary ' +
+    'dark:border-white/10 dark:bg-neutral-950/60 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:ring-brand-primary/25'
   )
 })
 </script>
@@ -260,7 +260,7 @@ const searchInputCls = computed(() => {
   <div ref="rootRef" class="min-w-0">
     <label
       v-if="label"
-      class="mb-1 block text-xs font-black text-slate-600 dark:text-neutral-300 select-none"
+      class="mb-1.5 block text-[13px] font-medium text-slate-700 dark:text-neutral-300 select-none"
       :for="buttonId"
       @click.prevent="openFromLabel"
     >
@@ -327,7 +327,7 @@ const searchInputCls = computed(() => {
           @mousedown.stop
           @wheel.passive
         >
-          <div class="p-3 border-b border-slate-200/70 dark:border-white/10 bg-white/80 dark:bg-neutral-950/60 backdrop-blur">
+          <div class="p-3 border-b border-slate-200/70 dark:border-white/10 bg-white dark:bg-neutral-900">
             <input
               ref="searchRef"
               v-model="query"
@@ -344,7 +344,7 @@ const searchInputCls = computed(() => {
               v-if="allowNullEff"
               type="button"
               @click="pick(null)"
-              class="w-full text-left px-3 py-2.5 rounded-2xl text-sm font-semibold
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium
                      hover:bg-slate-50 dark:hover:bg-white/5 transition"
             >
               {{ nullLabel ?? 'Sin selección' }}
@@ -355,10 +355,10 @@ const searchInputCls = computed(() => {
               :key="o[valueKey] ?? o.id"
               type="button"
               @click="pick(o[valueKey])"
-              class="w-full text-left px-3 py-2.5 rounded-2xl text-sm transition
+              class="w-full text-left px-3 py-2.5 rounded-xl text-sm transition
                      hover:bg-slate-50 dark:hover:bg-white/5
                      flex items-center justify-between gap-3"
-              :class="String(modelValue) === String(o[valueKey]) ? 'bg-indigo-50 dark:bg-indigo-500/10 font-semibold' : ''"
+              :class="String(modelValue) === String(o[valueKey]) ? 'bg-brand-tint text-brand-primary dark:bg-brand-primary/15 dark:text-zinc-50 font-medium' : ''"
             >
               <span class="truncate min-w-0">
                 {{ o[labelKey] }}
@@ -366,7 +366,7 @@ const searchInputCls = computed(() => {
               </span>
               <span
                 v-if="String(modelValue) === String(o[valueKey])"
-                class="text-[12px] font-black text-indigo-700 dark:text-indigo-200"
+                class="text-[12px] font-semibold text-brand-primary dark:text-indigo-200"
               >
                 ✓
               </span>

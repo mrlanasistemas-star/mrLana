@@ -133,6 +133,12 @@ class RequisicionPolicy
         return $user->can('ajustes.aplicar') && $this->viewAjustes($user, $requisicion);
     }
 
+    /** Cancelar un ajuste ya aprobado que aún no se aplica (corrige una aprobación por error). */
+    public function cancelApprovedAdjustment(User $user, Requisicion $requisicion): bool
+    {
+        return $this->approveAdjustment($user, $requisicion) || $this->applyAdjustment($user, $requisicion);
+    }
+
     /* -------------------------------------------------------------- Pagos */
 
     public function viewPayments(User $user, Requisicion $requisicion): bool

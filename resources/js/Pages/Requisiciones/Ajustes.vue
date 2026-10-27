@@ -40,7 +40,7 @@ type Ajuste = {
     fecha_registro: string | null
     fecha_resolucion: string | null
     fecha_aplicacion: string | null
-    can: { revisar: boolean; aprobar?: boolean; rechazar?: boolean; aplicar: boolean; cancelar: boolean }
+    can: { revisar: boolean; aprobar?: boolean; rechazar?: boolean; aplicar: boolean; cancelar: boolean; cancelar_aprobacion?: boolean }
 }
 
 const props = defineProps<{
@@ -144,7 +144,7 @@ const toggleMotivo = (id: number) => {
 }
 
 /* ---------- Acciones con confirmación ---------- */
-type Accion = 'APROBAR' | 'RECHAZAR' | 'APLICAR' | 'CANCELAR'
+type Accion = 'APROBAR' | 'RECHAZAR' | 'APLICAR' | 'CANCELAR' | 'CANCELAR_APROBACION'
 const dialog = reactive({ open: false, accion: null as Accion | null, ajuste: null as Ajuste | null, loading: false, error: null as string | null })
 
 const dialogCopy = computed(() => {
@@ -154,6 +154,7 @@ const dialogCopy = computed(() => {
         case 'APROBAR': return { title: 'Aprobar ajuste', text: `Se aprobará el ajuste por ${m}. Después podrá aplicarse al monto.`, confirm: 'Aprobar', tone: 'success' as const }
         case 'RECHAZAR': return { title: 'Rechazar ajuste', text: 'El solicitante verá el motivo del rechazo.', confirm: 'Rechazar', tone: 'danger' as const }
         case 'APLICAR': return { title: 'Aplicar ajuste', text: `El monto de la requisición pasará de ${money(props.requisicion.monto_total)} a ${money(Math.max(0, props.requisicion.monto_total + (a ? impacto(a) : 0)))}.`, confirm: 'Aplicar al monto', tone: 'default' as const }
+        case 'CANCELAR_APROBACION': return { title: 'Cancelar aprobación', text: `El ajuste por ${m} quedará cancelado y ya no podrá aplicarse. El monto de la requisición no cambia.`, confirm: 'Cancelar aprobación', tone: 'danger' as const }
         case 'CANCELAR': return { title: 'Cancelar ajuste', text: 'La solicitud quedará cancelada y ya no podrá revisarse.', confirm: 'Cancelar ajuste', tone: 'danger' as const }
         default: return { title: '', text: '', confirm: '', tone: 'default' as const }
     }
@@ -177,6 +178,8 @@ function confirmar(comentario: string) {
         router.patch(route('requisiciones.ajustes.review', a.id), { accion: dialog.accion, comentario_revision: comentario || null }, opts)
     } else if (dialog.accion === 'APLICAR') {
         router.post(route('requisiciones.ajustes.apply', a.id), {}, opts)
+    } else if (dialog.accion === 'CANCELAR_APROBACION') {
+        router.post(route('requisiciones.ajustes.cancel', a.id), { motivo: comentario }, opts)
     } else {
         router.post(route('requisiciones.ajustes.cancel', a.id), {}, opts)
     }
@@ -199,7 +202,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                         <Link
                             :href="route('requisiciones.show', requisicion.id)"
                             class="inline-flex h-11 shrink-0 items-center gap-2 rounded-2xl border border-slate-200 px-3 text-sm font-semibold text-slate-700
-                                   transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
+                                   transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
                                    dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
                         >
                             <ArrowLeft class="h-4 w-4" aria-hidden="true" />
@@ -224,14 +227,14 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
 
                     <div class="flex flex-wrap items-end gap-4 lg:justify-end">
                         <div class="text-left lg:text-right">
-                            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Monto actual</p>
+                            <p class="text-xs font-medium text-slate-500 dark:text-zinc-400">Monto actual</p>
                             <p class="text-2xl font-black tabular-nums text-slate-900 dark:text-zinc-100 sm:text-3xl">{{ money(requisicion.monto_total) }}</p>
                         </div>
                         <Link
                             v-if="canView('comprobaciones')"
                             :href="route('requisiciones.comprobar', requisicion.id)"
                             class="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 px-3 text-sm font-semibold text-slate-700
-                                   transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
+                                   transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
                                    dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
                         >
                             <FileText class="h-4 w-4" aria-hidden="true" /> Comprobaciones
@@ -259,7 +262,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                 <label
                                     v-for="t in TIPOS"
                                     :key="t.value"
-                                    class="flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition focus-within:ring-2 focus-within:ring-slate-400/60"
+                                    class="flex cursor-pointer items-start gap-3 rounded-2xl border p-3 transition focus-within:ring-2 focus-within:ring-brand-primary/40"
                                     :class="form.tipo === t.value
                                         ? 'border-brand-primary/60 bg-brand-primary/[0.06] dark:bg-brand-primary/10'
                                         : 'border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
@@ -287,7 +290,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                         inputmode="decimal"
                                         :aria-invalid="errorFor('monto') ? 'true' : undefined"
                                         class="min-h-[44px] w-full rounded-2xl border border-slate-200 bg-white pl-7 pr-3 text-sm tabular-nums text-slate-900
-                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
+                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
                                     />
                                 </div>
                                 <p v-if="errorFor('monto')" class="mt-1 text-xs text-rose-600 dark:text-rose-400" role="alert">{{ errorFor('monto') }}</p>
@@ -305,7 +308,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                 placeholder="Explica qué cambió y por qué es necesario el ajuste…"
                                 :aria-invalid="errorFor('motivo') ? 'true' : undefined"
                                 class="mt-1 w-full resize-y rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900
-                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
+                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
                             />
                             <div class="mt-1 flex justify-between gap-2 text-xs">
                                 <span class="text-rose-600 dark:text-rose-400" role="alert">{{ errorFor('motivo') }}</span>
@@ -328,7 +331,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                             :disabled="submitting"
                             class="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-2xl bg-brand-button px-4 text-sm font-bold text-brand-button-fg
                                    shadow-sm transition hover:bg-brand-button/90 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-                                   focus-visible:ring-slate-400 disabled:opacity-60 motion-reduce:transform-none dark:focus-visible:ring-offset-zinc-900"
+                                   focus-visible:ring-brand-primary/50 disabled:opacity-60 motion-reduce:transform-none dark:focus-visible:ring-offset-zinc-900"
                         >
                             <Loader2 v-if="submitting" class="h-4 w-4 animate-spin" aria-hidden="true" />
                             <Send v-else class="h-4 w-4" aria-hidden="true" />
@@ -349,8 +352,8 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                 role="tab"
                                 :aria-selected="filtro === opt"
                                 class="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition
-                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60"
-                                :class="filtro === opt ? 'bg-slate-900 text-white dark:bg-zinc-300 dark:text-zinc-900' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10'"
+                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                                :class="filtro === opt ? 'bg-brand-primary text-brand-primary-fg' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10'"
                                 @click="filtro = opt"
                             >
                                 {{ opt === 'TODOS' ? 'Todos' : ESTATUS[opt].label }}
@@ -372,7 +375,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                         <table class="w-full table-fixed text-sm">
                             <caption class="sr-only">Ajustes de la requisición {{ requisicion.folio }}</caption>
                             <thead>
-                                <tr class="border-b border-slate-100 text-left text-[11px] uppercase tracking-wider text-slate-500 dark:border-white/5 dark:text-zinc-400">
+                                <tr class="border-b border-slate-100 text-left text-xs text-slate-500 dark:border-white/5 dark:text-zinc-400">
                                     <th scope="col" class="w-[16%] px-5 py-3 font-semibold">Tipo</th>
                                     <th scope="col" class="w-[14%] px-3 py-3 text-right font-semibold">Impacto</th>
                                     <th scope="col" class="px-3 py-3 font-semibold">Motivo y revisión</th>
@@ -398,7 +401,7 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                         <button
                                             v-if="esLargo(a)"
                                             type="button"
-                                            class="mt-1 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 dark:text-zinc-300"
+                                            class="mt-1 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:text-zinc-300"
                                             :aria-expanded="expandidos.has(a.id)"
                                             @click="toggleMotivo(a.id)"
                                         >
@@ -421,7 +424,8 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                             <button v-if="a.can.rechazar ?? a.can.revisar" type="button" class="action-btn border border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10" @click="abrir('RECHAZAR', a)"><XCircle class="h-4 w-4" aria-hidden="true" /> Rechazar</button>
                                             <button v-if="a.can.aplicar" type="button" class="action-btn bg-brand-button text-brand-button-fg hover:bg-brand-button/90" @click="abrir('APLICAR', a)"><PlayCircle class="h-4 w-4" aria-hidden="true" /> Aplicar</button>
                                             <button v-if="a.can.cancelar" type="button" class="action-btn border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5" @click="abrir('CANCELAR', a)"><Ban class="h-4 w-4" aria-hidden="true" /> Cancelar</button>
-                                            <span v-if="!a.can.revisar && !a.can.aplicar && !a.can.cancelar" class="inline-flex items-center gap-1 text-xs text-slate-400"><BadgeCheck class="h-3.5 w-3.5" aria-hidden="true" /> Sin acciones</span>
+                                            <button v-if="a.can.cancelar_aprobacion" type="button" class="action-btn border border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10" @click="abrir('CANCELAR_APROBACION', a)"><Ban class="h-4 w-4" aria-hidden="true" /> Cancelar aprobación</button>
+                                            <span v-if="!a.can.revisar && !a.can.aplicar && !a.can.cancelar && !a.can.cancelar_aprobacion"class="inline-flex items-center gap-1 text-xs text-slate-400"><BadgeCheck class="h-3.5 w-3.5" aria-hidden="true" /> Sin acciones</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -455,11 +459,12 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
                                 <p v-if="a.resuelto_por">{{ a.estatus === 'RECHAZADO' ? 'Rechazó' : a.estatus === 'CANCELADO' ? 'Canceló' : 'Autorizó' }} {{ a.resuelto_por }} · {{ fechaCorta(a.fecha_resolucion) }}</p>
                                 <p v-if="a.aplicado_por">Aplicó {{ a.aplicado_por }} · {{ fechaCorta(a.fecha_aplicacion) }}</p>
                             </div>
-                            <div v-if="a.can.revisar || a.can.aplicar || a.can.cancelar" class="grid grid-cols-2 gap-2">
+                            <div v-if="a.can.revisar || a.can.aplicar || a.can.cancelar || a.can.cancelar_aprobacion" class="grid grid-cols-2 gap-2">
                                 <button v-if="a.can.aprobar ?? a.can.revisar" type="button" class="action-btn justify-center bg-emerald-600 text-white" @click="abrir('APROBAR', a)"><CheckCircle2 class="h-4 w-4" aria-hidden="true" /> Aprobar</button>
                                 <button v-if="a.can.rechazar ?? a.can.revisar" type="button" class="action-btn justify-center border border-rose-200 text-rose-700 dark:border-rose-500/30 dark:text-rose-300" @click="abrir('RECHAZAR', a)"><XCircle class="h-4 w-4" aria-hidden="true" /> Rechazar</button>
                                 <button v-if="a.can.aplicar" type="button" class="action-btn col-span-2 justify-center bg-brand-button text-brand-button-fg" @click="abrir('APLICAR', a)"><PlayCircle class="h-4 w-4" aria-hidden="true" /> Aplicar al monto</button>
                                 <button v-if="a.can.cancelar" type="button" class="action-btn col-span-2 justify-center border border-slate-200 text-slate-600 dark:border-white/10 dark:text-zinc-300" @click="abrir('CANCELAR', a)"><Ban class="h-4 w-4" aria-hidden="true" /> Cancelar solicitud</button>
+                                <button v-if="a.can.cancelar_aprobacion" type="button" class="action-btn col-span-2 justify-center border border-rose-200 text-rose-700 dark:border-rose-500/30 dark:text-rose-300" @click="abrir('CANCELAR_APROBACION', a)"><Ban class="h-4 w-4" aria-hidden="true" /> Cancelar aprobación</button>
                             </div>
                         </li>
                     </ul>
@@ -475,9 +480,9 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
             :tone="dialogCopy.tone"
             :loading="dialog.loading"
             :error="dialog.error"
-            :with-comment="dialog.accion === 'APROBAR' || dialog.accion === 'RECHAZAR'"
-            :comment-label="dialog.accion === 'RECHAZAR' ? 'Motivo del rechazo' : 'Comentario (opcional)'"
-            :comment-required="dialog.accion === 'RECHAZAR'"
+            :with-comment="dialog.accion === 'APROBAR' || dialog.accion === 'RECHAZAR' || dialog.accion === 'CANCELAR_APROBACION'"
+            :comment-label="dialog.accion === 'RECHAZAR' ? 'Motivo del rechazo' : dialog.accion === 'CANCELAR_APROBACION' ? 'Motivo de la cancelación' : 'Comentario (opcional)'"
+            :comment-required="dialog.accion === 'RECHAZAR' || dialog.accion === 'CANCELAR_APROBACION'"
             @confirm="confirmar"
         />
     </AuthenticatedLayout>
@@ -486,6 +491,6 @@ const fechaCorta = (v: string | null) => (v ? formatDateTime(v) : '—')
 <style scoped>
 .action-btn {
     @apply inline-flex min-h-[38px] items-center gap-1.5 rounded-xl px-3 text-xs font-bold transition
-        focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 active:scale-[0.98] motion-reduce:transform-none;
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 active:scale-[0.98] motion-reduce:transform-none;
 }
 </style>

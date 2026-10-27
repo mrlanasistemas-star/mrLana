@@ -50,11 +50,11 @@ const items = computed(() =>
                 :href="item.href"
                 :data-tour="`nav-${item.key}`"
                 :preserve-scroll="true"
-                class="group relative flex min-h-[40px] items-center rounded-xl px-[15px] [@media(max-height:820px)]:min-h-[33px] text-[13.5px] font-medium transition-colors duration-150
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                class="group relative flex min-h-[40px] items-center rounded-full px-[15px] [@media(max-height:820px)]:min-h-[33px] text-[13.5px] font-medium transition-colors duration-150
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
                 :class="isActive(item.activePattern)
-                    ? 'bg-brand-primary text-brand-primary-fg shadow-sm shadow-brand-primary/20 dark:bg-brand-primary/[0.16] dark:text-zinc-50 dark:shadow-none dark:ring-1 dark:ring-inset dark:ring-white/[0.08]'
-                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100'"
+                    ? 'bg-brand-primary text-brand-primary-fg shadow-md shadow-brand-primary/30'
+                    : 'text-zinc-400 hover:bg-white/[0.07] hover:text-white'"
                 :aria-current="isActive(item.activePattern) ? 'page' : undefined"
                 :aria-label="props.expanded ? undefined : item.label"
                 @click="emit('navigate')"
@@ -67,7 +67,7 @@ const items = computed(() =>
                 />
                 <span
                     class="ml-3 overflow-hidden whitespace-nowrap transition-all duration-200 motion-reduce:transition-none"
-                    :class="[props.expanded ? 'w-40 opacity-100' : 'w-0 opacity-0', isActive(item.activePattern) ? 'font-semibold' : '']"
+                    :class="[props.expanded ? 'w-40 opacity-100' : 'w-0 opacity-0', isActive(item.activePattern) ? 'font-semibold' : 'font-medium']"
                 >
                     {{ item.label }}
                 </span>

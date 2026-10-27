@@ -76,9 +76,9 @@ const base = computed(() => ({
 const cls = computed(() => [
     base.value,
     props.variant === 'menu'
-        ? 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100'
-        : 'border-slate-200/80 bg-white text-slate-800 shadow-sm hover:border-slate-300 hover:shadow dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-700',
-    'transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50',
+        ? 'text-zinc-400 hover:bg-white/[0.07] hover:text-white'
+        : 'border-slate-200 bg-white text-slate-700 hover:border-brand-primary/30 hover:bg-brand-tint/60 hover:text-brand-primary dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:hover:bg-white/10',
+    'transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50',
 ])
 const icon = computed(() => (url.value ? Smartphone : MonitorDown))
 </script>

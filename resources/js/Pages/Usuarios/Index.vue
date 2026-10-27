@@ -140,7 +140,7 @@ const initials = (name: string) =>
                         <component :is="card.icon" class="h-5 w-5" aria-hidden="true" />
                     </span>
                     <span class="min-w-0">
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ card.label }}</span>
+                        <span class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">{{ card.label }}</span>
                         <span class="block text-2xl font-black tabular-nums text-slate-900 dark:text-zinc-100">{{ card.value }}</span>
                     </span>
                 </button>
@@ -211,7 +211,7 @@ const initials = (name: string) =>
                     <table class="w-full table-fixed text-sm">
                         <caption class="sr-only">Listado de usuarios</caption>
                         <thead>
-                            <tr class="border-b border-slate-100 text-left text-[11px] uppercase tracking-wider text-slate-500 dark:border-white/5 dark:text-zinc-400">
+                            <tr class="border-b border-slate-100 text-left text-xs text-slate-500 dark:border-white/5 dark:text-zinc-400">
                                 <th scope="col" class="w-[32%] px-5 py-3 font-semibold">Usuario</th>
                                 <th scope="col" class="w-[16%] px-3 py-3 font-semibold">Rol</th>
                                 <th scope="col" class="w-[22%] px-3 py-3 font-semibold">Colaborador</th>

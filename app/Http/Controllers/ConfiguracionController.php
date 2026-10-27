@@ -28,7 +28,11 @@ class ConfiguracionController extends Controller
         return Inertia::render('Configuracion/Edit', [
             'settings' => [
                 ...collect(AppSetting::COLOR_FIELDS)->mapWithKeys(fn ($f) => [$f => $row->{$f}])->all(),
-                'chart_palette' => $row->chart_palette,
+                // La paleta predeterminada anterior guardada sin cambios se muestra como la actual.
+                'chart_palette' => is_array($row->chart_palette)
+                    && array_map('strtoupper', $row->chart_palette) === AppSetting::LEGACY_CHART_PALETTE
+                    ? null
+                    : $row->chart_palette,
                 'mobile_app_url' => $row->mobile_app_url,
                 'logo_url' => $row->logo_path ? Storage::disk('public')->url($row->logo_path) : null,
             ],

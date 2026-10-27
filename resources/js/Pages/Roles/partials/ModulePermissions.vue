@@ -92,7 +92,7 @@ const scopeHint = computed(() => {
             </p>
 
             <div v-if="showScope && module.scope.length">
-                <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Alcance de lectura</p>
+                <p class="text-xs font-medium text-slate-400 dark:text-zinc-500">Alcance de lectura</p>
                 <p class="mb-1.5 mt-0.5 break-words text-xs leading-snug text-slate-500 dark:text-zinc-400">{{ scopeHint }}</p>
                 <ScopeSelector
                     :module-key="module.key"
@@ -115,7 +115,7 @@ const scopeHint = computed(() => {
             </div>
 
             <fieldset v-for="g in groups" :key="g.key" class="min-w-0" :disabled="locked">
-                <legend class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{{ g.label }}</legend>
+                <legend class="text-xs font-medium text-slate-400 dark:text-zinc-500">{{ g.label }}</legend>
                 <p v-if="g.description" class="mb-1.5 mt-0.5 break-words text-xs leading-snug text-slate-500 dark:text-zinc-400">{{ g.description }}</p>
                 <ul class="grid grid-cols-1 gap-1.5 xl:grid-cols-2">
                     <li v-for="p in g.permissions" :key="p.name" class="min-w-0">

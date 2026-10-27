@@ -190,7 +190,7 @@ const montoPendiente = computed({
                         type="button"
                         :disabled="!canSendNotification"
                         class="group inline-flex min-h-[44px] items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                            transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400
+                            transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-primary/50
                             disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0 motion-reduce:transform-none"
                         :class="canSendNotification
                         ? 'bg-brand-button text-brand-button-fg shadow-sm hover:bg-brand-button/90 hover:shadow-md hover:-translate-y-[1px]'
@@ -287,9 +287,9 @@ const montoPendiente = computed({
                   <button
                     type="button"
                     class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                           bg-slate-900 text-white hover:bg-slate-800 hover:shadow-sm hover:-translate-y-[1px]
+                           bg-brand-button text-brand-button-fg hover:bg-brand-button/90
                            transition active:scale-[0.98]
-                           dark:bg-zinc-300 dark:text-slate-900 dark:hover:bg-neutral-200"
+                           "
                     @click="addFolio"
                   >
                     <Plus class="h-4 w-4" />
@@ -1012,9 +1012,9 @@ const montoPendiente = computed({
                 <Link
                     :href="route('requisiciones.ajustes', req.id)"
                     class="shrink-0 inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-black
-                            bg-slate-900 text-white hover:bg-slate-800 hover:shadow-sm hover:-translate-y-[1px]
+                            bg-brand-button text-brand-button-fg hover:bg-brand-button/90
                             transition active:scale-[0.98]
-                            dark:bg-zinc-300 dark:text-slate-900 dark:hover:bg-neutral-200"
+                            "
                     >
                     Ir a Ajustes
                 </Link>

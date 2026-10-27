@@ -36,11 +36,11 @@ export function useSwalTheme() {
       actions: 'gap-2',
 
       confirmButton:
-        'rounded-2xl px-4 py-2 font-semibold bg-slate-900 text-white hover:bg-slate-800 ' +
-        'dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition active:scale-[0.98]',
+        'rounded-xl px-4 py-2 font-semibold bg-brand-button text-brand-button-fg hover:bg-brand-button/90 ' +
+        'transition active:scale-[0.98]',
 
       cancelButton:
-        'rounded-2xl px-4 py-2 font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200 ' +
+        'rounded-xl px-4 py-2 font-semibold bg-slate-100 text-slate-800 hover:bg-slate-200 ' +
         'dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 transition active:scale-[0.98]',
     }
   }

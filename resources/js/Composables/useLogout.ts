@@ -15,8 +15,8 @@ export function useLogout() {
             confirmButtonText: 'Sí, cerrar sesión',
             cancelButtonText: 'Cancelar',
             reverseButtons: true,
-            background: dark ? '#18181b' : '#ffffff',
-            color: dark ? '#e4e4e7' : '#111827',
+            background: dark ? '#1C1830' : '#ffffff',
+            color: dark ? '#F1EFF8' : '#1C1830',
             confirmButtonColor: '#dc2626',
             cancelButtonColor: dark ? '#3f3f46' : '#6b7280',
         })

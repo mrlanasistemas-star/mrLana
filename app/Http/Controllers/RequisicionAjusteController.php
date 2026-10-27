@@ -197,7 +197,9 @@ class RequisicionAjusteController extends Controller
     }
 
     /**
-     * Cancela un ajuste PENDIENTE (quien lo solicitó o quien puede revisarlo).
+     * Cancela un ajuste PENDIENTE (quien lo solicitó o quien puede revisarlo)
+     * o un ajuste APROBADO que aún no se aplica (quien puede aprobar o aplicar;
+     * pide motivo). Un ajuste APLICADO ya movió el monto y no se cancela.
      */
     public function cancel(Request $request, Ajuste $ajuste): RedirectResponse
     {
@@ -205,11 +207,23 @@ class RequisicionAjusteController extends Controller
         $isOwner = (int) $ajuste->user_registro_id === (int) $user->id;
         $req = $ajuste->requisicion;
         abort_unless($user->can('viewAjustes', $req), 403);
-        abort_unless($isOwner || $user->can('approveAdjustment', $req) || $user->can('rejectAdjustment', $req), 403);
 
-        $cancelado = DB::transaction(function () use ($ajuste, $user) {
+        $aprobado = $ajuste->estatus === Ajuste::ESTATUS_APROBADO;
+        $motivo = null;
+        if ($aprobado) {
+            abort_unless($user->can('cancelApprovedAdjustment', $req), 403);
+            $motivo = $request->validate([
+                'motivo' => ['required', 'string', 'min:5', 'max:500'],
+            ], [], ['motivo' => 'motivo de la cancelación'])['motivo'];
+        } else {
+            abort_unless($isOwner || $user->can('approveAdjustment', $req) || $user->can('rejectAdjustment', $req), 403);
+        }
+
+        $estatusEsperado = $aprobado ? Ajuste::ESTATUS_APROBADO : Ajuste::ESTATUS_PENDIENTE;
+
+        $cancelado = DB::transaction(function () use ($ajuste, $user, $estatusEsperado, $motivo) {
             $locked = Ajuste::query()->whereKey($ajuste->id)->lockForUpdate()->first();
-            if (! $locked || $locked->estatus !== Ajuste::ESTATUS_PENDIENTE) {
+            if (! $locked || $locked->estatus !== $estatusEsperado) {
                 return null;
             }
 
@@ -217,20 +231,24 @@ class RequisicionAjusteController extends Controller
                 'estatus' => Ajuste::ESTATUS_CANCELADO,
                 'user_resuelve_id' => $user->id,
                 'fecha_resolucion' => now(),
-            ])->save();
+            ] + ($motivo !== null ? ['comentario_revision' => "Aprobación cancelada: {$motivo}"] : []))->save();
 
             return $locked;
         });
 
         if (! $cancelado) {
-            return back()->with('error', 'Solo se puede cancelar un ajuste pendiente.');
+            return back()->with('error', $ajuste->fresh()?->estatus === Ajuste::ESTATUS_APLICADO
+                ? 'Este ajuste ya fue aplicado al monto y no se puede cancelar.'
+                : 'Solo se puede cancelar un ajuste pendiente o aprobado sin aplicar.');
         }
 
         $this->notifications->notify(
             topic: NotificationTopic::Ajustes,
             event: 'ajuste.cancelado',
             title: "Ajuste cancelado en {$cancelado->requisicion->folio}",
-            message: "{$user->name} canceló un ajuste de $".number_format((float) $cancelado->monto, 2).'.',
+            message: $aprobado
+                ? "{$user->name} canceló la aprobación de un ajuste de $".number_format((float) $cancelado->monto, 2).': '.str($motivo)->limit(160)
+                : "{$user->name} canceló un ajuste de $".number_format((float) $cancelado->monto, 2).'.',
             severity: 'info',
             url: route('requisiciones.ajustes', $cancelado->requisicion_id, false),
             direct: [$cancelado->solicitadoPor],

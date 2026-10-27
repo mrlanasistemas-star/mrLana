@@ -2,6 +2,7 @@ import { reactive, computed, watch, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { swalOk, swalErr, swalLoading, swalClose } from '@/lib/swal'
 import type { Catalogos } from './Requisiciones.types'
+import { itemsClientErrors, money, nuevoItem, recalcularItems, type ItemCaptura } from './requisicionItems'
 
 type Plantilla = Record<string, any> | null
 type InertiaErrors = Record<string, string | string[]>
@@ -49,16 +50,7 @@ export function useRequisicionCreate(catalogos: Catalogos, plantilla: Plantilla 
         fecha_solicitud: today,
         fecha_pago_esperada: null as string | null,
         observaciones: '',
-        detalles: [] as Array<{
-            sucursal_id: number | string | null
-            cantidad: number
-            descripcion: string
-            precio_unitario: number
-            genera_iva: boolean
-            subtotal: number
-            iva: number
-            total: number
-        }>,
+        detalles: [] as ItemCaptura[],
     })
 
     function fieldError(key: string): string | null {
@@ -212,17 +204,9 @@ export function useRequisicionCreate(catalogos: Catalogos, plantilla: Plantilla 
     watch(
         () => state.detalles,
         () => {
-            let sub = 0
-            let total = 0
-            state.detalles.forEach((item) => {
-                item.subtotal = Number((item.cantidad * item.precio_unitario).toFixed(2))
-                item.iva = item.genera_iva ? Number((item.subtotal * 0.16).toFixed(2)) : 0
-                item.total = Number((item.subtotal + item.iva).toFixed(2))
-                sub += item.subtotal
-                total += item.total
-            })
-            state.monto_subtotal = Number(sub.toFixed(2))
-            state.monto_total = Number(total.toFixed(2))
+            const { subtotal, total } = recalcularItems(state.detalles)
+            state.monto_subtotal = subtotal
+            state.monto_total = total
         },
         { deep: true, immediate: true },
     )
@@ -243,12 +227,7 @@ export function useRequisicionCreate(catalogos: Catalogos, plantilla: Plantilla 
         if (state.fecha_pago_esperada && state.fecha_solicitud && state.fecha_pago_esperada < state.fecha_solicitud) {
             out.fecha_pago_esperada = ESPERADA_ANTERIOR
         }
-        if (!state.detalles.length) out.detalles = 'Agrega al menos un item.'
-        state.detalles.forEach((d, i) => {
-            if (!d.descripcion || String(d.descripcion).trim().length < 2) out[`detalles.${i}.descripcion`] = 'Escribe una descripción.'
-            if (!(Number(d.cantidad) > 0)) out[`detalles.${i}.cantidad`] = 'La cantidad debe ser mayor a 0.'
-        })
-        return out
+        return { ...out, ...itemsClientErrors(state.detalles) }
     })
 
     /** Error visible de un campo: primero el del servidor, luego el de cliente. */
@@ -258,25 +237,12 @@ export function useRequisicionCreate(catalogos: Catalogos, plantilla: Plantilla 
 
     function addItem() {
         errors.value = {}
-        state.detalles.push({
-            sucursal_id: state.sucursal_id || null,
-            cantidad: 1,
-            descripcion: '',
-            precio_unitario: 0,
-            genera_iva: true,
-            subtotal: 0,
-            iva: 0,
-            total: 0,
-        })
+        state.detalles.push(nuevoItem(state.sucursal_id || null))
     }
 
     function removeItem(index: number) {
         errors.value = {}
         state.detalles.splice(index, 1)
-    }
-
-    function money(v: unknown) {
-        return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(Number(v ?? 0))
     }
 
     function makePayload() {

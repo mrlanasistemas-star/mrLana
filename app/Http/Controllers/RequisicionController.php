@@ -24,6 +24,7 @@ use App\Services\Notifications\NotificationService;
 use App\Services\Pdf\PdfService;
 use App\Services\Requisiciones\CaptureContext;
 use App\Support\BusinessDate;
+use App\Support\Requisiciones\DetallesCalculator;
 use App\Support\Permissions\AccessScope;
 use App\Support\Permissions\Scope;
 use Carbon\Carbon;
@@ -630,6 +631,7 @@ class RequisicionController extends Controller
                     'aplicar' => $a->estatus === Ajuste::ESTATUS_APROBADO && $user->can('applyAdjustment', $requisicion),
                     'cancelar' => $a->estatus === Ajuste::ESTATUS_PENDIENTE
                         && ((int) $a->user_registro_id === (int) $user->id || $user->can('approveAdjustment', $requisicion) || $user->can('rejectAdjustment', $requisicion)),
+                    'cancelar_aprobacion' => $a->estatus === Ajuste::ESTATUS_APROBADO && $user->can('cancelApprovedAdjustment', $requisicion),
                 ],
             ])->values(),
             'can' => [
@@ -838,52 +840,10 @@ class RequisicionController extends Controller
         return $folio;
     }
 
+    /** Misma regla de items y montos que la corrección administrativa. */
     private function sanitizeDetalles(array $detalles): array
     {
-        $ivaRate = 0.16;
-        $montoSubtotal = 0.0;
-        $montoTotal = 0.0;
-        $clean = [];
-
-        $hasGeneraIvaColumn = Schema::hasColumn('detalles', 'genera_iva');
-
-        foreach ($detalles as $i => $d) {
-            $cantidad = (float) ($d['cantidad'] ?? 0);
-            $precio = (float) ($d['precio_unitario'] ?? 0);
-            $desc = trim((string) ($d['descripcion'] ?? ''));
-
-            if ($cantidad <= 0 || $desc === '') {
-                throw ValidationException::withMessages([
-                    "detalles.{$i}.descripcion" => 'Cada item debe tener descripción y cantidad mayor a 0.',
-                ]);
-            }
-
-            $generaIva = (bool) ($d['genera_iva'] ?? true);
-            $subtotal = round($cantidad * $precio, 2);
-            $iva = $generaIva ? round($subtotal * $ivaRate, 2) : 0.00;
-            $total = round($subtotal + $iva, 2);
-
-            $montoSubtotal += $subtotal;
-            $montoTotal += $total;
-
-            $row = [
-                'sucursal_id' => ! empty($d['sucursal_id']) ? (int) $d['sucursal_id'] : null,
-                'cantidad' => $cantidad,
-                'descripcion' => $desc,
-                'precio_unitario' => $precio,
-                'subtotal' => $subtotal,
-                'iva' => $iva,
-                'total' => $total,
-            ];
-
-            if ($hasGeneraIvaColumn) {
-                $row['genera_iva'] = $generaIva;
-            }
-
-            $clean[] = $row;
-        }
-
-        return [$clean, round($montoSubtotal, 2), round($montoTotal, 2)];
+        return DetallesCalculator::sanitize($detalles);
     }
 
     private function safeYmd($v): ?string

@@ -93,8 +93,7 @@ const { can } = usePermissions()
                 <button v-if="can('proveedores.registrar')" type="button" @click="openCreate"
                 class="inline-flex items-center justify-center gap-2
                 rounded-2xl px-5 py-2.5 text-sm font-semibold
-                bg-emerald-600 text-white hover:bg-emerald-700
-                dark:bg-emerald-500 dark:hover:bg-emerald-600
+                bg-brand-button text-brand-button-fg hover:bg-brand-button/90
                 shadow-sm hover:shadow transition active:scale-[0.98]
                 w-full sm:w-auto">
                     <IconUserPlus :size="22" stroke-width="1.5" />
@@ -482,9 +481,8 @@ const { can } = usePermissions()
                         <div class="px-6 py-5 border-t border-slate-200/70 dark:border-white/10 flex items-center justify-end gap-2">
                             <SecondaryButton @click="closeModal">Cancelar</SecondaryButton>
                             <button type="button" class="rounded-2xl px-4 py-2 font-semibold
-                            bg-slate-900 text-white hover:bg-slate-800
-                            dark:bg-zinc-300 dark:text-neutral-900
-                            dark:hover:bg-zinc-200 transition active:scale-[0.98]"
+                            bg-brand-button text-brand-button-fg hover:bg-brand-button/90
+                             transition active:scale-[0.98]"
                             :disabled="form.processing" @click="submit">
                                 {{ editing ? 'Guardar cambios' : 'Crear proveedor' }}
                             </button>
@@ -504,7 +502,7 @@ const { can } = usePermissions()
     }
 
     :global(html.dark select option) {
-        background: #0a0a0a;
+        background: #1C1830;
         color: #f5f5f5;
     }
 

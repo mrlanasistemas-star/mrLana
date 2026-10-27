@@ -74,7 +74,7 @@ function submit() {
     <DialogRoot :open="open" @update:open="(v) => !loading && emit('update:open', v)">
         <DialogContent class="max-w-md">
             <div class="pr-8">
-                <DialogTitle class="text-base font-bold text-slate-900 dark:text-zinc-100">{{ title }}</DialogTitle>
+                <DialogTitle class="text-base font-semibold text-slate-900 dark:text-zinc-100">{{ title }}</DialogTitle>
                 <DialogDescription v-if="description" class="mt-1 text-sm text-slate-600 dark:text-zinc-400">
                     {{ description }}
                 </DialogDescription>
@@ -94,8 +94,8 @@ function submit() {
                     :placeholder="commentPlaceholder"
                     :aria-invalid="localError || error ? 'true' : undefined"
                     class="w-full resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900
-                           focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50
-                           dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100"
+                           focus:border-brand-primary focus:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-primary/20
+                           dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
                     @blur="touched = true"
                 />
                 <div class="flex justify-between gap-2 text-xs">
@@ -109,7 +109,7 @@ function submit() {
                 <button
                     type="button"
                     class="min-h-[42px] rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition
-                           hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50
+                           hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
                            disabled:opacity-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/5"
                     :disabled="loading"
                     @click="emit('update:open', false)"
@@ -120,7 +120,7 @@ function submit() {
                     type="button"
                     class="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold shadow-sm
                            transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
-                           focus-visible:ring-slate-400 disabled:opacity-60 dark:focus-visible:ring-offset-zinc-950"
+                           focus-visible:ring-brand-primary/60 disabled:opacity-60 dark:focus-visible:ring-offset-zinc-950"
                     :class="toneClass"
                     :disabled="loading"
                     @click="submit"

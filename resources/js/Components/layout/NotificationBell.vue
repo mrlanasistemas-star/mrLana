@@ -47,10 +47,10 @@ async function openItem(item: ErpNotificationItem) {
         <DropdownMenuTrigger as-child>
             <button
                 type="button"
-                class="relative inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-sm transition
-                       border-slate-200/80 bg-white/90 text-slate-700 hover:bg-white hover:shadow-md
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
-                       dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-200 dark:hover:bg-zinc-900/60"
+                class="relative inline-flex h-10 w-10 items-center justify-center rounded-full border transition
+                       border-slate-200 bg-white text-slate-600 hover:border-brand-primary/30 hover:bg-brand-tint/60 hover:text-brand-primary
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
+                       dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/10 dark:hover:text-zinc-50"
                 :aria-label="ariaLabel"
             >
                 <Bell class="h-[18px] w-[18px]" :class="ringing ? 'bell-ring' : ''" aria-hidden="true" />
@@ -72,11 +72,11 @@ async function openItem(item: ErpNotificationItem) {
             :side-offset="8"
             :collision-padding="12"
             class="z-[300] w-[min(24rem,calc(100vw-1.5rem))] rounded-2xl border-slate-200 bg-white p-0 shadow-2xl
-                   dark:border-white/10 dark:bg-zinc-950"
+                   dark:border-white/10 dark:bg-zinc-900"
         >
             <div class="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-white/10">
                 <div class="min-w-0">
-                    <p class="text-sm font-bold text-slate-900 dark:text-zinc-100">Notificaciones</p>
+                    <p class="text-sm font-semibold text-slate-900 dark:text-zinc-100">Notificaciones</p>
                     <p class="text-xs text-slate-500 dark:text-zinc-400">
                         {{ unread > 0 ? `${unread} sin leer` : 'Estás al día' }}
                     </p>
@@ -84,7 +84,7 @@ async function openItem(item: ErpNotificationItem) {
                 <button
                     type="button"
                     class="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-slate-600 transition
-                           hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
+                           hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
                            disabled:opacity-40 dark:text-zinc-300 dark:hover:bg-white/10"
                     :disabled="unread === 0"
                     @click="markAllAsRead"
@@ -117,7 +117,7 @@ async function openItem(item: ErpNotificationItem) {
                 <Link
                     :href="route('notificaciones.index')"
                     class="flex min-h-[40px] items-center justify-center rounded-xl text-sm font-semibold text-slate-700 transition
-                           hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
+                           hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
                            dark:text-zinc-200 dark:hover:bg-white/10"
                     @click="open = false"
                 >

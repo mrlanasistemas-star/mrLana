@@ -292,7 +292,7 @@ function statusAccentColor(s: any): string {
                     type="button"
                     aria-label="Nueva requisición"
                     @click="goCreate"
-                    class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md hover:-translate-y-[1px] active:scale-[0.99] transition dark:bg-emerald-500 dark:hover:bg-emerald-600"
+                    class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black bg-brand-button text-brand-button-fg shadow-sm shadow-brand-button/20 hover:bg-brand-button/90 active:scale-[0.99] transition"
                 >
                     <Plus class="h-4 w-4" />
                     <span class="hidden sm:inline">Nueva</span>
@@ -314,7 +314,7 @@ function statusAccentColor(s: any): string {
                         class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
                     >
                         <div
-                            class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-zinc-400"
+                            class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400"
                         >
                             <ClipboardList class="h-4 w-4" />
                             Registros visibles
@@ -333,7 +333,7 @@ function statusAccentColor(s: any): string {
                         class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
                     >
                         <div
-                            class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-zinc-400"
+                            class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400"
                         >
                             <BadgeDollarSign class="h-4 w-4" />
                             Total página
@@ -352,7 +352,7 @@ function statusAccentColor(s: any): string {
                         class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
                     >
                         <div
-                            class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-zinc-400"
+                            class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400"
                         >
                             <CalendarDays class="h-4 w-4" />
                             Capturadas
@@ -371,7 +371,7 @@ function statusAccentColor(s: any): string {
                         class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
                     >
                         <div
-                            class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-zinc-400"
+                            class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400"
                         >
                             <Tags class="h-4 w-4" />
                             Por comprobar
@@ -720,7 +720,7 @@ function statusAccentColor(s: any): string {
                                     :href="route('requisiciones.show', r.id)"
                                     class="font-black text-[13px] tracking-tight text-slate-900 dark:text-zinc-100 truncate leading-tight
                                            underline-offset-4 decoration-2 decoration-slate-300 hover:underline hover:text-brand-primary
-                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 rounded"
+                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 rounded"
                                     :title="`Abrir ${(r as any).folio}`"
                                 >{{ (r as any).folio }}</Link>
                                 <button
@@ -754,19 +754,19 @@ function statusAccentColor(s: any): string {
                             >{{ displayName((r as any).concepto) }}</div>
                             <div class="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1">
                                 <div class="min-w-0">
-                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Corporativo</div>
+                                    <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Corporativo</div>
                                     <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).comprador) }}</div>
                                 </div>
                                 <div class="min-w-0">
-                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Solicitante</div>
+                                    <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Solicitante</div>
                                     <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).solicitante) }}</div>
                                 </div>
                                 <div class="min-w-0">
-                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Sucursal</div>
+                                    <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Sucursal</div>
                                     <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).sucursal) }}</div>
                                 </div>
                                 <div class="min-w-0">
-                                    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Proveedor</div>
+                                    <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Proveedor</div>
                                     <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).proveedor) }}</div>
                                 </div>
                             </div>
@@ -778,25 +778,25 @@ function statusAccentColor(s: any): string {
                         <!-- Fechas — 3 filas -->
                         <div class="shrink-0 w-[172px] space-y-1.5 mr-4">
                             <div class="flex items-baseline gap-2">
-                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Registro</span>
+                                <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 shrink-0 w-[66px]">Registro</span>
                                 <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
                                     {{ safeDateShort((r as any).fecha_registro_ymd ?? (r as any).created_at) }}
                                 </span>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Solicitud</span>
+                                <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 shrink-0 w-[66px]">Solicitud</span>
                                 <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
                                     {{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}
                                 </span>
                             </div>
                             <div v-if="(r as any).fecha_pago_esperada" class="flex items-baseline gap-2">
-                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Esperada</span>
+                                <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 shrink-0 w-[66px]">Esperada</span>
                                 <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
                                     {{ safeDateShort((r as any).fecha_pago_esperada) }}
                                 </span>
                             </div>
                             <div class="flex items-baseline gap-2">
-                                <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 shrink-0 w-[58px]">Pago</span>
+                                <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 shrink-0 w-[66px]">Pago</span>
                                 <span
                                     class="text-[11px] font-semibold tabular-nums"
                                     :class="(r as any).fecha_pago_ymd ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-zinc-600'"
@@ -809,7 +809,7 @@ function statusAccentColor(s: any): string {
 
                         <!-- Monto -->
                         <div class="shrink-0 w-[150px] text-right">
-                            <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Total</div>
+                            <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Total</div>
                             <div class="mt-0.5 text-lg font-black text-slate-900 dark:text-zinc-100 tabular-nums leading-none whitespace-nowrap">
                                 {{ money((r as any).monto_total) }}
                             </div>
@@ -833,7 +833,7 @@ function statusAccentColor(s: any): string {
                                 Eliminación solicitada · pendiente de revisión
                             </span>
                             <p v-if="(r as any).observaciones" class="flex min-w-0 items-start gap-2">
-                                <span class="mt-0.5 shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Observaciones</span>
+                                <span class="mt-0.5 shrink-0 text-xs font-medium text-slate-400 dark:text-zinc-500">Observaciones</span>
                                 <span class="min-w-0 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600 dark:text-zinc-300">{{ (r as any).observaciones }}</span>
                             </p>
                             <p v-else-if="!(r as any).eliminacion_pendiente" class="text-[11px] italic text-slate-400 dark:text-zinc-500">Sin observaciones</p>
@@ -877,7 +877,7 @@ function statusAccentColor(s: any): string {
                             class="inline-flex items-center justify-center h-9 min-w-9 px-3 rounded-2xl text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
                             :class="
                                 l.active
-                                    ? 'bg-slate-900 text-white border-slate-900 dark:bg-white/15 dark:text-zinc-100 dark:border-white/20'
+                                    ? 'bg-brand-primary text-brand-primary-fg border-brand-primary'
                                     : ''
                             "
                         >
@@ -947,25 +947,25 @@ function statusAccentColor(s: any): string {
                         <!-- Fechas en 3 filas -->
                         <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Registro</div>
+                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Registro</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
                                     {{ safeDateShort((r as any).fecha_registro_ymd ?? (r as any).created_at) }}
                                 </div>
                             </div>
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Solicitud</div>
+                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Solicitud</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
                                     {{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}
                                 </div>
                             </div>
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Pago esperado</div>
+                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Pago esperado</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
                                     {{ (r as any).fecha_pago_esperada ? safeDateShort((r as any).fecha_pago_esperada) : 'Sin definir' }}
                                 </div>
                             </div>
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Pago</div>
+                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Pago</div>
                                 <div class="mt-0.5 text-[11px] font-semibold tabular-nums"
                                     :class="(r as any).fecha_pago_ymd ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-zinc-600'">
                                     {{ safeDateShort((r as any).fecha_pago_ymd) }}
@@ -976,13 +976,13 @@ function statusAccentColor(s: any): string {
                         <!-- Proveedor + Solicitante -->
                         <div class="grid grid-cols-2 gap-2">
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Proveedor</div>
+                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Proveedor</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
                                     {{ displayName((r as any).proveedor) }}
                                 </div>
                             </div>
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Solicitante</div>
+                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Solicitante</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
                                     {{ displayName((r as any).solicitante) }}
                                 </div>
@@ -992,13 +992,13 @@ function statusAccentColor(s: any): string {
                         <!-- Corp + Suc -->
                         <div class="grid grid-cols-2 gap-2">
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Corporativo</div>
+                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Corporativo</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
                                     {{ displayName((r as any).comprador) }}
                                 </div>
                             </div>
                             <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Sucursal</div>
+                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Sucursal</div>
                                 <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
                                     {{ displayName((r as any).sucursal) }}
                                 </div>
@@ -1007,7 +1007,7 @@ function statusAccentColor(s: any): string {
 
                         <!-- Observaciones (solo si existen) -->
                         <div v-if="(r as any).observaciones" class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                            <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Observaciones</div>
+                            <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Observaciones</div>
                             <div class="mt-0.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600 dark:text-zinc-300">
                                 {{ (r as any).observaciones }}
                             </div>
@@ -1055,7 +1055,7 @@ function statusAccentColor(s: any): string {
                         class="inline-flex items-center justify-center h-9 min-w-9 px-3 rounded-2xl text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
                         :class="
                             l.active
-                                ? 'bg-slate-900 text-white border-slate-900 dark:bg-white/15 dark:text-zinc-100 dark:border-white/20'
+                                ? 'bg-brand-primary text-brand-primary-fg border-brand-primary'
                                 : ''
                         "
                     >

@@ -327,7 +327,7 @@ const pageLabel = (l: string) =>
 
                     <div v-if="changeList(detail).length" class="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/10">
                         <table class="w-full table-fixed text-sm">
-                            <thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-slate-500 dark:bg-white/[0.04] dark:text-zinc-400">
+                            <thead class="bg-slate-50 text-left text-xs text-slate-500 dark:bg-white/[0.04] dark:text-zinc-400">
                                 <tr><th class="w-1/4 px-3 py-2 font-semibold">Campo</th><th class="px-3 py-2 font-semibold">Antes</th><th class="px-3 py-2 font-semibold">Después</th></tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 dark:divide-white/[0.06]">

@@ -102,12 +102,12 @@
     /** UI tokens */
     const selectBase =
     'mt-1 w-full rounded-xl px-3 py-2 text-sm border transition focus:outline-none focus:ring-2 ' +
-    'border-slate-200 bg-white text-slate-900 focus:ring-slate-200 focus:border-slate-300 ' +
+    'border-slate-200 bg-white text-slate-900 focus:ring-brand-primary/20 focus:border-brand-primary/60 ' +
     'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:focus:ring-white/10'
 
     const inputBase =
     'mt-1 w-full rounded-xl px-3 py-2 text-sm border transition focus:outline-none focus:ring-2 ' +
-    'border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-slate-200 focus:border-slate-300 ' +
+    'border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-brand-primary/20 focus:border-brand-primary/60 ' +
     'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:ring-white/10'
 
     /** Micro-animaciones */
@@ -155,7 +155,7 @@
                             class="rounded-xl px-3 py-1.5 text-xs font-semibold
                             bg-white text-slate-800 border border-slate-200 hover:bg-slate-50
                             dark:bg-neutral-900 dark:text-neutral-100 dark:border-white/10 dark:hover:bg-neutral-950/40
-                            focus:outline-none focus:ring-2 focus:ring-slate-200 dark:focus:ring-white/10
+                            focus:outline-none focus:ring-2 focus:ring-brand-primary/20 dark:focus:ring-white/10
                             transition active:scale-[0.98]">
                                 Limpiar
                             </button>
@@ -175,9 +175,9 @@
                         <button v-if="can('conceptos.registrar')" type="button"
                         @click="openCreate"
                         class="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold
-                        bg-slate-900 text-white hover:bg-slate-800
-                        dark:bg-zinc-300 dark:text-neutral-900 dark:hover:bg-zinc-200
-                        Focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/20
+                        bg-brand-button text-brand-button-fg hover:bg-brand-button/90
+                        
+                        Focus:outline-none focus:ring-2 focus:ring-brand-primary/25 dark:focus:ring-brand-primary/30
                         transition active:scale-[0.98]
                         w-full sm:w-auto">
                             Nuevo
@@ -521,7 +521,7 @@
                             disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.98]"
                         :class="
                         l.active
-                            ? 'bg-slate-900 text-white border-slate-900 dark:bg-zinc-300 dark:text-neutral-900 dark:border-neutral-100'
+                            ? 'bg-brand-primary text-brand-primary-fg border-brand-primary'
                             : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-neutral-900 dark:text-neutral-200 dark:border-white/10 dark:hover:bg-neutral-950/40'
                         "
                     >
@@ -548,7 +548,7 @@
                         class="rounded-full px-4 py-2 text-sm font-semibold
                         border border-slate-200 bg-white hover:bg-rose-500 hover:text-white
                         dark:border-white/10 dark:bg-white/10 dark:hover:bg-rose-500 dark:text-neutral-100
-                        focus:outline-none focus:ring-2 focus:ring-slate-200 dark:focus:ring-white/10
+                        focus:outline-none focus:ring-2 focus:ring-brand-primary/20 dark:focus:ring-white/10
                         transition active:scale-[0.98] shrink-0"
                         @click="closeModal" aria-label="Cerrar"
                         title="Cerrar">X
@@ -573,10 +573,10 @@
                         <button type="button" @click="submit"
                         :disabled="!canSubmit"
                         class="rounded-2xl px-6 py-3 text-sm font-extrabold tracking-wide
-                        bg-slate-900 text-white hover:bg-slate-800
-                        dark:bg-zinc-300 dark:text-neutral-900 dark:hover:bg-zinc-200
+                        bg-brand-button text-brand-button-fg hover:bg-brand-button/90
+                        
                         disabled:opacity-50 disabled:cursor-not-allowed
-                        focus:outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/20
+                        focus:outline-none focus:ring-2 focus:ring-brand-primary/25 dark:focus:ring-brand-primary/30
                         transition active:scale-[0.98]">
                         {{ saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear') }}
                         </button>
@@ -589,7 +589,7 @@
 
 <style scoped>
     :global(html.dark select option) {
-    background: #0a0a0a;
+    background: #1C1830;
     color: #f5f5f5;
     }
 </style>

@@ -47,7 +47,7 @@ const initials = computed(() => {
 
 const footerBtn =
     'flex min-h-[42px] w-full items-center rounded-xl px-[15px] text-[13.5px] font-medium transition-colors [@media(max-height:820px)]:min-h-[34px] ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40'
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40'
 </script>
 
 <template>
@@ -65,27 +65,27 @@ const footerBtn =
         @focusout="hovering = false"
     >
         <div
-            class="fixed inset-y-0 left-0 z-[210] flex h-dvh flex-col overflow-hidden border-r border-slate-200/80 bg-white text-slate-800
+            class="fixed inset-y-0 left-0 z-[210] flex h-dvh flex-col overflow-hidden border-r border-white/[0.06] bg-brand-ink text-zinc-100
                    transition-[width,box-shadow] duration-200 ease-out motion-reduce:transition-none
-                   dark:border-zinc-800/60 dark:bg-zinc-950 dark:text-zinc-100"
-            :class="[expanded ? 'w-60' : 'w-16', expanded && !pinned ? 'shadow-[8px_0_32px_-12px_rgba(0,0,0,0.25)]' : '']"
+                   dark:bg-[#100D1B]"
+            :class="[expanded ? 'w-60' : 'w-16', expanded && !pinned ? 'shadow-[8px_0_32px_-12px_rgba(20,10,60,0.45)]' : '']"
         >
             <!-- Marca: misma altura y borde que la barra superior -->
             <Link
                 :href="route('dashboard')"
-                class="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200/80 px-3.5 focus:outline-none focus-visible:ring-2
-                       focus-visible:ring-inset focus-visible:ring-brand-primary/40 dark:border-zinc-800/60"
+                class="flex h-16 shrink-0 items-center gap-3 border-b border-white/[0.06] px-3.5 focus:outline-none focus-visible:ring-2
+                       focus-visible:ring-inset focus-visible:ring-white/40"
                 aria-label="Ir al inicio"
             >
                 <span
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 text-white
-                           shadow-sm ring-1 ring-black/5 dark:from-zinc-100 dark:to-zinc-300 dark:text-zinc-900"
+                    class="ui-brand-gradient flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white
+                           shadow-sm shadow-[#6419FF]/40 ring-1 ring-white/10"
                 >
                     <ApplicationLogo class="h-5 w-5" />
                 </span>
                 <span class="min-w-0 overflow-hidden transition-opacity duration-200" :class="expanded ? 'opacity-100' : 'opacity-0'">
-                    <span class="block whitespace-nowrap text-[15px] font-extrabold leading-tight tracking-tight">MR-Lana</span>
-                    <span class="block whitespace-nowrap text-[11px] font-medium text-slate-400 dark:text-zinc-500">ERP de gastos</span>
+                    <span class="block whitespace-nowrap text-[15px] font-semibold leading-tight tracking-tight text-white">MR-Lana</span>
+                    <span class="block whitespace-nowrap text-[11px] font-medium text-zinc-400">ERP de gastos</span>
                 </span>
             </Link>
 
@@ -93,14 +93,14 @@ const footerBtn =
                 <SidebarNav :expanded="expanded" />
             </div>
 
-            <div class="space-y-0.5 border-t border-slate-200/80 p-2 dark:border-zinc-800/60">
+            <div class="space-y-0.5 border-t border-white/[0.06] p-2">
                 <DownloadAppButton v-slot="{ label }" variant="menu" class="!px-[15px] [@media(max-height:820px)]:!min-h-[34px]">
                     <span class="overflow-hidden whitespace-nowrap transition-opacity" :class="expanded ? 'opacity-100' : 'opacity-0'">{{ label }}</span>
                 </DownloadAppButton>
 
                 <button
                     type="button"
-                    :class="[footerBtn, 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-400 dark:hover:bg-white/[0.06] dark:hover:text-zinc-100']"
+                    :class="[footerBtn, 'text-zinc-400 hover:bg-white/[0.07] hover:text-white']"
                     :aria-pressed="pinned"
                     :aria-label="pinned ? 'Contraer menú' : 'Fijar menú abierto'"
                     :title="pinned ? 'Contraer menú' : 'Fijar menú abierto'"
@@ -114,19 +114,18 @@ const footerBtn =
 
                 <!-- Usuario -->
                 <div class="flex items-center gap-2.5 rounded-xl px-2 py-1.5">
-                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-primary text-[11px] font-bold text-brand-primary-fg" :title="user?.name">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-white ring-1 ring-inset ring-white/15" :title="user?.name">
                         {{ initials }}
                     </span>
                     <div class="min-w-0 flex-1 overflow-hidden transition-opacity" :class="expanded ? 'opacity-100' : 'opacity-0'">
-                        <p class="truncate text-[13px] font-semibold leading-tight">{{ user?.name }}</p>
-                        <p class="truncate text-[11px] text-slate-500 dark:text-zinc-400">{{ roleLabel }}</p>
+                        <p class="truncate text-[13px] font-semibold leading-tight text-white">{{ user?.name }}</p>
+                        <p class="truncate text-[11px] text-zinc-400">{{ roleLabel }}</p>
                     </div>
                     <button
                         v-if="expanded"
                         type="button"
-                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-500 transition
-                               hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40
-                               dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
+                        class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition
+                               hover:bg-red-500/15 hover:text-red-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50"
                         aria-label="Cerrar sesión"
                         title="Cerrar sesión"
                         @click="confirmLogout"
@@ -142,31 +141,31 @@ const footerBtn =
     <DialogRoot :open="mobileOpen" @update:open="(v) => (mobileOpen = v)">
         <DialogPortal>
             <DialogOverlay
-                class="fixed inset-0 z-[350] bg-slate-950/40 backdrop-blur-sm lg:hidden
+                class="fixed inset-0 z-[350] bg-[#141120]/50 backdrop-blur-sm lg:hidden
                        data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0
                        motion-reduce:animate-none"
             />
             <DialogContent
                 class="fixed inset-y-0 left-0 z-[351] flex w-[min(18rem,85vw)] flex-col overflow-hidden rounded-r-2xl
-                       border-r border-slate-200/80 bg-white text-slate-800 shadow-2xl focus:outline-none
-                       pb-[env(safe-area-inset-bottom)] dark:border-zinc-800/60 dark:bg-zinc-950 dark:text-zinc-100 lg:hidden
+                       border-r border-white/[0.06] bg-brand-ink text-zinc-100 shadow-2xl focus:outline-none
+                       pb-[env(safe-area-inset-bottom)] dark:bg-[#100D1B] lg:hidden
                        data-[state=open]:animate-in data-[state=closed]:animate-out
                        data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left duration-200 motion-reduce:animate-none"
             >
                 <div class="flex h-[4.5rem] shrink-0 items-center justify-between gap-3 px-4">
                     <div class="flex min-w-0 items-center gap-3">
-                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 text-white shadow-md dark:from-zinc-100 dark:to-zinc-300 dark:text-zinc-900">
+                        <span class="ui-brand-gradient flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-md shadow-[#6419FF]/40">
                             <ApplicationLogo class="h-5 w-5" />
                         </span>
                         <div class="min-w-0">
-                            <DialogTitle class="truncate text-[15px] font-extrabold tracking-tight">MR-Lana</DialogTitle>
-                            <DialogDescription class="truncate text-[11px] text-slate-500 dark:text-zinc-400">ERP de gastos</DialogDescription>
+                            <DialogTitle class="truncate text-[15px] font-semibold tracking-tight text-white">MR-Lana</DialogTitle>
+                            <DialogDescription class="truncate text-[11px] text-zinc-400">ERP de gastos</DialogDescription>
                         </div>
                     </div>
                     <button
                         type="button"
-                        class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100
-                               focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 dark:hover:bg-white/10"
+                        class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/10 hover:text-white
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
                         aria-label="Cerrar menú"
                         @click="closeMobile"
                     >
@@ -174,13 +173,13 @@ const footerBtn =
                     </button>
                 </div>
 
-                <div class="mx-4 flex items-center gap-3 rounded-2xl bg-slate-50 p-3 dark:bg-white/[0.04]">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-primary text-sm font-bold text-brand-primary-fg">
+                <div class="mx-4 flex items-center gap-3 rounded-2xl bg-white/[0.05] p-3 ring-1 ring-inset ring-white/[0.06]">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white ring-1 ring-inset ring-white/15">
                         {{ initials }}
                     </span>
                     <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold">{{ user?.name }}</p>
-                        <p class="truncate text-xs text-slate-500 dark:text-zinc-400">{{ roleLabel }}</p>
+                        <p class="truncate text-sm font-semibold text-white">{{ user?.name }}</p>
+                        <p class="truncate text-xs text-zinc-400">{{ roleLabel }}</p>
                     </div>
                 </div>
 
@@ -188,11 +187,11 @@ const footerBtn =
                     <SidebarNav :expanded="true" @navigate="closeMobile" />
                 </div>
 
-                <div class="space-y-1 border-t border-slate-100 p-3 dark:border-white/[0.06]">
+                <div class="space-y-1 border-t border-white/[0.06] p-3">
                     <DownloadAppButton variant="menu" />
                     <button
                         type="button"
-                        :class="[footerBtn, 'gap-3 text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10']"
+                        :class="[footerBtn, 'gap-3 text-red-300 hover:bg-red-500/15']"
                         @click="confirmLogout"
                     >
                         <LogOut class="h-[18px] w-[18px]" aria-hidden="true" />

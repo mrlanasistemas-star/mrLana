@@ -119,7 +119,7 @@ export function useProveedoresIndex(props: ProveedoresIndexProps) {
     'w-full px-4 py-3 text-sm font-semibold border transition outline-none ' +
     'border-slate-200 bg-white text-slate-800 ' +
     'hover:bg-slate-50 hover:border-slate-300 ' +
-    'focus:border-slate-900 focus:ring-2 focus:ring-slate-200/70 ' +
+    'focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 ' +
     'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 ' +
     'dark:hover:bg-neutral-950/60 dark:hover:border-white/20 ' +
     'dark:focus:border-white/30 dark:focus:ring-white/10'
@@ -128,7 +128,7 @@ export function useProveedoresIndex(props: ProveedoresIndexProps) {
     'px-4 py-3 text-sm font-semibold border transition outline-none ' +
     'border-slate-200 bg-white text-slate-800 ' +
     'hover:bg-slate-50 hover:border-slate-300 ' +
-    'focus:border-slate-900 focus:ring-2 focus:ring-slate-200/70 ' +
+    'focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 ' +
     'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 ' +
     'dark:hover:bg-neutral-950/60 dark:hover:border-white/20 ' +
     'dark:focus:border-white/30 dark:focus:ring-white/10'

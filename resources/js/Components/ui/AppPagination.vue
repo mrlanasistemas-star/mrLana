@@ -16,12 +16,12 @@ defineEmits<{ (e: 'go', url: string | null): void }>()
       type="button"
       @click="$emit('go', l.url)"
       :disabled="!l.url"
-      class="rounded-xl px-3 py-2 text-xs font-semibold border transition
+      class="min-w-[2.25rem] rounded-xl px-3 py-2 text-xs font-semibold tabular-nums border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
              disabled:opacity-50 disabled:cursor-not-allowed"
       :class="
         l.active
-          ? 'bg-slate-900 text-white border-slate-900 dark:bg-zinc-300 dark:text-neutral-900 dark:border-neutral-100'
-          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-neutral-900 dark:text-neutral-200 dark:border-white/10 dark:hover:bg-neutral-950/40'
+          ? 'bg-brand-primary text-brand-primary-fg border-brand-primary shadow-sm shadow-brand-primary/20'
+          : 'bg-white text-slate-700 border-slate-200 hover:border-brand-primary/30 hover:bg-brand-tint/60 hover:text-brand-primary dark:bg-neutral-900 dark:text-neutral-200 dark:border-white/10 dark:hover:bg-white/[0.06]'
       "
       v-html="l.label"
     />

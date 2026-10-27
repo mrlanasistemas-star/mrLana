@@ -25,7 +25,7 @@
     <div class="inline-flex items-center gap-2">
         <input type="checkbox" :id="checkboxId"
         :name="checkboxName" :value="value" v-model="proxyChecked"
-        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"/>
+        class="h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary/40 dark:border-white/20 dark:bg-zinc-900"/>
 
         <!-- Label accesible (visible u oculto) -->
         <label v-if="label" :for="checkboxId" class="sr-only" >

@@ -42,17 +42,18 @@
             <script type="application/ld+json">{!! json_encode(\App\Support\Seo::jsonLd(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!}</script>
         @endif
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <!-- Fuente Onest (si no hay red, se usa la fuente del sistema) -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
         <link rel="icon" href="{{ url('favicon.ico') }}">
 
         {{-- Aplicación instalable (PWA): escritorio con Chrome/Edge y Android --}}
         <link rel="manifest" href="{{ url('manifest.webmanifest') }}">
         <link rel="apple-touch-icon" href="{{ url('icons/apple-touch-icon.png') }}">
-        <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
-        <meta name="theme-color" content="#09090B" media="(prefers-color-scheme: dark)">
+        <meta name="theme-color" content="#6419FF" media="(prefers-color-scheme: light)">
+        <meta name="theme-color" content="#141120" media="(prefers-color-scheme: dark)">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-title" content="MR-Lana">

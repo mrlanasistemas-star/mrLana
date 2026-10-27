@@ -121,7 +121,7 @@ function authorizePago() {
 // Estilos base para inputs
 const inputBase =
   'w-full rounded-2xl border border-slate-200/70 bg-white/90 px-4 py-3 text-sm font-semibold text-slate-900 ' +
-  'placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/40 ' +
+  'placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary/50 ' +
   'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:placeholder:text-neutral-500'
 
 const canSelectFile = computed(() => {
@@ -531,7 +531,7 @@ function saveFechaGeneral() {
                     class="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-black
                             transition shrink-0"
                     :class="canAttachFile
-                        ? 'bg-emerald-600 text-white hover:bg-emerald-700 cursor-pointer'
+                        ? 'bg-brand-button text-brand-button-fg hover:bg-brand-button/90 cursor-pointer'
                         : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
                     >
                     <Upload class="h-4 w-4" />
@@ -673,7 +673,7 @@ function saveFechaGeneral() {
                     :disabled="!canSubmit || submitting"
                     @click="submit"
                     class="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black
-                            bg-slate-900 text-white hover:bg-slate-950 dark:bg-zinc-300 dark:text-slate-900 dark:hover:bg-neutral-200
+                            bg-brand-button text-brand-button-fg hover:bg-brand-button/90 
                             transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                     <Upload class="h-4 w-4" />
@@ -718,7 +718,7 @@ function saveFechaGeneral() {
               type="button"
               :disabled="!fechaPagoGeneral || savingFechaGeneral"
               class="shrink-0 inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black
-                     bg-emerald-600 text-white hover:bg-emerald-700 transition
+                     bg-brand-button text-brand-button-fg hover:bg-brand-button/90 transition
                      disabled:opacity-60 disabled:cursor-not-allowed"
               @click="saveFechaGeneral"
             >

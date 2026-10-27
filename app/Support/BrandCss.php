@@ -12,7 +12,7 @@ final class BrandCss
 {
     private const LIGHT_BG = '#FFFFFF';
 
-    private const DARK_BG = '#09090B';
+    private const DARK_BG = '#141120';
 
     private const NAMES = [
         'primary_color' => 'brand-primary',

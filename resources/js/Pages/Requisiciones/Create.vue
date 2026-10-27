@@ -1,12 +1,14 @@
 <!-- resources/js/Pages/Requisiciones/Create.vue -->
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3'
-import { Lock, Loader2, Plus, Save, Send, Trash2, UserCheck } from 'lucide-vue-next'
+import { Lock, Loader2, Save, Send, UserCheck } from 'lucide-vue-next'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
 import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
 import { usePermissions } from '@/Composables/usePermissions'
 
+import RequisicionItemsEditor from './partials/RequisicionItemsEditor.vue'
+import ProveedorDatosCard from './partials/ProveedorDatosCard.vue'
 import { useRequisicionCreate } from './useRequisicionCreate'
 import type { Catalogos } from './Requisiciones.types'
 
@@ -32,7 +34,6 @@ const {
   removeItem,
   saveDraft,
   sendRequi,
-  money,
   solicitanteFijo,
   sucursalFija,
   corporativoFijo,
@@ -225,91 +226,19 @@ const inputClass =
             <textarea id="observaciones" v-model="state.observaciones" rows="2" maxlength="5000" :class="[inputClass, 'mt-1 rounded-2xl']" />
           </div>
 
-          <div v-if="selectedProveedor" class="rounded-2xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-neutral-950/40">
-            <p class="text-sm font-extrabold text-slate-900 dark:text-neutral-100">Datos del proveedor</p>
-            <dl class="mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-              <div class="min-w-0"><dt class="inline text-slate-500 dark:text-neutral-400">Razón social: </dt><dd class="inline break-words font-semibold">{{ selectedProveedor.razon_social }}</dd></div>
-              <div class="min-w-0"><dt class="inline text-slate-500 dark:text-neutral-400">RFC: </dt><dd class="inline font-semibold">{{ selectedProveedor.rfc || '—' }}</dd></div>
-              <div class="min-w-0"><dt class="inline text-slate-500 dark:text-neutral-400">CLABE: </dt><dd class="inline break-all font-semibold">{{ selectedProveedor.clabe || '—' }}</dd></div>
-              <div class="min-w-0"><dt class="inline text-slate-500 dark:text-neutral-400">Banco: </dt><dd class="inline font-semibold">{{ selectedProveedor.banco || '—' }}</dd></div>
-            </dl>
-          </div>
+          <ProveedorDatosCard v-if="selectedProveedor" :proveedor="selectedProveedor" />
         </section>
 
-        <section class="space-y-4 rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-neutral-900 sm:p-6" aria-labelledby="items-titulo" data-tour="requisicion-items">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h3 id="items-titulo" class="text-base font-extrabold text-slate-900 dark:text-neutral-100">Items de la requisición</h3>
-            <button
-              type="button"
-              class="inline-flex min-h-[42px] items-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-semibold text-white transition
-                     hover:bg-emerald-700 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40
-                     dark:bg-emerald-500 dark:hover:bg-emerald-600 motion-reduce:transform-none"
-              @click="addItem"
-            >
-              <Plus class="h-4 w-4" aria-hidden="true" /> Agregar item
-            </button>
-          </div>
-
-          <p v-if="errorFor('detalles')" class="text-xs text-rose-600 dark:text-rose-400" role="alert">{{ errorFor('detalles') }}</p>
-
-          <div v-if="items.length > 0" class="space-y-3">
-            <div
-              v-for="(item, index) in items"
-              :key="index"
-              class="grid grid-cols-2 gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 p-4 dark:border-white/10 dark:bg-neutral-950/40 sm:grid-cols-6 lg:grid-cols-12"
-            >
-              <div class="col-span-1 sm:col-span-1 lg:col-span-1">
-                <label :for="`cant-${index}`" class="block text-[11px] font-semibold text-slate-500 dark:text-neutral-400">Cantidad</label>
-                <input :id="`cant-${index}`" v-model.number="item.cantidad" type="number" min="0" step="0.01" inputmode="decimal" :class="inputClass" />
-                <p v-if="errorFor(`detalles.${index}.cantidad`)" class="mt-1 text-[11px] text-rose-600">{{ errorFor(`detalles.${index}.cantidad`) }}</p>
-              </div>
-
-              <div class="col-span-2 sm:col-span-5 lg:col-span-5">
-                <label :for="`desc-${index}`" class="block text-[11px] font-semibold text-slate-500 dark:text-neutral-400">Descripción</label>
-                <input :id="`desc-${index}`" v-model="item.descripcion" type="text" maxlength="255" :class="inputClass" />
-                <p v-if="errorFor(`detalles.${index}.descripcion`)" class="mt-1 text-[11px] text-rose-600">{{ errorFor(`detalles.${index}.descripcion`) }}</p>
-              </div>
-
-              <div class="col-span-1 sm:col-span-2 lg:col-span-2">
-                <label :for="`precio-${index}`" class="block text-[11px] font-semibold text-slate-500 dark:text-neutral-400">Precio unitario</label>
-                <input :id="`precio-${index}`" v-model.number="item.precio_unitario" type="number" min="0" step="0.01" inputmode="decimal" :class="inputClass" />
-              </div>
-
-              <div class="col-span-1 flex items-end sm:col-span-1 lg:col-span-1">
-                <label class="flex min-h-[42px] items-center gap-2 text-xs font-semibold text-slate-600 dark:text-neutral-300">
-                  <input v-model="item.genera_iva" type="checkbox" class="h-5 w-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
-                  IVA
-                </label>
-              </div>
-
-              <div class="col-span-2 flex items-end justify-between gap-3 sm:col-span-3 lg:col-span-3">
-                <dl class="grid grid-cols-3 gap-2 text-xs">
-                  <div><dt class="text-slate-500 dark:text-neutral-400">Subtotal</dt><dd class="font-semibold tabular-nums">{{ money(item.subtotal) }}</dd></div>
-                  <div><dt class="text-slate-500 dark:text-neutral-400">IVA</dt><dd class="font-semibold tabular-nums">{{ money(item.iva) }}</dd></div>
-                  <div><dt class="text-slate-500 dark:text-neutral-400">Total</dt><dd class="font-extrabold tabular-nums">{{ money(item.total) }}</dd></div>
-                </dl>
-                <button
-                  type="button"
-                  class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-rose-600 transition hover:bg-rose-50
-                         focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40 dark:hover:bg-rose-500/10"
-                  :aria-label="`Eliminar item ${index + 1}`"
-                  @click="removeItem(index)"
-                >
-                  <Trash2 class="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <p v-else class="rounded-2xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-white/10 dark:text-neutral-400">
-            Agrega items para comenzar.
-          </p>
-
-          <div class="ml-auto w-full max-w-xs space-y-1 text-sm">
-            <div class="flex justify-between text-slate-600 dark:text-neutral-300"><span>Subtotal</span><span class="font-semibold tabular-nums">{{ money(state.monto_subtotal) }}</span></div>
-            <div class="flex justify-between border-t border-slate-200 pt-1 text-base font-extrabold text-slate-900 dark:border-white/10 dark:text-neutral-100"><span>Total</span><span class="tabular-nums">{{ money(state.monto_total) }}</span></div>
-          </div>
-        </section>
+        <RequisicionItemsEditor
+          :items="items"
+          :subtotal="state.monto_subtotal"
+          :total="state.monto_total"
+          :error-for="errorFor"
+          id-prefix="items"
+          data-tour="requisicion-items"
+          @add="addItem"
+          @remove="removeItem"
+        />
 
         <div class="flex flex-col-reverse items-stretch justify-end gap-3 sm:flex-row sm:items-center" data-tour="requisicion-enviar">
           <Link

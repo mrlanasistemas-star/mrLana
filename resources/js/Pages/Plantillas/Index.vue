@@ -202,9 +202,8 @@ const totalRows   = props.plantillas?.meta?.total        ?? 0
                             target="_blank"
                             rel="noopener noreferrer"
                             class="erp-button h-9 px-3 text-xs flex-1 min-w-[7rem] justify-center
-                                   bg-emerald-600 text-white border-emerald-600
-                                   hover:bg-emerald-700 hover:border-emerald-700
-                                   dark:bg-emerald-500 dark:border-emerald-500 dark:hover:bg-emerald-600"
+                                   bg-brand-button text-brand-button-fg border-brand-button
+                                   hover:bg-brand-button/90"
                         >
                             <FilePlus2 class="h-3.5 w-3.5 flex-shrink-0" />
                             Crear requisición
@@ -236,9 +235,8 @@ const totalRows   = props.plantillas?.meta?.total        ?? 0
                             type="button"
                             @click="reactivateRow(row)"
                             class="erp-button h-9 px-3 text-xs flex-1 min-w-[5rem] justify-center
-                                   bg-emerald-600 text-white border-emerald-600
-                                   hover:bg-emerald-700 hover:border-emerald-700
-                                   dark:bg-emerald-500 dark:border-emerald-500 dark:hover:bg-emerald-600"
+                                   bg-brand-button text-brand-button-fg border-brand-button
+                                   hover:bg-brand-button/90"
                         >
                             <RefreshCw class="h-3.5 w-3.5 flex-shrink-0" />
                             Reactivar

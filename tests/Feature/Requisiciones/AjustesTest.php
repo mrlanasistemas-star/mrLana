@@ -184,4 +184,56 @@ class AjustesTest extends TestCase
         $this->assertTrue(collect($levels)->every(fn ($l) => $l >= 2));
         $this->assertEquals(550.00, (float) $req->fresh()->monto_total);
     }
+
+    public function test_se_cancela_un_ajuste_aprobado_antes_de_aplicarlo(): void
+    {
+        $colaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
+        $contador = $this->makeUser(PermissionCatalog::ROLE_CONTABILIDAD);
+        $req = $this->makeRequisicion($colaborador);
+        $montoOriginal = (float) $req->monto_total;
+
+        $this->solicitar($colaborador, $req)->assertSessionHasNoErrors();
+        $ajuste = Ajuste::firstOrFail();
+        $this->actingAs($contador)->patch(route('requisiciones.ajustes.review', $ajuste), ['accion' => 'APROBAR'])->assertSessionHasNoErrors();
+
+        // La pantalla ofrece el botón a quien puede aprobar, no al solicitante.
+        $this->actingAs($contador)->get(route('requisiciones.ajustes', $req))
+            ->assertInertia(fn ($page) => $page->where('ajustes.0.can.cancelar_aprobacion', true));
+        $this->actingAs($colaborador)->get(route('requisiciones.ajustes', $req))
+            ->assertInertia(fn ($page) => $page->where('ajustes.0.can.cancelar_aprobacion', false));
+
+        // El solicitante no puede cancelar una aprobación; el motivo es obligatorio.
+        $this->actingAs($colaborador)->post(route('requisiciones.ajustes.cancel', $ajuste), ['motivo' => 'Ya no aplica.'])->assertForbidden();
+        $this->actingAs($contador)->post(route('requisiciones.ajustes.cancel', $ajuste))->assertSessionHasErrors('motivo');
+        $this->assertSame(Ajuste::ESTATUS_APROBADO, $ajuste->fresh()->estatus);
+
+        $this->actingAs($contador)->post(route('requisiciones.ajustes.cancel', $ajuste), ['motivo' => 'Lo aprobé por error.'])
+            ->assertSessionHasNoErrors();
+
+        $ajuste->refresh();
+        $this->assertSame(Ajuste::ESTATUS_CANCELADO, $ajuste->estatus);
+        $this->assertStringContainsString('Lo aprobé por error.', (string) $ajuste->comentario_revision);
+        $this->assertSame($montoOriginal, (float) $req->fresh()->monto_total);
+
+        // Cancelado ya no se puede aplicar.
+        $this->actingAs($contador)->post(route('requisiciones.ajustes.apply', $ajuste));
+        $this->assertSame(Ajuste::ESTATUS_CANCELADO, $ajuste->fresh()->estatus);
+        $this->assertSame($montoOriginal, (float) $req->fresh()->monto_total);
+    }
+
+    public function test_un_ajuste_aplicado_no_se_cancela(): void
+    {
+        $colaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
+        $contador = $this->makeUser(PermissionCatalog::ROLE_CONTABILIDAD);
+        $req = $this->makeRequisicion($colaborador);
+
+        $this->solicitar($colaborador, $req)->assertSessionHasNoErrors();
+        $ajuste = Ajuste::firstOrFail();
+        $this->actingAs($contador)->patch(route('requisiciones.ajustes.review', $ajuste), ['accion' => 'APROBAR']);
+        $this->actingAs($contador)->post(route('requisiciones.ajustes.apply', $ajuste));
+
+        $this->actingAs($contador)->post(route('requisiciones.ajustes.cancel', $ajuste), ['motivo' => 'Lo aprobé por error.'])
+            ->assertSessionHas('error');
+        $this->assertSame(Ajuste::ESTATUS_APLICADO, $ajuste->fresh()->estatus);
+    }
 }

@@ -100,7 +100,7 @@ const widthStyle = computed(() => {
         v-show="open"
         class="absolute z-[20000] mt-2 rounded-2xl border shadow-xl backdrop-blur
                border-slate-200/80 bg-white/95
-               dark:border-zinc-700/70 dark:bg-zinc-900/70"
+               dark:border-white/10 dark:bg-zinc-900/95"
         :class="[alignmentClasses, widthClass]"
         :style="widthStyle"
       >

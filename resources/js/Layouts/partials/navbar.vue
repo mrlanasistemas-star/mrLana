@@ -44,20 +44,20 @@ const section = computed(() => {
 
 const menuItemClass =
     'flex min-h-[40px] cursor-pointer select-none items-center gap-2.5 rounded-lg px-3 text-sm text-slate-700 outline-none ' +
-    'data-[highlighted]:bg-slate-100 data-[highlighted]:text-slate-900 dark:text-zinc-200 dark:data-[highlighted]:bg-white/10'
+    'data-[highlighted]:bg-brand-tint data-[highlighted]:text-brand-primary dark:text-zinc-200 dark:data-[highlighted]:bg-white/10 dark:data-[highlighted]:text-zinc-50'
 </script>
 
 <template>
     <nav
         class="relative flex h-16 items-center justify-between gap-2 border-b px-3 backdrop-blur-md sm:px-6 lg:px-8
-               bg-white/95 border-slate-200/80 dark:bg-zinc-950/95 dark:border-zinc-800/60"
+               bg-white/85 border-slate-200/80 dark:bg-zinc-950/85 dark:border-white/[0.06]"
         aria-label="Barra superior"
     >
         <div class="flex min-w-0 items-center gap-2">
             <button
                 type="button"
                 class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-700 transition
-                       hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
+                       hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
                        dark:text-zinc-200 dark:hover:bg-white/10 lg:hidden"
                 aria-label="Abrir menú"
                 :aria-expanded="mobileOpen"
@@ -66,11 +66,11 @@ const menuItemClass =
                 <Menu class="h-5 w-5" aria-hidden="true" />
             </button>
             <div class="flex min-w-0 items-center gap-2">
-                <span v-if="section" class="hidden shrink-0 items-center gap-2 text-sm font-medium text-slate-400 dark:text-zinc-500 md:inline-flex">
+                <span v-if="section" class="hidden shrink-0 items-center gap-2 text-sm font-medium text-slate-500 dark:text-zinc-400 md:inline-flex">
                     {{ section }}
-                    <ChevronRight class="h-4 w-4" aria-hidden="true" />
+                    <ChevronRight class="h-4 w-4 text-slate-300 dark:text-zinc-600" aria-hidden="true" />
                 </span>
-                <h1 class="min-w-0 truncate text-sm font-bold text-slate-900 dark:text-zinc-100 sm:text-base">
+                <h1 class="min-w-0 truncate text-[15px] font-semibold tracking-tight text-slate-900 dark:text-zinc-50 sm:text-lg">
                     <slot name="title">Dashboard</slot>
                 </h1>
             </div>
@@ -87,10 +87,10 @@ const menuItemClass =
 
             <button
                 type="button"
-                class="inline-flex h-10 w-10 items-center justify-center rounded-full border shadow-sm transition
-                       border-slate-200/80 bg-white/90 text-amber-500 hover:shadow-md
-                       focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
-                       dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-200"
+                class="inline-flex h-10 w-10 items-center justify-center rounded-full border transition
+                       border-slate-200 bg-white text-slate-600 hover:border-brand-primary/30 hover:bg-brand-tint/60 hover:text-brand-primary
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
+                       dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/10 dark:hover:text-zinc-50"
                 :aria-label="isDark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'"
                 @click="toggle"
             >
@@ -102,13 +102,13 @@ const menuItemClass =
                 <DropdownMenuTrigger as-child>
                     <button
                         type="button"
-                        class="group flex h-10 items-center gap-2 rounded-full border px-1 text-left text-sm shadow-sm transition sm:pl-1 sm:pr-2.5
-                               border-slate-200/80 bg-white/90 text-slate-900 hover:shadow-md
-                               focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60
-                               dark:border-zinc-700/70 dark:bg-zinc-900/40 dark:text-zinc-100"
+                        class="group flex h-10 items-center gap-2 rounded-full border px-1 text-left text-sm transition sm:pl-1 sm:pr-2.5
+                               border-slate-200 bg-white text-slate-900 hover:border-brand-primary/30
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40
+                               dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100"
                         aria-label="Menú de usuario"
                     >
-                        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-zinc-200 dark:text-zinc-900">
+                        <span class="ui-brand-gradient flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white">
                             {{ initials }}
                         </span>
                         <span class="hidden max-w-[11rem] flex-col leading-tight md:flex">
@@ -123,7 +123,7 @@ const menuItemClass =
                     align="end"
                     :side-offset="8"
                     :collision-padding="12"
-                    class="z-[300] w-64 rounded-2xl border-slate-200 bg-white p-1.5 shadow-2xl dark:border-white/10 dark:bg-zinc-950"
+                    class="z-[300] w-64 rounded-2xl border-slate-200 bg-white p-1.5 shadow-2xl dark:border-white/10 dark:bg-zinc-900"
                 >
                     <div class="px-3 py-2">
                         <p class="truncate text-sm font-semibold text-slate-900 dark:text-zinc-100">{{ user?.name }}</p>

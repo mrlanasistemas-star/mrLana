@@ -82,7 +82,7 @@ const contrastNote = (k: ColorKey) => {
 const paletteErrors = computed(() => form.chart_palette.map((c) => (HEX_RE.test(c) ? null : 'HEX inválido')))
 function addPaletteColor() {
     if (form.chart_palette.length >= 8) return
-    const pool = ['#2563EB', '#0D9488', '#D97706', '#7C3AED', '#DB2777', '#0891B2', '#65A30D', '#EA580C']
+    const pool = ['#6419FF', '#14B8A6', '#F59E0B', '#EC4899', '#3B82F6', '#AA81FE', '#65A30D', '#EA580C']
     form.chart_palette.push(pool.find((c) => !form.chart_palette.includes(c)) ?? '#64748B')
 }
 function removePaletteColor(i: number) {

@@ -74,7 +74,7 @@ const maxWidthClass = computed(() => {
 >
         <!-- Backdrop -->
         <div
-          class="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+          class="absolute inset-0 bg-[#141120]/50 backdrop-blur-[2px]"
           @click="close"
         />
 
@@ -95,7 +95,7 @@ const maxWidthClass = computed(() => {
             >
               <!-- Panel -->
               <div
-                class="overflow-hidden rounded-3xl border border-white/10 shadow-2xl
+                class="overflow-hidden rounded-[1.25rem] border border-slate-200/70 shadow-2xl dark:border-white/10
                        bg-white text-slate-900
                        dark:bg-neutral-900 dark:text-neutral-100"
               >

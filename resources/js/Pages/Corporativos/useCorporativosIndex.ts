@@ -176,7 +176,7 @@ export function useCorporativosIndex(props: CorporativosProps) {
             <input id="m_nombre" value="${nombre}"
               class="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-neutral-950
                 px-3 py-2 text-sm text-slate-900 dark:text-neutral-100 outline-none
-                focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/10 transition"
+                focus:ring-2 focus:ring-brand-primary/25 dark:focus:ring-white/10 transition"
               placeholder="Ej. Corporativo MR-Lana" />
           </div>
 
@@ -186,7 +186,7 @@ export function useCorporativosIndex(props: CorporativosProps) {
               <input id="m_rfc" value="${rfc}"
                 class="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-neutral-950
                   px-3 py-2 text-sm text-slate-900 dark:text-neutral-100 outline-none
-                  focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/10 transition"
+                  focus:ring-2 focus:ring-brand-primary/25 dark:focus:ring-white/10 transition"
                 placeholder="Opcional" />
             </div>
 
@@ -195,7 +195,7 @@ export function useCorporativosIndex(props: CorporativosProps) {
               <input id="m_codigo" value="${codigo}"
                 class="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-neutral-950
                   px-3 py-2 text-sm text-slate-900 dark:text-neutral-100 outline-none
-                  focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/10 transition"
+                  focus:ring-2 focus:ring-brand-primary/25 dark:focus:ring-white/10 transition"
                 placeholder="Opcional" />
             </div>
           </div>
@@ -205,7 +205,7 @@ export function useCorporativosIndex(props: CorporativosProps) {
             <input id="m_direccion" value="${direccion}"
               class="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-neutral-950
                 px-3 py-2 text-sm text-slate-900 dark:text-neutral-100 outline-none
-                focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/10 transition"
+                focus:ring-2 focus:ring-brand-primary/25 dark:focus:ring-white/10 transition"
               placeholder="Opcional" />
           </div>
 
@@ -215,7 +215,7 @@ export function useCorporativosIndex(props: CorporativosProps) {
               <input id="m_telefono" value="${telefono}"
                 class="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-neutral-950
                   px-3 py-2 text-sm text-slate-900 dark:text-neutral-100 outline-none
-                  focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/10 transition"
+                  focus:ring-2 focus:ring-brand-primary/25 dark:focus:ring-white/10 transition"
                 placeholder="Opcional" />
             </div>
 
@@ -224,7 +224,7 @@ export function useCorporativosIndex(props: CorporativosProps) {
               <input id="m_email" value="${email}"
                 class="w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-neutral-950
                   px-3 py-2 text-sm text-slate-900 dark:text-neutral-100 outline-none
-                  focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/10 transition"
+                  focus:ring-2 focus:ring-brand-primary/25 dark:focus:ring-white/10 transition"
                 placeholder="Opcional" />
               <div class="mt-1 text-[11px] text-slate-500 dark:text-neutral-400">
                 Debe ser válido (ej. nombre@dominio.com).
@@ -235,7 +235,7 @@ export function useCorporativosIndex(props: CorporativosProps) {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="flex items-center gap-2 text-sm">
               <input id="m_activo" type="checkbox" ${activoChecked ? 'checked' : ''}
-                style="width:16px;height:16px;accent-color:#0f172a;" />
+                style="width:16px;height:16px;accent-color:#6419FF;" />
               <span class="text-slate-700 dark:text-neutral-200">Activo</span>
             </label>
           </div>
@@ -251,8 +251,8 @@ export function useCorporativosIndex(props: CorporativosProps) {
                 <input id="m_logo_file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
                 <button id="m_btn_upload" type="button"
                   class="rounded-2xl px-3 py-2 text-xs font-semibold
-                    bg-slate-900 text-white hover:bg-slate-800
-                    dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white transition active:scale-[0.98]">
+                    bg-brand-button text-brand-button-fg hover:bg-brand-button/90
+                     transition active:scale-[0.98]">
                   ${mode === 'create' ? 'Subir logo' : 'Cambiar logo'}
                 </button>
                 <button id="m_btn_remove" type="button"

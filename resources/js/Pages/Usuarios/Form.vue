@@ -232,7 +232,7 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
                         <p v-if="effectivePermissions.length === 0" class="mt-3 text-sm text-slate-500 dark:text-zinc-400">Esta cuenta no tiene permisos asignados.</p>
                         <ul v-else class="mt-3 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
                             <li v-for="m in effectivePermissions" :key="m.label">
-                                <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ m.label }}</p>
+                                <p class="text-xs font-medium text-slate-500 dark:text-zinc-400">{{ m.label }}</p>
                                 <ul class="mt-1 flex flex-wrap gap-1.5">
                                     <li v-for="p in m.permissions" :key="p" class="ui-badge ui-badge-muted">{{ p }}</li>
                                 </ul>

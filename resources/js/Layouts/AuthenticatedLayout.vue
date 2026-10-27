@@ -34,7 +34,7 @@ onMounted(() => {
     </a>
 
     <!-- Sin reservar ancho de sidebar en móvil: el rail solo existe desde lg -->
-    <div class="flex min-h-dvh bg-slate-100 transition-colors duration-200 dark:bg-[#09090b]">
+    <div class="flex min-h-dvh bg-slate-50 transition-colors duration-200 dark:bg-zinc-950">
         <Sidebar />
 
         <div class="flex min-h-dvh min-w-0 flex-1 flex-col">

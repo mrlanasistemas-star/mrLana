@@ -41,14 +41,14 @@ function onInput(e: Event) {
       :autocomplete="autocomplete ?? 'current-password'"
       :placeholder="placeholder ?? '••••••••'"
       class="
-        block w-full px-3 py-2 pr-11 rounded-lg text-sm transition
-        bg-white text-slate-900 border border-slate-300
+        block w-full min-h-[44px] px-3 py-2 pr-11 rounded-xl text-sm transition
+        bg-white text-slate-900 border border-slate-200
         placeholder:text-slate-400
-        focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+        focus:ring-[3px] focus:ring-brand-primary/20 focus:border-brand-primary
 
-        dark:bg-neutral-900 dark:text-slate-100 dark:border-neutral-700
+        dark:bg-zinc-950/60 dark:text-zinc-100 dark:border-white/10
         dark:placeholder:text-neutral-400
-        dark:focus:ring-indigo-400 dark:focus:border-indigo-400
+        dark:focus:ring-brand-primary/25 dark:focus:border-brand-primary
       "
     />
 

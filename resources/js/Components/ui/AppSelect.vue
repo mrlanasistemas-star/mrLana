@@ -16,15 +16,15 @@
 <template>
     <div>
         <label v-if="label" :for="selectId"
-        class="block text-xs font-semibold text-slate-600 dark:text-neutral-300 mb-1">
+        class="mb-1.5 block text-[13px] font-medium text-slate-700 dark:text-zinc-300">
             {{ label }}
         </label>
 
         <select :id="selectId" :value="modelValue"
         @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
-        class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-neutral-950
+        class="min-h-[42px] w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-zinc-950/60
             px-3 py-2 text-sm text-slate-900 dark:text-neutral-100
-            outline-none focus:ring-2 focus:ring-slate-300 dark:focus:ring-white/10 transition">
+            outline-none focus:border-brand-primary focus:ring-[3px] focus:ring-brand-primary/20 dark:focus:ring-brand-primary/25 transition">
             <slot />
         </select>
     </div>

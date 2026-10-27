@@ -219,7 +219,7 @@ const navItem = (on: boolean) => [
                     </div>
 
                     <div>
-                        <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Categorías</p>
+                        <p class="px-3 pb-1.5 text-xs font-semibold text-slate-400 dark:text-zinc-500">Categorías</p>
                         <nav class="flex flex-wrap gap-1.5 lg:flex-col lg:flex-nowrap lg:gap-1" aria-label="Categorías">
                             <button type="button" :class="navItem(!f.categoria)" :aria-pressed="!f.categoria" @click="f.categoria = null">
                                 <Inbox class="h-4 w-4 shrink-0 text-slate-400 group-hover:text-current" aria-hidden="true" />
@@ -262,7 +262,7 @@ const navItem = (on: boolean) => [
                     </div>
 
                     <div v-for="g in groups" v-else :key="g.label">
-                        <h3 class="border-b border-slate-100 bg-slate-50/80 px-5 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-500 backdrop-blur first-letter:uppercase dark:border-white/[0.06] dark:bg-zinc-900/95 dark:text-zinc-400">
+                        <h3 class="border-b border-slate-100 bg-slate-50/80 px-5 py-2 text-xs font-medium text-slate-500 backdrop-blur first-letter:uppercase dark:border-white/[0.06] dark:bg-zinc-900/95 dark:text-zinc-400">
                             {{ g.label }}
                         </h3>
                         <ul class="divide-y divide-slate-100 dark:divide-white/[0.06]">

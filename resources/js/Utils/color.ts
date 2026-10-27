@@ -5,7 +5,7 @@
 export const HEX_RE = /^#[0-9A-Fa-f]{6}$/
 
 export const LIGHT_BG = '#FFFFFF'
-export const DARK_BG = '#09090B'
+export const DARK_BG = '#141120'
 
 export function hexToRgb(hex: string): [number, number, number] | null {
     if (!HEX_RE.test(hex)) return null

@@ -219,7 +219,7 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
 
 const inputClass =
     'min-h-[42px] w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 ' +
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/50 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100'
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100'
 </script>
 
 <template>
@@ -251,7 +251,7 @@ const inputClass =
                     ] as const"
                     :key="card.key"
                     type="button"
-                    class="flex items-center gap-3 rounded-2xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60"
+                    class="flex items-center gap-3 rounded-2xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
                     :class="f.acceso === card.key
                         ? 'border-brand-primary/50 bg-brand-primary/[0.06] dark:bg-brand-primary/10'
                         : 'border-slate-200/70 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-zinc-900/70 dark:hover:bg-white/5'"
@@ -262,7 +262,7 @@ const inputClass =
                         <component :is="card.icon" class="h-5 w-5" aria-hidden="true" />
                     </span>
                     <span>
-                        <span class="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ card.label }}</span>
+                        <span class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">{{ card.label }}</span>
                         <span class="block text-2xl font-black tabular-nums text-slate-900 dark:text-zinc-100">{{ card.value }}</span>
                     </span>
                 </button>
@@ -330,7 +330,7 @@ const inputClass =
                     <table class="w-full text-sm">
                         <caption class="sr-only">Listado de colaboradores</caption>
                         <thead>
-                            <tr class="border-b border-slate-100 text-left text-[11px] uppercase tracking-wider text-slate-500 dark:border-white/5 dark:text-zinc-400">
+                            <tr class="border-b border-slate-100 text-left text-xs text-slate-500 dark:border-white/5 dark:text-zinc-400">
                                 <th scope="col" class="px-5 py-3 font-semibold">Colaborador</th>
                                 <th scope="col" class="px-3 py-3 font-semibold">Organización</th>
                                 <th scope="col" class="px-3 py-3 font-semibold">Acceso al sistema</th>
@@ -406,7 +406,7 @@ const inputClass =
                             :key="i"
                             type="button"
                             class="min-h-[36px] min-w-[36px] rounded-xl px-3 text-xs font-semibold transition disabled:opacity-40"
-                            :class="l.active ? 'bg-slate-900 text-white dark:bg-zinc-300 dark:text-zinc-900' : 'border border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
+                            :class="l.active ? 'bg-brand-primary text-brand-primary-fg' : 'border border-slate-200 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5'"
                             :disabled="!l.url"
                             :aria-current="l.active ? 'page' : undefined"
                             @click="goPage(l.url)"
@@ -499,26 +499,26 @@ const inputClass =
 <style scoped>
 .btn-primary {
     @apply inline-flex min-h-[42px] items-center gap-2 rounded-xl bg-brand-button px-4 text-sm font-semibold text-brand-button-fg shadow-sm transition
-        hover:bg-brand-button/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-slate-400 disabled:opacity-60;
+        hover:bg-brand-button/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-primary/50 disabled:opacity-60;
 }
 .btn-secondary {
     @apply inline-flex min-h-[42px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition
-        hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 disabled:opacity-60
+        hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 disabled:opacity-60
         dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10;
 }
 .btn-sm {
     @apply inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition
-        hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/10;
+        hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/10;
 }
 .btn-sm-danger {
     @apply border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10;
 }
 .chip {
     @apply inline-flex min-h-[34px] items-center rounded-full bg-slate-100 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-200
-        focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10;
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10;
 }
 .chip-on {
-    @apply bg-slate-900 text-white hover:bg-slate-900 dark:bg-zinc-300 dark:text-zinc-900;
+    @apply bg-brand-primary text-brand-primary-fg hover:bg-brand-primary;
 }
 .badge {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1;

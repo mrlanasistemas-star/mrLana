@@ -89,15 +89,15 @@ const clear = () => {
             type="button"
             :disabled="disabled"
             :aria-invalid="invalid ? 'true' : undefined"
-            class="min-h-[42px] w-full rounded-2xl border bg-white px-3 py-2 text-left text-sm
-                   text-slate-900 shadow-sm transition
-                   hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30
+            class="min-h-[42px] w-full rounded-xl border bg-white px-3 py-2 text-left text-sm
+                   text-slate-900 transition
+                   hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30
                    dark:bg-neutral-950/40 dark:text-neutral-100 dark:hover:bg-white/5
                    disabled:opacity-60 disabled:cursor-not-allowed"
             :class="invalid ? 'border-rose-400 dark:border-rose-500/60' : 'border-slate-200 dark:border-white/10'"
           >
             <span class="flex items-center justify-between gap-2" :class="clearable && display ? 'pr-7' : ''">
-              <span :class="display ? 'font-semibold' : 'text-slate-400 dark:text-neutral-500'">
+              <span :class="display ? 'font-medium' : 'text-slate-400 dark:text-neutral-500'">
                 {{ display || (placeholder ?? 'Selecciona fecha') }}
               </span>
               <CalendarIcon class="h-4 w-4 shrink-0 opacity-70" aria-hidden="true" />
@@ -109,7 +109,7 @@ const clear = () => {
           v-if="clearable && display && !disabled"
           type="button"
           class="absolute right-9 top-1/2 -translate-y-1/2 rounded-full px-1.5 text-xs font-bold text-slate-400
-                 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/30
+                 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30
                  dark:hover:text-neutral-200"
           aria-label="Quitar fecha"
           @click="clear"

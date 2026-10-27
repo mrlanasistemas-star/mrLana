@@ -38,11 +38,11 @@ export function useDashboardCharts() {
   onBeforeUnmount(() => observer?.disconnect())
 
   // ── Colores de texto/ejes según tema ──────────────────────────────────────
-  const textColor = computed(() => (dark.value ? '#a1a1aa' : '#64748b'))
-  const titleColor = computed(() => (dark.value ? '#f4f4f5' : '#0f172a'))
-  const gridColor = computed(() => (dark.value ? 'rgba(255,255,255,0.06)' : 'rgba(148,163,184,0.15)'))
+  const textColor = computed(() => (dark.value ? '#A9A4BD' : '#6B6880'))
+  const titleColor = computed(() => (dark.value ? '#F1EFF8' : '#1C1830'))
+  const gridColor = computed(() => (dark.value ? 'rgba(255,255,255,0.06)' : 'rgba(107,104,128,0.12)'))
   const tooltipTheme = computed<'dark' | 'light'>(() => (dark.value ? 'dark' : 'light'))
-  const cardBg = computed(() => (dark.value ? '#18181b' : '#ffffff'))
+  const cardBg = computed(() => (dark.value ? '#1C1830' : '#ffffff'))
 
   // ── Formato MXN ───────────────────────────────────────────────────────────
   function fmtMXN(v: number) {
@@ -59,15 +59,15 @@ export function useDashboardCharts() {
 
   // ── Paleta semántica de estatus ───────────────────────────────────────────
   const statusColors: Record<string, string> = {
-    BORRADOR: '#94a3b8',
-    CAPTURADA: '#0ea5e9',
-    PAGO_AUTORIZADO: '#f59e0b',
-    PAGO_RECHAZADO: '#f43f5e',
-    PAGADA: '#10b981',
-    POR_COMPROBAR: '#8b5cf6',
-    COMPROBACION_ACEPTADA: '#14b8a6',
-    COMPROBACION_RECHAZADA: '#d946ef',
-    ELIMINADA: '#6b7280',
+    BORRADOR: '#A9A4BD',
+    CAPTURADA: '#3B82F6',
+    PAGO_AUTORIZADO: '#F59E0B',
+    PAGO_RECHAZADO: '#F43F5E',
+    PAGADA: '#10B981',
+    POR_COMPROBAR: '#7A3BFF',
+    COMPROBACION_ACEPTADA: '#14B8A6',
+    COMPROBACION_RECHAZADA: '#EC4899',
+    ELIMINADA: '#6B6880',
   }
 
   function statusLabel(s: string): string {
@@ -89,8 +89,8 @@ export function useDashboardCharts() {
   // Los colores de estatus (statusColors) se conservan por su significado.
   const page = usePage<SharedProps>()
   const FALLBACK_PALETTE = [
-    '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
-    '#ef4444', '#06b6d4', '#ec4899', '#f97316',
+    '#6419FF', '#14B8A6', '#F59E0B', '#EC4899',
+    '#3B82F6', '#AA81FE', '#10B981', '#F97316',
   ]
   const palette = computed(() => {
     const configured = page.props.appSettings?.chart_palette ?? []
@@ -139,7 +139,7 @@ export function useDashboardCharts() {
               value: {
                 color: titleColor.value,
                 fontSize: '22px',
-                fontWeight: 900,
+                fontWeight: 600,
               },
             },
           },

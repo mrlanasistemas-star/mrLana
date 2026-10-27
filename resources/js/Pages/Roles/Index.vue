@@ -123,7 +123,7 @@ function doDelete() {
 
                     <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
                         <div class="rounded-2xl bg-slate-50 p-3 dark:bg-white/5">
-                            <dt class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                            <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-zinc-400">
                                 <Users class="h-3.5 w-3.5" aria-hidden="true" /> Usuarios
                             </dt>
                             <dd class="mt-0.5 font-black tabular-nums text-slate-900 dark:text-zinc-100">
@@ -131,7 +131,7 @@ function doDelete() {
                             </dd>
                         </div>
                         <div class="rounded-2xl bg-slate-50 p-3 dark:bg-white/5">
-                            <dt class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                            <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-zinc-400">
                                 <KeyRound class="h-3.5 w-3.5" aria-hidden="true" /> Permisos
                             </dt>
                             <dd class="mt-0.5 font-black tabular-nums text-slate-900 dark:text-zinc-100">

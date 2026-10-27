@@ -57,7 +57,7 @@ const right = computed(() => tabs.value.slice(2))
 const tabClass = (active: boolean) =>
     [
         'relative flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-semibold transition-colors',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400/60',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40',
         active ? 'text-brand-primary' : 'text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100',
     ].join(' ')
 </script>
@@ -91,7 +91,7 @@ const tabClass = (active: boolean) =>
                     :href="route('requisiciones.create')"
                     class="-mt-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-button text-brand-button-fg
                            shadow-lg shadow-black/20 ring-4 ring-white transition active:scale-95
-                           focus:outline-none focus-visible:ring-slate-400 dark:ring-zinc-950 motion-reduce:transform-none"
+                           focus:outline-none focus-visible:ring-brand-primary/50 dark:ring-zinc-950 motion-reduce:transform-none"
                     :class="createActive ? 'scale-105' : ''"
                     aria-label="Nueva requisición"
                 >

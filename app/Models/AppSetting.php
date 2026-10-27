@@ -23,17 +23,23 @@ use Illuminate\Support\Facades\Storage;
 class AppSetting extends Model
 {
     // Versionada: cambiar la estructura de resolved() exige una llave nueva.
-    private const CACHE_KEY = 'erp.app_settings.v2';
+    private const CACHE_KEY = 'erp.app_settings.v3';
 
     public const DEFAULTS = [
-        'primary_color' => '#18181B',
-        'accent_color' => '#0F766E',
-        'button_color' => '#18181B',
-        'success_color' => '#16A34A',
-        'warning_color' => '#D97706',
+        'primary_color' => '#6419FF',
+        'accent_color' => '#7A3BFF',
+        'button_color' => '#6419FF',
+        'success_color' => '#15803D',
+        'warning_color' => '#B45309',
         'danger_color' => '#DC2626',
-        'chart_palette' => ['#2563EB', '#0D9488', '#D97706', '#7C3AED', '#DB2777', '#0891B2'],
+        'chart_palette' => ['#6419FF', '#14B8A6', '#F59E0B', '#EC4899', '#3B82F6', '#AA81FE'],
     ];
+
+    /**
+     * Paleta de gráficas predeterminada anterior. Si quedó guardada tal cual
+     * (sin personalizar), se usa la actual.
+     */
+    public const LEGACY_CHART_PALETTE = ['#2563EB', '#0D9488', '#D97706', '#7C3AED', '#DB2777', '#0891B2'];
 
     public const COLOR_FIELDS = [
         'primary_color', 'accent_color', 'button_color', 'success_color', 'warning_color', 'danger_color',
@@ -78,7 +84,8 @@ class AppSetting extends Model
             }
 
             $palette = $row?->chart_palette;
-            if (! is_array($palette) || count($palette) === 0) {
+            if (! is_array($palette) || count($palette) === 0
+                || array_map('strtoupper', $palette) === self::LEGACY_CHART_PALETTE) {
                 $palette = self::DEFAULTS['chart_palette'];
             }
 

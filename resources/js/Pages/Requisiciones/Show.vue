@@ -594,7 +594,7 @@
                         <!-- KPI (más pro + más color, sin repetir fechas extra) -->
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                             <CheckCircle2 class="h-4 w-4" />
                             Estado actual
                             </div>
@@ -605,7 +605,7 @@
                         </div>
 
                         <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                             <Calendar class="h-4 w-4" />
                             Capturada
                             </div>
@@ -615,7 +615,7 @@
                         </div>
 
                         <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                             <Clock class="h-4 w-4" />
                             Actualizada
                             </div>
@@ -625,7 +625,7 @@
                         </div>
 
                         <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 p-3 bg-gradient-to-br from-indigo-500/10 via-white to-emerald-500/10 dark:from-indigo-500/15 dark:via-neutral-900 dark:to-emerald-500/10">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                             <Wallet class="h-4 w-4" />
                             Resumen financiero
                             </div>
@@ -651,7 +651,7 @@
                         <!-- FECHAS: solicitud, esperada, autorización real y pago -->
                         <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                             <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
-                                <dt class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                <dt class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                                     <Calendar class="h-4 w-4" aria-hidden="true" /> Fecha de solicitud
                                 </dt>
                                 <dd class="mt-1 text-sm font-black text-slate-900 dark:text-neutral-100 tabular-nums">
@@ -659,7 +659,7 @@
                                 </dd>
                             </div>
                             <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
-                                <dt class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                <dt class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                                     <Hourglass class="h-4 w-4" aria-hidden="true" /> Fecha esperada de pago
                                 </dt>
                                 <dd class="mt-1 text-sm font-black tabular-nums" :class="req?.fecha_pago_esperada ? 'text-slate-900 dark:text-neutral-100' : 'text-slate-400 dark:text-neutral-500'">
@@ -667,7 +667,7 @@
                                 </dd>
                             </div>
                             <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
-                                <dt class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                <dt class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                                     <CalendarCheck2 class="h-4 w-4" aria-hidden="true" /> Autorización real
                                 </dt>
                                 <dd class="mt-1 text-sm font-black tabular-nums" :class="req?.fecha_autorizacion ? 'text-slate-900 dark:text-neutral-100' : 'text-slate-400 dark:text-neutral-500'">
@@ -675,7 +675,7 @@
                                 </dd>
                             </div>
                             <div class="rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-3">
-                                <dt class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                <dt class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                                     <CalendarClock class="h-4 w-4" aria-hidden="true" />
                                     {{ ['PAGADA', 'POR_COMPROBAR', 'COMPROBACION_ACEPTADA', 'COMPROBACION_RECHAZADA'].includes(String(req?.status)) ? 'Fecha de pago' : 'Pago programado' }}
                                 </dt>
@@ -691,7 +691,7 @@
                         <div class="lg:col-span-5 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-4 min-w-0 overflow-hidden">
                             <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                                 <Landmark class="h-4 w-4" />
                                 Proveedor
                                 </div>
@@ -722,7 +722,7 @@
 
                         <!-- Comprador / Sucursal -->
                         <div class="lg:col-span-4 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-4 min-w-0">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                             <Building2 class="h-4 w-4" />
                             Comprador / Sucursal
                             </div>
@@ -745,7 +745,7 @@
 
                         <!-- Solicitante -->
                         <div class="lg:col-span-3 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-4 min-w-0">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                             <User class="h-4 w-4" />
                             Solicitante
                             </div>
@@ -761,7 +761,7 @@
 
                         <!-- Concepto -->
                         <div class="lg:col-span-4 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-4 min-w-0">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                             <Tag class="h-4 w-4" />
                             Concepto
                             </div>
@@ -775,7 +775,7 @@
                         <div class="lg:col-span-4 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 p-4 min-w-0
                                     bg-gradient-to-br from-indigo-500/10 via-white to-emerald-500/10 dark:from-indigo-500/15 dark:via-neutral-900 dark:to-emerald-500/10">
                             <div class="flex items-center justify-between gap-2">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                                 <Wallet class="h-4 w-4" />
                                 Montos
                             </div>
@@ -787,15 +787,15 @@
 
                             <div class="mt-3 grid grid-cols-3 gap-2 text-xs">
                             <div class="rounded-xl bg-white/70 dark:bg-neutral-950/60 ring-1 ring-black/5 dark:ring-white/10 px-3 py-2">
-                                <div class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">Subtotal</div>
+                                <div class="text-xs font-medium text-slate-500 dark:text-neutral-400">Subtotal</div>
                                 <div class="mt-0.5 font-black text-slate-900 dark:text-neutral-100 tabular-nums">{{ money(subtotalShown) }}</div>
                             </div>
                             <div class="rounded-xl bg-white/70 dark:bg-neutral-950/60 ring-1 ring-black/5 dark:ring-white/10 px-3 py-2">
-                                <div class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">IVA</div>
+                                <div class="text-xs font-medium text-slate-500 dark:text-neutral-400">IVA</div>
                                 <div class="mt-0.5 font-black text-slate-900 dark:text-neutral-100 tabular-nums">{{ money(ivaCalc) }}</div>
                             </div>
                             <div class="rounded-xl bg-white/70 dark:bg-neutral-950/60 ring-1 ring-black/5 dark:ring-white/10 px-3 py-2">
-                                <div class="text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">Total</div>
+                                <div class="text-xs font-medium text-slate-500 dark:text-neutral-400">Total</div>
                                 <div class="mt-0.5 font-black text-slate-900 dark:text-neutral-100 tabular-nums">{{ money(totalShown) }}</div>
                             </div>
                             </div>
@@ -803,7 +803,7 @@
 
                         <!-- Observaciones -->
                         <div class="lg:col-span-4 rounded-2xl ring-1 ring-black/5 dark:ring-white/10 bg-white dark:bg-neutral-900 p-4 min-w-0">
-                            <div class="flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <div class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-neutral-400">
                             <MessageSquareText class="h-4 w-4" />
                             Observaciones
                             </div>
@@ -884,7 +884,7 @@
                                     <button
                                         v-if="e.can.revisar"
                                         type="button"
-                                        class="inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-brand-danger px-3 text-xs font-black text-brand-danger-fg hover:bg-brand-danger/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+                                        class="inline-flex min-h-[40px] items-center gap-2 rounded-xl bg-brand-danger px-3 text-xs font-black text-brand-danger-fg hover:bg-brand-danger/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50"
                                         @click="openReview(e.id, 'APROBAR')"
                                     >
                                         Autorizar eliminación
@@ -1028,7 +1028,7 @@
                     <div class="rounded-3xl ring-1 ring-black/5 dark:ring-white/10 overflow-hidden">
                         <table class="w-full table-fixed">
                         <thead class="bg-slate-50 dark:bg-neutral-950">
-                            <tr class="text-left text-xs uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                            <tr class="text-left text-xs text-slate-500 dark:text-neutral-400">
                             <th class="px-4 py-3 w-24">Cantidad</th>
                             <th class="px-4 py-3 w-52">Sucursal</th>
                             <th class="px-4 py-3">Descripción</th>
@@ -1067,7 +1067,7 @@
 
                                 <div class="mt-4 space-y-3 text-sm">
                                     <div class="rounded-2xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-3">
-                                        <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                        <div class="text-xs font-medium text-slate-500 dark:text-neutral-400">
                                             Total original por items
                                         </div>
                                         <div class="mt-1 font-black text-slate-900 dark:text-neutral-100">
@@ -1076,7 +1076,7 @@
                                     </div>
 
                                     <div class="rounded-2xl bg-slate-50 dark:bg-neutral-950 ring-1 ring-black/5 dark:ring-white/10 px-3 py-3">
-                                        <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-neutral-400">
+                                        <div class="text-xs font-medium text-slate-500 dark:text-neutral-400">
                                             Ajustes aplicados
                                         </div>
                                         <div
@@ -1088,7 +1088,7 @@
                                     </div>
 
                                     <div class="rounded-2xl bg-indigo-500/10 ring-1 ring-indigo-500/20 px-3 py-3">
-                                        <div class="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-neutral-300">
+                                        <div class="text-xs font-medium text-slate-500 dark:text-neutral-300">
                                             Total final requisición
                                         </div>
                                         <div class="mt-1 text-lg font-black text-slate-900 dark:text-neutral-100">

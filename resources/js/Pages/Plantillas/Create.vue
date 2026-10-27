@@ -353,7 +353,7 @@ const isEdit = computed(() => !!plantilla)
                                         <input
                                             v-model="item.genera_iva"
                                             type="checkbox"
-                                            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                            class="h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary/40"
                                         />
                                         <span class="text-sm font-semibold text-slate-700 dark:text-zinc-200">
                                             {{ item.genera_iva ? 'Genera IVA (16%)' : 'Sin IVA' }}

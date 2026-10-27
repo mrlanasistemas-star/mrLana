@@ -194,7 +194,7 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
                     class="group inline-flex min-h-[42px] shrink-0 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-all duration-150
                            focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 sm:flex-1 sm:justify-center"
                     :class="d.view === v.value
-                        ? 'bg-brand-primary text-brand-primary-fg shadow-sm'
+                        ? 'bg-brand-primary text-brand-primary-fg shadow-sm shadow-brand-primary/25'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-zinc-300 dark:hover:bg-white/10'"
                     :aria-pressed="d.view === v.value"
                     :title="v.description"
@@ -212,7 +212,7 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
                         <span class="ui-badge ui-badge-muted">{{ d.userRole || 'Sin rol' }}</span>
                         <span class="ui-badge ui-badge-accent">{{ d.scopeLabel }}</span>
                     </div>
-                    <h2 class="text-2xl font-black tracking-tight text-slate-900 dark:text-zinc-100">{{ d.headline }}</h2>
+                    <h2 class="text-2xl font-semibold tracking-tight text-slate-900 dark:text-zinc-50 sm:text-[1.75rem]">{{ d.headline }}</h2>
                     <p class="text-sm text-slate-500 dark:text-zinc-400">
                         {{ d.subheadline }} <span class="font-semibold text-slate-700 dark:text-zinc-200">{{ d.period.label }}: {{ d.period.from }} – {{ d.period.to }}</span>
                     </p>
@@ -277,9 +277,9 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
 
             <!-- KPIs -->
             <section class="grid grid-cols-1 gap-3 transition-opacity sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6" :class="loading ? 'opacity-60' : ''" aria-label="Indicadores" data-tour="dashboard-indicadores">
-                <article v-for="c in d.cards" :key="c.key" class="ui-card group p-4 transition hover:border-slate-300 dark:hover:border-white/15">
+                <article v-for="c in d.cards" :key="c.key" class="ui-card group p-5 transition hover:border-brand-primary/25 hover:shadow-md dark:hover:border-white/15">
                     <div class="flex items-start justify-between gap-2">
-                        <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-accent/10 text-brand-accent">
+                        <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-tint text-brand-primary dark:bg-brand-primary/15">
                             <component :is="cardIcons[c.key]" class="h-[18px] w-[18px]" aria-hidden="true" />
                         </span>
                         <span
@@ -296,8 +296,8 @@ const chipCls = (on: boolean) => (on ? 'ui-chip ui-chip-on' : 'ui-chip')
                             {{ Math.abs(c.delta) }}%
                         </span>
                     </div>
-                    <p class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ c.label }}</p>
-                    <p class="mt-0.5 break-words text-2xl font-black tabular-nums tracking-tight text-slate-900 dark:text-zinc-100">{{ c.display }}</p>
+                    <p class="mt-4 text-[13px] font-medium text-slate-500 dark:text-zinc-400">{{ c.label }}</p>
+                    <p class="mt-1 break-words text-2xl font-semibold tabular-nums tracking-tight text-slate-900 dark:text-zinc-50">{{ c.display }}</p>
                     <p class="mt-1 text-xs text-slate-500 dark:text-zinc-400">{{ c.hint }}</p>
                 </article>
             </section>

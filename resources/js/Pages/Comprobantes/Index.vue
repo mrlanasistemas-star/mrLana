@@ -157,7 +157,7 @@ const pageLabel = (l: string) => l.replace('&laquo;', '«').replace('&raquo;', '
                 >
                     <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" :class="k.tone"><component :is="k.icon" class="h-5 w-5" aria-hidden="true" /></span>
                     <span class="min-w-0">
-                        <span class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ k.label }}</span>
+                        <span class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">{{ k.label }}</span>
                         <span class="block break-words text-base font-black leading-tight tabular-nums sm:text-lg text-slate-900 dark:text-zinc-100">{{ k.value }}</span>
                     </span>
                 </button>

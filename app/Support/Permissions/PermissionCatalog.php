@@ -237,9 +237,9 @@ final class PermissionCatalog
                 ) + [
                     'ajustes.solicitar' => self::p('Solicitar ajustes en mis requisiciones', 'operacion', 'Muestra «Ajustes» con el formulario para pedir un ajuste de monto en requisiciones propias ya enviadas (no en borradores ni eliminadas). También puede cancelar sus solicitudes pendientes.'),
                     'ajustes.solicitar_cualquiera' => self::p('Solicitar ajustes en requisiciones autorizadas', 'operacion', 'Lo mismo que «Solicitar ajustes en mis requisiciones», pero también en requisiciones de otras personas que puede ver.'),
-                    'ajustes.autorizar' => self::p('Autorizar ajustes', 'administracion', 'Muestra «Aprobar» en los ajustes pendientes de las requisiciones que puede ver. Aprobar no cambia el total: eso lo hace «Aplicar ajustes autorizados».', sensitive: true),
+                    'ajustes.autorizar' => self::p('Autorizar ajustes', 'administracion', 'Muestra «Aprobar» en los ajustes pendientes de las requisiciones que puede ver. Aprobar no cambia el total: eso lo hace «Aplicar ajustes autorizados». También muestra «Cancelar aprobación» en ajustes aprobados que aún no se aplican, por si se aprobó por error (pide motivo).', sensitive: true),
                     'ajustes.rechazar' => self::p('Rechazar ajustes', 'administracion', 'Muestra el botón para rechazar, con motivo, los ajustes pendientes de las requisiciones que puede ver.'),
-                    'ajustes.aplicar' => self::p('Aplicar ajustes autorizados', 'administracion', 'Muestra «Aplicar» en los ajustes ya aprobados: cambia el monto total de la requisición.', sensitive: true),
+                    'ajustes.aplicar' => self::p('Aplicar ajustes autorizados', 'administracion', 'Muestra «Aplicar» en los ajustes ya aprobados: cambia el monto total de la requisición. También puede «Cancelar aprobación» antes de aplicar (pide motivo); ya aplicado no se cancela.', sensitive: true),
                 ],
             ],
             'proveedores' => [

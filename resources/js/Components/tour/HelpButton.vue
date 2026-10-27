@@ -40,7 +40,7 @@ function startFull() {
                 v-show="tour.state.phase === 'idle'"
                 type="button"
                 data-tour="ayuda-boton"
-                class="group fixed right-4 z-[190] inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand-primary text-brand-primary-fg shadow-lg shadow-black/20
+                class="group fixed right-4 z-[190] inline-flex h-12 w-12 items-center justify-center rounded-full bg-brand-primary text-brand-primary-fg shadow-lg shadow-brand-primary/30
                        ring-4 ring-white/70 transition duration-200 hover:scale-105 hover:shadow-xl active:scale-95 focus:outline-none focus-visible:ring-brand-accent/60
                        dark:ring-zinc-950/70 motion-reduce:transform-none
                        bottom-[calc(5.75rem+env(safe-area-inset-bottom))] lg:bottom-6 lg:right-6"
@@ -62,7 +62,7 @@ function startFull() {
                        data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95
                        dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100 motion-reduce:animate-none"
             >
-                <p class="px-3 pb-1 pt-2 text-[11px] font-black uppercase tracking-widest text-slate-400">En esta pantalla</p>
+                <p class="px-3 pb-1 pt-2 text-xs font-medium text-slate-500 dark:text-zinc-400">En esta pantalla</p>
                 <ul v-if="here.length" class="space-y-0.5">
                     <li v-for="t in here" :key="t.id">
                         <button type="button" class="help-item" @click="startTour(t.id)">

@@ -50,7 +50,7 @@ const { clientErrors, checks, progressCopy, strength, validateClient } =
 const baseInput =
   'block w-full pr-11 rounded-lg border text-sm transition duration-200 ' +
   'bg-white text-slate-900 placeholder:text-slate-400 ' +
-  'border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 ' +
+  'border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary/60 ' +
   'dark:bg-zinc-900/35 dark:text-zinc-100 dark:placeholder:text-zinc-500 ' +
   'dark:border-zinc-800/70 dark:focus:ring-zinc-800/70 dark:focus:border-zinc-700'
 
@@ -96,8 +96,8 @@ const updatePassword = async () => {
     confirmButtonText: 'Sí, cambiar',
     cancelButtonText: 'Cancelar',
     reverseButtons: true,
-    background: isDark ? '#18181b' : '#ffffff',
-    color: isDark ? '#e4e4e7' : '#18181b',
+    background: isDark ? '#1C1830' : '#ffffff',
+    color: isDark ? '#F1EFF8' : '#1C1830',
     confirmButtonColor: '#22c55e', // verde sobrio
     cancelButtonColor: '#52525b',  // zinc neutro
   })
@@ -119,8 +119,8 @@ const updatePassword = async () => {
         text: 'Tu contraseña se guardó correctamente.',
         timer: 2200,
         showConfirmButton: false,
-        background: isDark ? '#18181b' : '#ffffff',
-        color: isDark ? '#e4e4e7' : '#18181b',
+        background: isDark ? '#1C1830' : '#ffffff',
+        color: isDark ? '#F1EFF8' : '#1C1830',
         iconColor: '#22c55e',
       })
     },

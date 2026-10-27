@@ -250,7 +250,7 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
 
   const inputBase =
     'mt-1 w-full rounded-2xl px-4 py-3 text-sm border transition focus:outline-none focus:ring-2 ' +
-    'border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-slate-200 focus:border-slate-300 ' +
+    'border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-brand-primary/20 focus:border-brand-primary/60 ' +
     'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:focus:ring-white/10'
 
   const hasActiveFilters = computed(() => {
@@ -576,8 +576,8 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
       cancelButtonText: 'Cancelar',
       reverseButtons: true,
       focusCancel: false,
-      background: dark ? '#18181b' : '#ffffff',
-      color: dark ? '#e4e4e7' : '#111827',
+      background: dark ? '#1C1830' : '#ffffff',
+      color: dark ? '#F1EFF8' : '#1C1830',
       inputValidator: (v) => (String(v ?? '').trim().length < 5 ? 'Escribe un motivo de al menos 5 caracteres.' : undefined),
     })
     if (!res.isConfirmed) return

@@ -315,7 +315,7 @@ Route::middleware('auth')->group(function () use ($scope, $any) {
         ->name('requisiciones.ajustes.review');
     Route::post('/requisiciones/ajustes/{ajuste}/apply', [RequisicionAjusteController::class, 'apply'])->middleware('permission:ajustes.aplicar')
         ->name('requisiciones.ajustes.apply');
-    Route::post('/requisiciones/ajustes/{ajuste}/cancel', [RequisicionAjusteController::class, 'cancel'])->middleware($any('ajustes.solicitar', 'ajustes.solicitar_cualquiera', 'ajustes.autorizar', 'ajustes.rechazar'))
+    Route::post('/requisiciones/ajustes/{ajuste}/cancel', [RequisicionAjusteController::class, 'cancel'])->middleware($any('ajustes.solicitar', 'ajustes.solicitar_cualquiera', 'ajustes.autorizar', 'ajustes.rechazar', 'ajustes.aplicar'))
         ->name('requisiciones.ajustes.cancel');
 
     // =========================

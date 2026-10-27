@@ -56,7 +56,7 @@ const { clientErrors, checks, progressCopy, strength, validateClient } =
 const baseInput =
   'block w-full pr-11 rounded-xl border text-sm transition duration-200 ' +
   'bg-white text-slate-900 placeholder:text-slate-400 ' +
-  'border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:border-slate-300 ' +
+  'border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary/60 ' +
   'dark:bg-zinc-900/35 dark:text-zinc-100 dark:placeholder:text-zinc-500 ' +
   'dark:border-zinc-800/70 dark:focus:ring-zinc-800/70 dark:focus:border-zinc-700'
 
@@ -103,9 +103,9 @@ const submit = async () => {
     confirmButtonText: 'Sí, guardar',
     cancelButtonText: 'Cancelar',
     reverseButtons: true,
-    background: isDark ? '#18181b' : '#ffffff',
-    color: isDark ? '#e4e4e7' : '#18181b',
-    confirmButtonColor: '#2563eb',
+    background: isDark ? '#1C1830' : '#ffffff',
+    color: isDark ? '#F1EFF8' : '#1C1830',
+    confirmButtonColor: '#6419FF',
     cancelButtonColor: '#52525b',
   })
 
@@ -120,8 +120,8 @@ const submit = async () => {
         text: 'Listo. Ya puedes iniciar sesión con tu nueva contraseña.',
         timer: 2300,
         showConfirmButton: false,
-        background: isDark ? '#18181b' : '#ffffff',
-        color: isDark ? '#e4e4e7' : '#18181b',
+        background: isDark ? '#1C1830' : '#ffffff',
+        color: isDark ? '#F1EFF8' : '#1C1830',
         iconColor: '#22c55e',
       })
     },
@@ -152,8 +152,8 @@ const submit = async () => {
         <p class="flex items-center gap-3">
           <span
             class="flex h-11 w-11 items-center justify-center rounded-2xl
-                   bg-blue-50 text-blue-700
-                   dark:bg-blue-500/10 dark:text-blue-200"
+                   bg-brand-tint text-brand-primary
+                   dark:bg-brand-primary/15 dark:text-brand-primary"
             aria-hidden="true"
           >
             <ShieldCheckIcon class="h-6 w-6" />

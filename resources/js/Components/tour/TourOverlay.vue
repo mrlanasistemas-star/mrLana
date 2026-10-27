@@ -193,7 +193,7 @@ const tipClass = computed(() => {
 
                 <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5">
                     <div class="flex items-start justify-between gap-3">
-                        <p class="min-w-0 text-[11px] font-black uppercase tracking-widest text-brand-accent">
+                        <p class="min-w-0 text-xs font-medium text-brand-accent">
                             {{ moduleName }}
                             <span class="font-semibold normal-case tracking-normal text-slate-400">· Paso {{ stepInModule.index }} de {{ stepInModule.total }}</span>
                         </p>

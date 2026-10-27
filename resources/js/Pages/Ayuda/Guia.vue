@@ -265,7 +265,7 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
                             <component :is="actual?.icono ?? LayoutGrid" class="h-4 w-4" aria-hidden="true" />
                         </span>
                         <span class="min-w-0 flex-1">
-                            <span class="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Índice</span>
+                            <span class="block text-xs font-semibold text-slate-500 dark:text-zinc-400">Índice</span>
                             <span class="block truncate text-sm font-bold text-slate-900 dark:text-zinc-100">{{ actual?.nombre ?? 'Todos los temas' }}</span>
                         </span>
                         <ChevronDown class="h-4 w-4 shrink-0 text-slate-500" :class="[anim, indiceAbierto ? 'rotate-180' : '']" aria-hidden="true" />
@@ -289,7 +289,7 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
                             <LayoutGrid class="h-4 w-4 shrink-0" aria-hidden="true" /> Todos los temas
                         </button>
                         <div v-for="g in grupos" :key="g.titulo" class="mt-3">
-                            <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-zinc-500">{{ g.titulo }}</p>
+                            <p class="px-3 pb-1 text-xs font-semibold text-slate-400 dark:text-zinc-500">{{ g.titulo }}</p>
                             <button
                                 v-for="m in g.modulos"
                                 :key="m.id"
@@ -346,7 +346,7 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
                         <section v-else-if="!actual" key="inicio" class="space-y-6" aria-labelledby="guia-inicio-titulo" data-tour="ayuda-modulos">
                             <h3 id="guia-inicio-titulo" ref="tituloDetalle" tabindex="-1" class="sr-only">Todos los temas</h3>
                             <div v-for="g in grupos" :key="g.titulo" class="space-y-3">
-                                <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ g.titulo }}</h4>
+                                <h4 class="text-xs font-semibold text-slate-500 dark:text-zinc-400">{{ g.titulo }}</h4>
                                 <div class="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
                                     <article
                                         v-for="m in g.modulos"
@@ -393,7 +393,7 @@ const anim = 'motion-safe:transition motion-safe:duration-200 motion-safe:ease-o
                                             <component :is="actual.icono" class="h-6 w-6" aria-hidden="true" />
                                         </span>
                                         <div class="min-w-0">
-                                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">{{ actual.grupo }}</p>
+                                            <p class="text-xs font-semibold text-slate-500 dark:text-zinc-400">{{ actual.grupo }}</p>
                                             <h3 :id="`guia-${actual.id}`" ref="tituloDetalle" tabindex="-1" class="scroll-mt-24 text-xl font-black tracking-tight text-slate-900 focus:outline-none dark:text-zinc-100">
                                                 {{ actual.nombre }}
                                             </h3>

@@ -52,7 +52,7 @@ const emit = defineEmits<{ (e: 'update:open', v: boolean): void; (e: 'confirm'):
                 </div>
 
                 <section v-if="summary.modules.length">
-                    <h4 class="mb-2 text-xs font-black uppercase tracking-widest text-slate-400">Módulos</h4>
+                    <h4 class="mb-2 text-xs font-medium text-slate-400">Módulos</h4>
                     <ul class="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                         <li v-for="m in summary.modules" :key="m.label" class="min-w-0 rounded-xl bg-slate-50 px-3 py-2 text-sm dark:bg-white/5">
                             <span class="block break-words font-semibold">{{ m.label }}</span>
@@ -65,14 +65,14 @@ const emit = defineEmits<{ (e: 'update:open', v: boolean): void; (e: 'confirm'):
                 <p v-else class="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-white/5 dark:text-zinc-300">El rol no tendrá acceso a ningún módulo.</p>
 
                 <section v-if="summary.globals.length">
-                    <h4 class="mb-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-amber-600"><Globe2 class="h-3.5 w-3.5" aria-hidden="true" /> Acceso global</h4>
+                    <h4 class="mb-2 flex items-center gap-1.5 text-xs font-medium text-amber-600"><Globe2 class="h-3.5 w-3.5" aria-hidden="true" /> Acceso global</h4>
                     <ul class="flex flex-wrap gap-1.5">
                         <li v-for="g in summary.globals" :key="g.label" class="max-w-full break-words rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">{{ g.label }}</li>
                     </ul>
                 </section>
 
                 <section v-if="summary.sensitive.length">
-                    <h4 class="mb-2 flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-amber-600"><AlertTriangle class="h-3.5 w-3.5" aria-hidden="true" /> Acciones sensibles</h4>
+                    <h4 class="mb-2 flex items-center gap-1.5 text-xs font-medium text-amber-600"><AlertTriangle class="h-3.5 w-3.5" aria-hidden="true" /> Acciones sensibles</h4>
                     <ul class="flex flex-wrap gap-1.5">
                         <li v-for="s in summary.sensitive" :key="s.module + s.label" class="max-w-full break-words rounded-full border border-amber-200 px-2.5 py-1 text-xs text-amber-800 dark:border-amber-500/30 dark:text-amber-200">
                             {{ s.label }}
