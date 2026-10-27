@@ -37,11 +37,11 @@ watch(
 
 <template>
   <GuestLayout>
-    <Head title="Inicio de sesión" />
+    <Head title="Iniciar sesión" />
 
     <div class="login-bg">
       <div class="login-stack">
-        <img class="login-logo" :src="logoLogin" alt="Mr. Lana" draggable="false" />
+        <img class="login-logo" :src="logoLogin" alt="ERP Mr. Lana" draggable="false" />
         <form
           @submit.prevent="submit()"
           class="relative w-full max-w-[22rem] sm:max-w-[24rem] md:max-w-md lg:max-w-md xl:max-w-lg 2xl:max-w-xl"
@@ -50,8 +50,10 @@ watch(
             ref="cardRef"
             class="rounded-2xl p-8 shadow-2xl backdrop-blur bg-white/90 dark:bg-neutral-900/85"
           >
-            <div class="flex justify-center mb-6">
-              <img :src="logoMr" class="h-9 w-9 drop-shadow" alt="Logo" />
+            <div class="flex flex-col items-center mb-6 text-center">
+              <img :src="logoMr" class="h-9 w-9 drop-shadow" alt="" />
+              <h1 class="mt-3 text-lg font-semibold text-slate-900 dark:text-neutral-100">ERP Mr. Lana</h1>
+              <p class="text-sm text-slate-500 dark:text-neutral-400">Control de gastos y requisiciones</p>
             </div>
 
             <div class="mb-4">

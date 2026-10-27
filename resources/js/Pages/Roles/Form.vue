@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { AlertTriangle, ArrowLeft, Bell, Crown, Filter, Loader2, Lock, Save, Search, ShieldCheck, X } from 'lucide-vue-next'
+import { AlertTriangle, ArrowLeft, Bell, Crown, Eye, Filter, Link2, Loader2, Lock, Save, Search, ShieldCheck, X } from 'lucide-vue-next'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import ModulePermissions from './partials/ModulePermissions.vue'
 import RoleSummaryDialog from './partials/RoleSummaryDialog.vue'
@@ -222,6 +222,20 @@ const title = computed(() => (isEdit.value ? (readOnly.value ? `Rol: ${props.rol
                                 {{ fl.label }}
                             </button>
                         </div>
+                        <ul class="grid grid-cols-1 gap-1.5 border-t border-slate-100 pt-3 text-xs leading-snug text-slate-500 dark:border-white/[0.06] dark:text-zinc-400 md:grid-cols-3" aria-label="Cómo leer los permisos">
+                            <li class="flex min-w-0 items-start gap-1.5">
+                                <Eye class="mt-px h-3.5 w-3.5 shrink-0 text-brand-accent" aria-hidden="true" />
+                                <span class="min-w-0"><strong class="font-semibold text-slate-700 dark:text-zinc-200">Alcance:</strong> decide qué registros ve. Las acciones solo funcionan sobre esos registros.</span>
+                            </li>
+                            <li class="flex min-w-0 items-start gap-1.5">
+                                <AlertTriangle class="mt-px h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
+                                <span class="min-w-0"><strong class="font-semibold text-slate-700 dark:text-zinc-200">Sensible:</strong> da acceso a información delicada o a cambios difíciles de revertir. Asígnalo solo a personas de confianza.</span>
+                            </li>
+                            <li class="flex min-w-0 items-start gap-1.5">
+                                <Link2 class="mt-px h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                                <span class="min-w-0"><strong class="font-semibold text-slate-700 dark:text-zinc-200">Requiere:</strong> al marcarlo se marcan solos los permisos que necesita; al quitar uno, se quitan los que dependen de él.</span>
+                            </li>
+                        </ul>
                         <p v-if="firstError" class="ui-error" role="alert">{{ firstError }}</p>
                     </div>
 
@@ -243,6 +257,7 @@ const title = computed(() => (isEdit.value ? (readOnly.value ? `Rol: ${props.rol
                         :notice="rf.notices[v.module.key]"
                         :locked="locked || form.processing"
                         :is-selected="rf.has"
+                        :label-of="rf.labelOf"
                         :default-open="i === 0 || !!rf.q.value"
                         @scope="(l) => rf.setScope(v.module, l)"
                         @toggle="rf.toggle"

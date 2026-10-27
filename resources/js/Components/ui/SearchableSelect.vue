@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { FocusScope } from 'reka-ui'
 
 type OptionLike = Record<string, any>
 
@@ -171,7 +172,11 @@ function openFromLabel() {
 
 function onKeydown(e: KeyboardEvent) {
   if (!open.value) return
-  if (e.key === 'Escape') setOpen(false)
+  if (e.key === 'Escape') {
+    // Solo cierra el selector, no el diálogo que lo contiene.
+    e.stopPropagation()
+    setOpen(false)
+  }
 }
 
 function onReflow() {
@@ -180,11 +185,12 @@ function onReflow() {
 }
 
 onMounted(() => {
-  document.addEventListener('keydown', onKeydown)
+  // Captura: el Escape se atiende antes que el del diálogo/modal contenedor.
+  document.addEventListener('keydown', onKeydown, true)
 })
 
 onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('keydown', onKeydown, true)
   window.removeEventListener('resize', onReflow)
   window.removeEventListener('scroll', onReflow, true)
 })
@@ -300,12 +306,19 @@ const searchInputCls = computed(() => {
       </span>
     </button>
 
-    <!-- Panel flotante (no empuja contenido) -->
+    <!--
+      Panel flotante (no empuja contenido). Se teletransporta al <body>, así que dentro de un
+      diálogo de reka-ui quedaría "fuera" de él y lo cerraría:
+      - data-dismissable-layer: el diálogo lo trata como capa anidada (no se cierra al tocarlo).
+      - FocusScope: pausa la trampa de foco del diálogo para que el buscador pueda enfocarse.
+      - pointer-events-auto: sigue siendo interactivo aunque el diálogo desactive el resto.
+    -->
     <Teleport to="body">
-      <div v-if="open" class="fixed inset-0" :class="zCls">
+      <div v-if="open" class="pointer-events-auto fixed inset-0" :class="zCls" data-dismissable-layer>
         <!-- click-catcher (cierra al tocar fuera) -->
         <div class="absolute inset-0" @mousedown.prevent="setOpen(false)"></div>
 
+        <FocusScope as-child>
         <div
           :id="`${buttonId}-panel`"
           ref="panelRef"
@@ -364,6 +377,7 @@ const searchInputCls = computed(() => {
             </div>
           </div>
         </div>
+        </FocusScope>
       </div>
     </Teleport>
 

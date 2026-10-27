@@ -53,6 +53,15 @@ final class PermissionCatalog
         'exportacion' => 'Exportación',
     ];
 
+    /** Explicación breve de cada grupo, visible en «Roles y permisos». */
+    public const GROUP_HINTS = [
+        'alcance' => 'Qué registros ve. Cada nivel incluye los anteriores.',
+        'operacion' => 'Trabajo del día a día: dar de alta registros, enviar, subir archivos o hacer solicitudes.',
+        'captura' => 'Qué datos puede cambiar al capturar. Sin estos permisos, solicitante, sucursal y corporativo se llenan solos con los de su colaborador.',
+        'administracion' => 'Acciones de control: autorizar, rechazar, editar, corregir o dar de baja registros, incluidos los de otras personas.',
+        'exportacion' => 'Descargas en PDF o Excel. Nunca incluyen registros fuera de su alcance.',
+    ];
+
     /** Permiso mínimo para recibir notificaciones (nunca el de "ver todas"). */
     public const NOTIFICATIONS_MIN = 'notificaciones.ver';
 
@@ -80,14 +89,25 @@ final class PermissionCatalog
         return self::$cache ??= self::definition();
     }
 
-    /** @return array<string, array<string, mixed>> */
+    /**
+     * Textos: se leen en «Roles y permisos» al asignar permisos, así que
+     * describen en tercera persona («la persona») qué pantallas y botones
+     * habilita cada permiso, sobre qué registros y de qué otros depende.
+     *
+     * @return array<string, array<string, mixed>>
+     */
     private static function definition(): array
     {
-        $scope4 = fn (string $m, array $labels, array $desc) => [
-            "{$m}.ver_propios" => self::p($labels[0], 'alcance', $desc[0]),
-            "{$m}.ver_sucursal" => self::p($labels[1], 'alcance', $desc[1] ?? 'Registros de la sucursal de tu colaborador.'),
-            "{$m}.ver_corporativo" => self::p($labels[2], 'alcance', $desc[2] ?? 'Registros de todas las sucursales de tu corporativo.'),
-            "{$m}.ver_todos" => self::p($labels[3], 'alcance', $desc[3] ?? 'Registros de todos los corporativos y sucursales.', sensitive: true),
+        /*
+         * Alcance de cuatro niveles. $own = descripción completa del nivel
+         * propio; $what = qué registros se ven («las requisiciones»);
+         * $ownShort = cómo se nombra lo propio al ampliar («las propias»).
+         */
+        $scope4 = fn (string $m, array $labels, string $own, string $what, string $ownShort) => [
+            "{$m}.ver_propios" => self::p($labels[0], 'alcance', $own),
+            "{$m}.ver_sucursal" => self::p($labels[1], 'alcance', "Ve {$what} de la sucursal de su colaborador, además de {$ownShort}."),
+            "{$m}.ver_corporativo" => self::p($labels[2], 'alcance', "Ve {$what} de todas las sucursales del corporativo de su colaborador, además de {$ownShort}."),
+            "{$m}.ver_todos" => self::p($labels[3], 'alcance', "Ve {$what} de todos los corporativos y sucursales, sin restricción.", sensitive: true),
         ];
         $levels4 = fn (string $m) => [
             'own' => "{$m}.ver_propios",
@@ -95,11 +115,12 @@ final class PermissionCatalog
             'corporativo' => "{$m}.ver_corporativo",
             'global' => "{$m}.ver_todos",
         ];
+        $heredado = 'El alcance se calcula sobre la requisición (quién la creó o solicitó y a qué sucursal se cargó), pero se asigna aparte del de Requisiciones.';
 
         return [
             'dashboard' => [
                 'label' => 'Dashboard',
-                'description' => 'Indicadores y gráficas de gasto. Cada vista usa solo la información de su alcance.',
+                'description' => 'Pantalla de inicio con montos, conteos por estatus y gráficas de gasto. Cada vista suma solo las requisiciones de su nivel; un nivel mayor también deja cambiar a las vistas menores. Sin acceso, la pantalla de inicio pasa a ser Requisiciones.',
                 'scope' => [
                     'own' => 'dashboard.personal',
                     'sucursal' => 'dashboard.sucursal',
@@ -107,223 +128,247 @@ final class PermissionCatalog
                     'global' => 'dashboard.general',
                 ],
                 'permissions' => [
-                    'dashboard.personal' => self::p('Ver mi dashboard de gastos', 'alcance', 'Solo tus requisiciones y gastos.'),
-                    'dashboard.sucursal' => self::p('Ver dashboard de mi sucursal', 'alcance', 'Indicadores de la sucursal de tu colaborador.'),
-                    'dashboard.corporativo' => self::p('Ver dashboard de mi corporativo', 'alcance', 'Indicadores de todas las sucursales de tu corporativo.'),
-                    'dashboard.general' => self::p('Ver dashboard general', 'alcance', 'Indicadores de todo el sistema.', sensitive: true),
-                    'reportes.dashboard' => self::p('Exportar dashboard autorizado', 'exportacion', 'PDF o Excel exactamente de la vista que puedes consultar.'),
+                    'dashboard.personal' => self::p('Ver mi dashboard de gastos', 'alcance', 'Ve «Mi dashboard»: indicadores solo de las requisiciones que la persona creó o en las que es solicitante.'),
+                    'dashboard.sucursal' => self::p('Ver dashboard de mi sucursal', 'alcance', 'Ve los indicadores de la sucursal de su colaborador y puede cambiar a su vista personal.'),
+                    'dashboard.corporativo' => self::p('Ver dashboard de mi corporativo', 'alcance', 'Ve los indicadores de todas las sucursales del corporativo de su colaborador y puede cambiar a las vistas de su sucursal y personal.'),
+                    'dashboard.general' => self::p('Ver dashboard general', 'alcance', 'Ve los indicadores de todo el sistema (todos los corporativos y sucursales) y puede cambiar a cualquier otra vista.', sensitive: true),
+                    'reportes.dashboard' => self::p('Exportar dashboard autorizado', 'exportacion', 'Muestra los botones para descargar en PDF o Excel la vista del dashboard que está consultando, con sus filtros. Nunca exporta vistas que no puede ver.'),
                 ],
             ],
             'notificaciones' => [
                 'label' => 'Notificaciones',
-                'description' => 'Campana de avisos. Qué temas recibe el rol se elige en «Notificaciones del rol».',
+                'description' => 'Campana de avisos y pantalla «Notificaciones». Qué temas recibe el rol se elige aparte, en «Notificaciones del rol».',
                 'scope' => ['own' => 'notificaciones.ver', 'global' => 'notificaciones.ver_todas'],
                 'permissions' => [
-                    'notificaciones.ver' => self::p('Ver mis notificaciones', 'alcance', 'Tu campana: ver, filtrar y marcar como leídas tus avisos.'),
-                    'notificaciones.ver_todas' => self::p('Ver todas las notificaciones', 'alcance', 'En el mismo módulo de Notificaciones también ve los avisos de todas las personas (solo lectura).', sensitive: true),
+                    'notificaciones.ver' => self::p('Ver mis notificaciones', 'alcance', 'Muestra la campana y la pantalla de Notificaciones con los avisos de la propia persona: verlos, filtrarlos y marcarlos como leídos. Es obligatorio si el rol recibe avisos.'),
+                    'notificaciones.ver_todas' => self::p('Ver todas las notificaciones', 'alcance', 'En la pantalla de Notificaciones también ve los avisos de todas las personas, con su destinatario (solo lectura; la campana sigue mostrando solo los suyos). Si el rol además recibe todas las notificaciones, le llegan avisos aunque el registro esté fuera de su alcance.', sensitive: true),
                 ],
             ],
             'requisiciones' => [
                 'label' => 'Requisiciones',
-                'description' => 'Solicitudes de gasto desde el borrador hasta la comprobación.',
+                'description' => 'Solicitudes de gasto: captura, envío a autorización, eliminación y corrección. Los pagos, comprobaciones y ajustes de cada requisición se asignan en sus propios módulos.',
                 'scope' => $levels4('requisiciones'),
                 'permissions' => $scope4('requisiciones',
                     ['Ver mis requisiciones', 'Ver requisiciones de mi sucursal', 'Ver requisiciones de mi corporativo', 'Ver todas las requisiciones'],
-                    ['Las que creaste o en las que eres el solicitante.'],
+                    'Ve en Requisiciones solo las que la persona creó o en las que aparece como solicitante.',
+                    'las requisiciones',
+                    'las propias',
                 ) + [
-                    'requisiciones.registrar' => self::p('Registrar requisiciones', 'operacion', 'Abrir el formulario de nueva requisición.'),
-                    'requisiciones.guardar_borrador' => self::p('Guardar borradores', 'operacion', 'Guardar sin enviar para terminar después.', requires: ['requisiciones.registrar']),
-                    'requisiciones.enviar' => self::p('Enviar mis requisiciones', 'operacion', 'Enviar a autorización las requisiciones que capturas.', requires: ['requisiciones.registrar']),
-                    'requisiciones.editar' => self::p('Editar mis requisiciones en borrador', 'operacion', 'Corregir tus borradores antes de enviarlos.'),
-                    'requisiciones.eliminar_borrador' => self::p('Eliminar mis borradores', 'operacion', 'Dar de baja tus propios borradores.'),
-                    'requisiciones.solicitar_eliminacion' => self::p('Solicitar eliminación de requisiciones', 'operacion', 'Pedir que se elimine una requisición capturada.'),
-                    'requisiciones.elegir_sucursal_corporativo' => self::p('Elegir sucursal de mi corporativo', 'captura', 'Capturar en cualquier sucursal activa de tu corporativo.', requires: ['requisiciones.registrar'], scoped: false),
-                    'requisiciones.elegir_sucursal_global' => self::p('Elegir sucursal de cualquier corporativo', 'captura', 'Capturar en sucursales de otros corporativos.', sensitive: true, requires: ['requisiciones.registrar'], scoped: false),
-                    'requisiciones.elegir_corporativo' => self::p('Elegir otro corporativo comprador', 'captura', 'Cambiar el corporativo que compra. Requiere elegir sucursal de cualquier corporativo.', sensitive: true, requires: ['requisiciones.registrar', 'requisiciones.elegir_sucursal_global'], scoped: false),
-                    'requisiciones.elegir_solicitante' => self::p('Elegir solicitante', 'captura', 'Registrar a nombre de otro colaborador dentro de las sucursales que puedes elegir.', requires: ['requisiciones.registrar'], scoped: false),
-                    'requisiciones.editar_cualquiera' => self::p('Editar cualquier borrador autorizado', 'administracion', 'Editar y enviar borradores de otras personas dentro de tu alcance.'),
-                    'requisiciones.eliminar' => self::p('Eliminar requisiciones autorizadas', 'administracion', 'Baja lógica de requisiciones dentro de tu alcance.', sensitive: true),
-                    'requisiciones.autorizar_eliminacion' => self::p('Autorizar o rechazar solicitudes de eliminación', 'administracion', 'Resolver las solicitudes de eliminación.', sensitive: true),
-                    'requisiciones.exportar' => self::p('Exportar requisiciones autorizadas', 'exportacion', 'Listado en PDF o Excel con tus filtros y tu alcance.'),
-                    'requisiciones.imprimir' => self::p('Descargar o imprimir requisiciones autorizadas', 'exportacion', 'PDF individual de cada requisición que puedes ver.'),
+                    'requisiciones.registrar' => self::p('Registrar requisiciones', 'operacion', 'Muestra el botón «Nueva requisición» y abre el formulario de captura (también desde una plantilla). Para guardar lo capturado necesita además «Guardar borradores» o «Enviar mis requisiciones».'),
+                    'requisiciones.guardar_borrador' => self::p('Guardar borradores', 'operacion', 'Muestra el botón «Guardar» en el formulario: la requisición queda como Borrador, sin avisar a nadie, para terminarla después.', requires: ['requisiciones.registrar']),
+                    'requisiciones.enviar' => self::p('Enviar mis requisiciones', 'operacion', 'Muestra el botón «Enviar» en el formulario y en sus borradores: la requisición pasa a Capturada y se avisa a quien autoriza.', requires: ['requisiciones.registrar']),
+                    'requisiciones.editar' => self::p('Editar mis requisiciones en borrador', 'operacion', 'Autoriza modificar los borradores propios antes de enviarlos. Por ahora el sistema no tiene pantalla para editar borradores, así que este permiso no muestra ningún botón.'),
+                    'requisiciones.eliminar_borrador' => self::p('Eliminar mis borradores', 'operacion', 'Muestra «Eliminar» en los borradores propios para descartarlos. No aplica a requisiciones ya enviadas.'),
+                    'requisiciones.solicitar_eliminacion' => self::p('Solicitar eliminación de requisiciones', 'operacion', 'Muestra «Solicitar eliminación» en las requisiciones Capturadas que puede ver, para pedir con un motivo que se eliminen. Decide quien tenga «Autorizar o rechazar solicitudes de eliminación».'),
+                    'requisiciones.elegir_sucursal_corporativo' => self::p('Elegir sucursal de mi corporativo', 'captura', 'Al capturar requisiciones o plantillas, deja elegir cualquier sucursal activa del corporativo de su colaborador (el corporativo comprador queda fijo). Sin este permiso, la sucursal es siempre la de su colaborador.', requires: ['requisiciones.registrar'], scoped: false),
+                    'requisiciones.elegir_sucursal_global' => self::p('Elegir sucursal de cualquier corporativo', 'captura', 'Complemento de «Elegir otro corporativo comprador»: juntos permiten capturar en cualquier sucursal activa de cualquier corporativo. Por sí solo no cambia nada en el formulario.', sensitive: true, requires: ['requisiciones.registrar'], scoped: false),
+                    'requisiciones.elegir_corporativo' => self::p('Elegir otro corporativo comprador', 'captura', 'Al capturar, deja cambiar el corporativo comprador y elegir cualquier sucursal activa de cualquier corporativo. Al marcarlo se agrega solo «Elegir sucursal de cualquier corporativo».', sensitive: true, requires: ['requisiciones.registrar', 'requisiciones.elegir_sucursal_global'], scoped: false),
+                    'requisiciones.elegir_solicitante' => self::p('Elegir solicitante', 'captura', 'Al capturar requisiciones o plantillas, deja registrarlas a nombre de otro colaborador activo de las sucursales que puede elegir. Sin este permiso, el solicitante es siempre su propio colaborador.', requires: ['requisiciones.registrar'], scoped: false),
+                    'requisiciones.editar_cualquiera' => self::p('Editar cualquier borrador autorizado', 'administracion', 'Autoriza modificar borradores de otras personas que puede ver y, si también tiene «Enviar mis requisiciones», muestra «Enviar» en esos borradores para mandarlos a autorización.'),
+                    'requisiciones.eliminar' => self::p('Eliminar requisiciones autorizadas', 'administracion', 'Muestra «Eliminar» (también en lote) en cualquier requisición que puede ver, en cualquier estatus y sin pasar por solicitud. No se borra: pasa a la pestaña «Eliminadas» y queda en la bitácora.', sensitive: true),
+                    'requisiciones.autorizar_eliminacion' => self::p('Autorizar o rechazar solicitudes de eliminación', 'administracion', 'En el detalle de las requisiciones que puede ver, muestra las solicitudes de eliminación pendientes para aprobarlas (la requisición pasa a Eliminada) o rechazarlas con motivo.', sensitive: true),
+                    'requisiciones.corregir' => self::p('Corregir datos de requisiciones', 'administracion', 'Muestra «Corregir datos» en las requisiciones que puede ver (en cualquier estatus salvo Eliminada) para cambiar concepto, solicitante, sucursal, corporativo, proveedor u observaciones, eligiendo de todo el catálogo. Pide un motivo, queda en la bitácora y no cambia montos ni items.', sensitive: true),
+                    'requisiciones.exportar' => self::p('Exportar requisiciones autorizadas', 'exportacion', 'Muestra los botones «PDF» y «Excel» en el listado de Requisiciones para descargar lo filtrado, con sus items, ajustes y totales. Solo incluye lo que su alcance le deja ver.'),
+                    'requisiciones.imprimir' => self::p('Descargar o imprimir requisiciones autorizadas', 'exportacion', 'Muestra el botón «PDF» en cada requisición que puede ver, para descargar o imprimir su formato individual.'),
                 ],
             ],
             'plantillas' => [
                 'label' => 'Plantillas',
-                'description' => 'Requisiciones frecuentes guardadas para reutilizar.',
+                'description' => 'Requisiciones frecuentes guardadas para precargar el formulario. Usar una plantilla para crear una requisición requiere también «Registrar requisiciones».',
                 'scope' => ['own' => 'plantillas.ver_propios', 'global' => 'plantillas.ver_todos'],
                 'permissions' => [
-                    'plantillas.ver_propios' => self::p('Ver mis plantillas', 'alcance', 'Solo las plantillas que creaste.'),
-                    'plantillas.ver_todos' => self::p('Ver todas las plantillas', 'alcance', 'Plantillas de todas las personas.', sensitive: true),
-                    'plantillas.registrar' => self::p('Registrar plantillas', 'operacion', 'Crear plantillas propias. Respetan tus permisos de captura.'),
-                    'plantillas.editar' => self::p('Editar mis plantillas', 'operacion', 'Modificar las plantillas que creaste.'),
-                    'plantillas.eliminar' => self::p('Eliminar mis plantillas', 'operacion', 'Dar de baja o reactivar tus plantillas.'),
-                    'plantillas.editar_cualquiera' => self::p('Editar cualquier plantilla autorizada', 'administracion', 'Plantillas de otras personas que puedes ver.'),
-                    'plantillas.eliminar_cualquiera' => self::p('Eliminar cualquier plantilla autorizada', 'administracion', 'Baja de plantillas de otras personas que puedes ver.', sensitive: true),
+                    'plantillas.ver_propios' => self::p('Ver mis plantillas', 'alcance', 'Ve en Plantillas solo las que la persona creó.'),
+                    'plantillas.ver_todos' => self::p('Ver todas las plantillas', 'alcance', 'Ve las plantillas de todas las personas y puede usarlas para precargar una requisición.', sensitive: true),
+                    'plantillas.registrar' => self::p('Registrar plantillas', 'operacion', 'Muestra «Nueva plantilla» para crear plantillas propias. Al capturarlas aplican sus mismos permisos de captura (solicitante, sucursal, corporativo y proveedores que puede elegir).'),
+                    'plantillas.editar' => self::p('Editar mis plantillas', 'operacion', 'Muestra «Editar» en las plantillas que la persona creó.'),
+                    'plantillas.eliminar' => self::p('Eliminar mis plantillas', 'operacion', 'Permite dar de baja y volver a activar las plantillas que la persona creó.'),
+                    'plantillas.editar_cualquiera' => self::p('Editar cualquier plantilla autorizada', 'administracion', 'Muestra «Editar» también en plantillas de otras personas. Para verlas necesita el alcance «Ver todas las plantillas».'),
+                    'plantillas.eliminar_cualquiera' => self::p('Eliminar cualquier plantilla autorizada', 'administracion', 'Permite dar de baja y reactivar plantillas de otras personas. Para verlas necesita el alcance «Ver todas las plantillas».', sensitive: true),
                 ],
             ],
             'pagos' => [
                 'label' => 'Pagos',
-                'description' => 'Autorización y registro de pagos. Heredan el alcance de la requisición.',
+                'description' => 'Autorización, registro y consulta de pagos: pantalla «Pagos» de cada requisición y módulo Pagos del menú. '.$heredado,
                 'scope' => $levels4('pagos'),
                 'permissions' => $scope4('pagos',
                     ['Ver pagos de mis requisiciones', 'Ver pagos de mi sucursal', 'Ver pagos de mi corporativo', 'Ver todos los pagos'],
-                    ['Pagos de las requisiciones que creaste o solicitaste.'],
+                    'Ve el módulo Pagos y la pantalla de pagos solo de las requisiciones que la persona creó o en las que es solicitante.',
+                    'los pagos de las requisiciones',
+                    'los de sus propias requisiciones',
                 ) + [
-                    'pagos.registrar' => self::p('Registrar pagos', 'operacion', 'Capturar pagos totales o parciales con su comprobante.'),
-                    'pagos.editar' => self::p('Editar datos de pago cuando el estado lo permita', 'operacion', 'Fecha general de pago cuando el total ya está cubierto.'),
-                    'pagos.autorizar' => self::p('Autorizar pagos', 'administracion', 'Programar el pago de una requisición capturada.', sensitive: true),
-                    'pagos.rechazar' => self::p('Rechazar pagos', 'administracion', 'Rechazar el pago de una requisición capturada, con motivo.', sensitive: true),
-                    'pagos.descargar' => self::p('Descargar comprobantes de pago', 'exportacion', 'Ver y descargar el archivo de cada pago.'),
-                    'pagos.exportar' => self::p('Exportar pagos autorizados', 'exportacion', 'Listado en PDF o Excel con tus filtros y tu alcance.'),
+                    'pagos.registrar' => self::p('Registrar pagos', 'operacion', 'En la pantalla de pagos de la requisición muestra el formulario para registrar un pago total o parcial con su archivo. Cuando se cubre el total, la requisición pasa a Pagada.'),
+                    'pagos.editar' => self::p('Editar datos de pago cuando el estado lo permita', 'operacion', 'Permite capturar la fecha general de pago de la requisición, solo cuando sus pagos ya cubren el total.'),
+                    'pagos.autorizar' => self::p('Autorizar pagos', 'administracion', 'Muestra «Autorizar pago» en las requisiciones Capturadas que puede ver: pasan a Pago autorizado.', sensitive: true),
+                    'pagos.rechazar' => self::p('Rechazar pagos', 'administracion', 'Muestra «Rechazar pago» en las requisiciones Capturadas que puede ver, indicando el motivo.', sensitive: true),
+                    'pagos.descargar' => self::p('Descargar comprobantes de pago', 'exportacion', 'Permite abrir y descargar el archivo de cada pago (en la requisición y en el módulo Pagos). Sin él ve los pagos, pero no sus archivos.'),
+                    'pagos.exportar' => self::p('Exportar pagos autorizados', 'exportacion', 'Muestra los botones «PDF» y «Excel» en el módulo Pagos para descargar el listado filtrado. Solo incluye lo que su alcance le deja ver.'),
                 ],
             ],
             'comprobaciones' => [
                 'label' => 'Comprobaciones',
-                'description' => 'Facturas, tickets y notas que comprueban el gasto.',
+                'description' => 'Facturas, tickets y notas que comprueban el gasto: pantalla «Comprobaciones» de cada requisición, módulo Comprobantes del menú y folios de factura. '.$heredado,
                 'scope' => $levels4('comprobaciones'),
                 'permissions' => $scope4('comprobaciones',
                     ['Ver comprobaciones de mis requisiciones', 'Ver comprobaciones de mi sucursal', 'Ver comprobaciones de mi corporativo', 'Ver todas las comprobaciones'],
-                    ['Comprobantes de las requisiciones que creaste o solicitaste.'],
+                    'Ve el módulo Comprobantes y la pantalla de comprobaciones solo de las requisiciones que la persona creó o en las que es solicitante.',
+                    'los comprobantes de las requisiciones',
+                    'los de sus propias requisiciones',
                 ) + [
-                    'comprobaciones.subir' => self::p('Subir comprobantes a mis requisiciones', 'operacion', 'Cargar archivos en tus propias requisiciones.'),
-                    'comprobaciones.subir_cualquiera' => self::p('Subir comprobantes a requisiciones autorizadas', 'operacion', 'Cargar archivos en requisiciones de otras personas dentro de tu alcance.'),
-                    'comprobaciones.eliminar_propios' => self::p('Eliminar mis comprobantes', 'operacion', 'Quitar comprobantes que tú cargaste y aún no se aprueban.'),
-                    'comprobaciones.revisar' => self::p('Revisar comprobantes', 'administracion', 'Ver los controles de revisión de cada comprobante.'),
-                    'comprobaciones.aceptar' => self::p('Aceptar comprobantes', 'administracion', 'Aprobar comprobantes.', requires: ['comprobaciones.revisar']),
-                    'comprobaciones.rechazar' => self::p('Rechazar comprobantes', 'administracion', 'Rechazar comprobantes con motivo.', requires: ['comprobaciones.revisar']),
-                    'comprobaciones.eliminar' => self::p('Eliminar cualquier comprobante autorizado', 'administracion', 'Quitar comprobantes de requisiciones dentro de tu alcance.', sensitive: true),
-                    'comprobaciones.administrar_folios' => self::p('Editar folios de factura', 'administracion', 'Corregir folio y monto de facturas registradas.'),
-                    'comprobaciones.exportar' => self::p('Exportar comprobaciones autorizadas', 'exportacion', 'Listado en PDF o Excel con tus filtros y tu alcance.'),
+                    'comprobaciones.subir' => self::p('Subir comprobantes a mis requisiciones', 'operacion', 'En las requisiciones propias (creadas o solicitadas por la persona) permite cargar comprobantes y avisar a quien revisa que ya están completos.'),
+                    'comprobaciones.subir_cualquiera' => self::p('Subir comprobantes a requisiciones autorizadas', 'operacion', 'Lo mismo que «Subir comprobantes a mis requisiciones», pero también en requisiciones de otras personas que puede ver.'),
+                    'comprobaciones.eliminar_propios' => self::p('Eliminar mis comprobantes', 'operacion', 'Permite quitar comprobantes que la propia persona cargó, mientras no estén aprobados.'),
+                    'comprobaciones.revisar' => self::p('Revisar comprobantes', 'administracion', 'Base para revisar: por sí solo no muestra nada. Se agrega solo al marcar «Aceptar comprobantes» o «Rechazar comprobantes», que son los que muestran los botones.'),
+                    'comprobaciones.aceptar' => self::p('Aceptar comprobantes', 'administracion', 'Muestra el botón para aprobar comprobantes pendientes en las requisiciones que puede ver.', requires: ['comprobaciones.revisar']),
+                    'comprobaciones.rechazar' => self::p('Rechazar comprobantes', 'administracion', 'Muestra el botón para rechazar comprobantes pendientes, indicando el motivo, en las requisiciones que puede ver.', requires: ['comprobaciones.revisar']),
+                    'comprobaciones.eliminar' => self::p('Eliminar cualquier comprobante autorizado', 'administracion', 'Permite quitar cualquier comprobante de las requisiciones que puede ver, aunque lo haya cargado otra persona o ya esté aprobado.', sensitive: true),
+                    'comprobaciones.administrar_folios' => self::p('Editar folios de factura', 'administracion', 'En el panel de folios de la pantalla de comprobaciones, permite corregir el monto total de folios de factura ya registrados que estén dentro de su alcance. El número de folio es fijo: nunca se puede cambiar una vez registrado.'),
+                    'comprobaciones.exportar' => self::p('Exportar comprobaciones autorizadas', 'exportacion', 'Muestra los botones «PDF» y «Excel» en el módulo Comprobantes para descargar el listado filtrado. Solo incluye lo que su alcance le deja ver.'),
                 ],
             ],
             'ajustes' => [
                 'label' => 'Ajustes de monto',
-                'description' => 'Devoluciones, faltantes e incrementos sobre el total de una requisición.',
+                'description' => 'Devoluciones, faltantes e incrementos sobre el total de una requisición ya enviada. El flujo es: solicitar, luego autorizar o rechazar, y al final aplicar. '.$heredado,
                 'scope' => $levels4('ajustes'),
                 'permissions' => $scope4('ajustes',
                     ['Ver ajustes de mis requisiciones', 'Ver ajustes de mi sucursal', 'Ver ajustes de mi corporativo', 'Ver todos los ajustes'],
-                    ['Ajustes de las requisiciones que creaste o solicitaste.'],
+                    'Ve el botón «Ver ajustes» y el historial de ajustes solo de las requisiciones que la persona creó o en las que es solicitante.',
+                    'los ajustes de las requisiciones',
+                    'los de sus propias requisiciones',
                 ) + [
-                    'ajustes.solicitar' => self::p('Solicitar ajustes en mis requisiciones', 'operacion', 'Pedir un ajuste de monto en tus requisiciones.'),
-                    'ajustes.solicitar_cualquiera' => self::p('Solicitar ajustes en requisiciones autorizadas', 'operacion', 'Pedir ajustes en requisiciones de otras personas dentro de tu alcance.'),
-                    'ajustes.autorizar' => self::p('Autorizar ajustes', 'administracion', 'Aprobar ajustes pendientes.', sensitive: true),
-                    'ajustes.rechazar' => self::p('Rechazar ajustes', 'administracion', 'Rechazar ajustes pendientes con motivo.'),
-                    'ajustes.aplicar' => self::p('Aplicar ajustes autorizados', 'administracion', 'Cambiar el total de la requisición con un ajuste aprobado.', sensitive: true),
+                    'ajustes.solicitar' => self::p('Solicitar ajustes en mis requisiciones', 'operacion', 'Muestra «Ajustes» con el formulario para pedir un ajuste de monto en requisiciones propias ya enviadas (no en borradores ni eliminadas). También puede cancelar sus solicitudes pendientes.'),
+                    'ajustes.solicitar_cualquiera' => self::p('Solicitar ajustes en requisiciones autorizadas', 'operacion', 'Lo mismo que «Solicitar ajustes en mis requisiciones», pero también en requisiciones de otras personas que puede ver.'),
+                    'ajustes.autorizar' => self::p('Autorizar ajustes', 'administracion', 'Muestra «Aprobar» en los ajustes pendientes de las requisiciones que puede ver. Aprobar no cambia el total: eso lo hace «Aplicar ajustes autorizados».', sensitive: true),
+                    'ajustes.rechazar' => self::p('Rechazar ajustes', 'administracion', 'Muestra el botón para rechazar, con motivo, los ajustes pendientes de las requisiciones que puede ver.'),
+                    'ajustes.aplicar' => self::p('Aplicar ajustes autorizados', 'administracion', 'Muestra «Aplicar» en los ajustes ya aprobados: cambia el monto total de la requisición.', sensitive: true),
                 ],
             ],
             'proveedores' => [
                 'label' => 'Proveedores',
-                'description' => 'Beneficiarios de los pagos.',
+                'description' => 'Beneficiarios de los pagos. Cada proveedor pertenece a quien lo registró. Para elegir proveedores al capturar no hace falta ver este módulo: basta con que sean propios o con «Utilizar cualquier proveedor activo».',
                 'scope' => ['own' => 'proveedores.ver', 'global' => 'proveedores.ver_todos'],
                 'permissions' => [
-                    'proveedores.ver' => self::p('Ver mis proveedores', 'alcance', 'Proveedores que registraste.'),
-                    'proveedores.ver_todos' => self::p('Ver todos los proveedores', 'alcance', 'Proveedores de todas las personas.', sensitive: true),
-                    'proveedores.registrar' => self::p('Registrar proveedores', 'operacion', 'Dar de alta proveedores propios.'),
-                    'proveedores.usar_todos' => self::p('Utilizar cualquier proveedor activo en requisiciones', 'operacion', 'Elegir proveedores activos de otras personas al capturar, sin poder administrarlos.', scoped: false),
-                    'proveedores.editar' => self::p('Editar proveedores autorizados', 'administracion', 'Modificar proveedores dentro de tu alcance.'),
-                    'proveedores.desactivar' => self::p('Desactivar proveedores autorizados', 'administracion', 'Dar de baja proveedores dentro de tu alcance.'),
-                    'proveedores.reactivar' => self::p('Reactivar proveedores autorizados', 'administracion', 'Volver a activar proveedores dentro de tu alcance.'),
-                    'proveedores.exportar' => self::p('Exportar proveedores autorizados', 'exportacion', 'Listado en PDF o Excel con tu alcance.'),
+                    'proveedores.ver' => self::p('Ver mis proveedores', 'alcance', 'Ve en Proveedores solo los que la persona registró.'),
+                    'proveedores.ver_todos' => self::p('Ver todos los proveedores', 'alcance', 'Ve los proveedores de todas las personas y puede elegir cualquiera activo al capturar.', sensitive: true),
+                    'proveedores.registrar' => self::p('Registrar proveedores', 'operacion', 'Muestra «Nuevo proveedor» (en Proveedores y como acceso desde el formulario de requisición) para darlos de alta; la persona queda como su dueña.'),
+                    'proveedores.usar_todos' => self::p('Utilizar cualquier proveedor activo en requisiciones', 'operacion', 'Al capturar requisiciones y plantillas, deja elegir cualquier proveedor activo, no solo los propios. No da acceso al módulo Proveedores ni permite modificarlos.', scoped: false),
+                    'proveedores.editar' => self::p('Editar proveedores autorizados', 'administracion', 'Muestra «Editar» en los proveedores que puede ver (los propios o todos, según su alcance).'),
+                    'proveedores.desactivar' => self::p('Desactivar proveedores autorizados', 'administracion', 'Permite dar de baja (también en lote) los proveedores que puede ver; dejan de aparecer al capturar.'),
+                    'proveedores.reactivar' => self::p('Reactivar proveedores autorizados', 'administracion', 'Muestra «Reactivar» en los proveedores dados de baja que puede ver.'),
+                    'proveedores.exportar' => self::p('Exportar proveedores autorizados', 'exportacion', 'Muestra los botones «PDF» y «Excel» en Proveedores para descargar el listado. Solo incluye lo que su alcance le deja ver.'),
                 ],
             ],
             'conceptos' => [
                 'label' => 'Conceptos',
-                'description' => 'Clasificación del gasto (catálogo general).',
+                'description' => 'Catálogo general para clasificar el gasto. Quien captura ve los conceptos activos en el formulario aunque no tenga acceso a este módulo.',
                 'scope' => ['global' => 'conceptos.ver'],
-                'permissions' => self::crud('conceptos', 'Ver conceptos', 'Consultar el catálogo de conceptos.', 'conceptos'),
+                'permissions' => self::crud('conceptos', 'Ver conceptos', 'Muestra el módulo Conceptos en el menú para consultar el catálogo completo, activos e inactivos.', [
+                    'plural' => 'conceptos', 'singular' => 'concepto', 'pantalla' => 'Conceptos', 'boton' => 'Nuevo concepto',
+                    'baja' => 'Dejan de aparecer al capturar requisiciones.',
+                ]),
             ],
             'corporativos' => [
                 'label' => 'Corporativos',
-                'description' => 'Empresas del grupo que compran.',
+                'description' => 'Empresas del grupo que compran. Desactivar un corporativo también da de baja sus sucursales y áreas.',
                 'scope' => ['own' => 'corporativos.ver_propio', 'global' => 'corporativos.ver'],
                 'permissions' => [
-                    'corporativos.ver_propio' => self::p('Ver mi corporativo', 'alcance', 'El corporativo de la sucursal de tu colaborador.'),
-                    'corporativos.ver' => self::p('Ver todos los corporativos', 'alcance', 'Todos los corporativos del sistema.', sensitive: true),
-                ] + self::actions('corporativos', 'corporativos'),
+                    'corporativos.ver_propio' => self::p('Ver mi corporativo', 'alcance', 'Ve en Corporativos solo el corporativo al que pertenece la sucursal de su colaborador.'),
+                    'corporativos.ver' => self::p('Ver todos los corporativos', 'alcance', 'Ve todos los corporativos del sistema.', sensitive: true),
+                ] + self::actions('corporativos', [
+                    'plural' => 'corporativos', 'singular' => 'corporativo', 'pantalla' => 'Corporativos', 'boton' => 'Nuevo corporativo',
+                    'alta' => ' (con su logo)',
+                    'baja' => 'También se dan de baja sus sucursales y áreas.',
+                ]),
             ],
             'sucursales' => [
                 'label' => 'Sucursales',
-                'description' => 'Ubicaciones de cada corporativo.',
+                'description' => 'Ubicaciones de cada corporativo. Las requisiciones y los colaboradores se asignan a una sucursal.',
                 'scope' => ['own' => 'sucursales.ver_propia', 'corporativo' => 'sucursales.ver_corporativo', 'global' => 'sucursales.ver'],
                 'permissions' => [
-                    'sucursales.ver_propia' => self::p('Ver mi sucursal', 'alcance', 'La sucursal de tu colaborador.'),
-                    'sucursales.ver_corporativo' => self::p('Ver sucursales de mi corporativo', 'alcance', 'Todas las sucursales de tu corporativo.'),
-                    'sucursales.ver' => self::p('Ver todas las sucursales', 'alcance', 'Sucursales de todos los corporativos.', sensitive: true),
-                ] + self::actions('sucursales', 'sucursales'),
+                    'sucursales.ver_propia' => self::p('Ver mi sucursal', 'alcance', 'Ve en Sucursales solo la sucursal de su colaborador.'),
+                    'sucursales.ver_corporativo' => self::p('Ver sucursales de mi corporativo', 'alcance', 'Ve todas las sucursales del corporativo de su colaborador.'),
+                    'sucursales.ver' => self::p('Ver todas las sucursales', 'alcance', 'Ve las sucursales de todos los corporativos.', sensitive: true),
+                ] + self::actions('sucursales', [
+                    'plural' => 'sucursales', 'singular' => 'sucursal', 'pantalla' => 'Sucursales', 'boton' => 'Nueva sucursal',
+                    'alta' => ' en los corporativos que puede ver',
+                    'baja' => 'Dejan de aparecer al capturar requisiciones.',
+                ]),
             ],
             'areas' => [
                 'label' => 'Áreas',
-                'description' => 'Departamentos de cada corporativo.',
+                'description' => 'Departamentos de cada corporativo, que se asignan a los colaboradores.',
                 'scope' => ['own' => 'areas.ver_propia', 'corporativo' => 'areas.ver_corporativo', 'global' => 'areas.ver'],
                 'permissions' => [
-                    'areas.ver_propia' => self::p('Ver mi área', 'alcance', 'El área de tu colaborador.'),
-                    'areas.ver_corporativo' => self::p('Ver áreas de mi corporativo', 'alcance', 'Todas las áreas de tu corporativo.'),
-                    'areas.ver' => self::p('Ver todas las áreas', 'alcance', 'Áreas de todos los corporativos.', sensitive: true),
-                ] + self::actions('áreas', 'areas'),
+                    'areas.ver_propia' => self::p('Ver mi área', 'alcance', 'Ve en Áreas solo el área de su colaborador.'),
+                    'areas.ver_corporativo' => self::p('Ver áreas de mi corporativo', 'alcance', 'Ve todas las áreas del corporativo de su colaborador.'),
+                    'areas.ver' => self::p('Ver todas las áreas', 'alcance', 'Ve las áreas de todos los corporativos.', sensitive: true),
+                ] + self::actions('areas', [
+                    'plural' => 'áreas', 'singular' => 'área', 'pantalla' => 'Áreas', 'boton' => 'Nueva área',
+                    'alta' => ' en los corporativos que puede ver',
+                    'baja' => 'Ya no se pueden asignar a colaboradores.',
+                ]),
             ],
             'colaboradores' => [
                 'label' => 'Colaboradores',
-                'description' => 'Personas de la organización (con o sin cuenta de acceso).',
+                'description' => 'Personas de la organización, tengan o no cuenta para entrar. La sucursal del colaborador vinculado a una cuenta define qué ve esa cuenta con los alcances «mi sucursal» y «mi corporativo».',
                 'scope' => ['own' => 'colaboradores.ver_propio', 'sucursal' => 'colaboradores.ver_sucursal', 'corporativo' => 'colaboradores.ver_corporativo', 'global' => 'colaboradores.ver'],
                 'permissions' => [
-                    'colaboradores.ver_propio' => self::p('Ver mi información de colaborador', 'alcance', 'Solo tu propio registro.'),
-                    'colaboradores.ver_sucursal' => self::p('Ver colaboradores de mi sucursal', 'alcance', 'Personas de la sucursal de tu colaborador.'),
-                    'colaboradores.ver_corporativo' => self::p('Ver colaboradores de mi corporativo', 'alcance', 'Personas de todas las sucursales de tu corporativo.'),
-                    'colaboradores.ver' => self::p('Ver todos los colaboradores', 'alcance', 'Personas de todos los corporativos.', sensitive: true),
-                    'colaboradores.registrar' => self::p('Registrar colaboradores', 'operacion', 'Alta de personas en las sucursales de tu alcance.'),
-                    'colaboradores.editar' => self::p('Editar colaboradores autorizados', 'administracion', 'Modificar personas dentro de tu alcance.'),
-                    'colaboradores.desactivar' => self::p('Desactivar colaboradores autorizados', 'administracion', 'Baja de personas; también desactiva su cuenta.', sensitive: true),
-                    'colaboradores.reactivar' => self::p('Reactivar colaboradores autorizados', 'administracion', 'Volver a activar personas dentro de tu alcance.'),
-                    'colaboradores.exportar' => self::p('Exportar colaboradores autorizados', 'exportacion', 'Listado en PDF o Excel con tu alcance.'),
+                    'colaboradores.ver_propio' => self::p('Ver mi información de colaborador', 'alcance', 'Ve en Colaboradores solo su propio registro.'),
+                    'colaboradores.ver_sucursal' => self::p('Ver colaboradores de mi sucursal', 'alcance', 'Ve a las personas de la sucursal de su colaborador.'),
+                    'colaboradores.ver_corporativo' => self::p('Ver colaboradores de mi corporativo', 'alcance', 'Ve a las personas de todas las sucursales del corporativo de su colaborador.'),
+                    'colaboradores.ver' => self::p('Ver todos los colaboradores', 'alcance', 'Ve a las personas de todos los corporativos y sucursales.', sensitive: true),
+                    'colaboradores.registrar' => self::p('Registrar colaboradores', 'operacion', 'Muestra «Registrar colaborador» para dar de alta personas en las sucursales que su alcance le deja ver. No crea cuenta de acceso: eso es «Registrar usuarios».'),
+                    'colaboradores.editar' => self::p('Editar colaboradores autorizados', 'administracion', 'Muestra «Editar» en los colaboradores que puede ver para cambiar sus datos, sucursal y área (solo hacia sucursales de su alcance).'),
+                    'colaboradores.desactivar' => self::p('Desactivar colaboradores autorizados', 'administracion', 'Muestra «Dar de baja» (también en lote) en los colaboradores que puede ver. Si la persona tiene cuenta, también se desactiva y ya no puede entrar.', sensitive: true),
+                    'colaboradores.reactivar' => self::p('Reactivar colaboradores autorizados', 'administracion', 'Muestra «Reactivar» en los colaboradores dados de baja que puede ver. Su cuenta de acceso no se reactiva sola.'),
+                    'colaboradores.exportar' => self::p('Exportar colaboradores autorizados', 'exportacion', 'Muestra los botones «PDF» y «Excel» en Colaboradores para descargar el listado. Solo incluye lo que su alcance le deja ver; la cuenta vinculada aparece solo con «Consultar relación usuario–colaborador».'),
                 ],
             ],
             'usuarios' => [
                 'label' => 'Usuarios',
-                'description' => 'Cuentas de acceso al sistema.',
+                'description' => 'Cuentas para entrar al sistema. Los alcances de sucursal y corporativo se calculan con el colaborador vinculado a cada cuenta; las cuentas sin colaborador solo se ven con «Ver todos los usuarios».',
                 'scope' => ['sucursal' => 'usuarios.ver_sucursal', 'corporativo' => 'usuarios.ver_corporativo', 'global' => 'usuarios.ver'],
                 'permissions' => [
-                    'usuarios.ver_sucursal' => self::p('Ver usuarios de mi sucursal', 'alcance', 'Cuentas vinculadas a colaboradores de tu sucursal.'),
-                    'usuarios.ver_corporativo' => self::p('Ver usuarios de mi corporativo', 'alcance', 'Cuentas vinculadas a colaboradores de tu corporativo.'),
-                    'usuarios.ver' => self::p('Ver todos los usuarios', 'alcance', 'Todas las cuentas, incluidas las que no tienen colaborador.', sensitive: true),
-                    'usuarios.registrar' => self::p('Registrar usuarios', 'operacion', 'Crear cuentas para colaboradores de tu alcance.', sensitive: true),
-                    'usuarios.ver_vinculo' => self::p('Consultar relación usuario–colaborador', 'operacion', 'Ver qué colaborador tiene cada cuenta y viceversa.'),
-                    'usuarios.editar' => self::p('Editar usuarios autorizados', 'administracion', 'Nombre, correo y colaborador de cuentas de tu alcance.', sensitive: true),
-                    'usuarios.cambiar_rol' => self::p('Cambiar el rol de usuarios autorizados', 'administracion', 'Solo puedes asignar roles con permisos que tú también tienes.', sensitive: true, requires: ['usuarios.editar']),
-                    'usuarios.desactivar' => self::p('Desactivar usuarios autorizados', 'administracion', 'La persona deja de poder entrar de inmediato.', sensitive: true),
-                    'usuarios.reactivar' => self::p('Reactivar usuarios autorizados', 'administracion', 'Devolver el acceso a una cuenta desactivada.'),
-                    'usuarios.restablecer_contrasena' => self::p('Restablecer contraseñas', 'administracion', 'Enviar una contraseña temporal por correo.', sensitive: true),
+                    'usuarios.ver_sucursal' => self::p('Ver usuarios de mi sucursal', 'alcance', 'Ve en Usuarios su propia cuenta y las de colaboradores de la sucursal de su colaborador.'),
+                    'usuarios.ver_corporativo' => self::p('Ver usuarios de mi corporativo', 'alcance', 'Ve su propia cuenta y las de colaboradores de todas las sucursales del corporativo de su colaborador.'),
+                    'usuarios.ver' => self::p('Ver todos los usuarios', 'alcance', 'Ve todas las cuentas del sistema, incluidas las que no tienen colaborador vinculado.', sensitive: true),
+                    'usuarios.registrar' => self::p('Registrar usuarios', 'operacion', 'Muestra «Registrar usuario» (y «Crear usuario» en Colaboradores) para crear cuentas de colaboradores de su alcance. Solo puede asignar roles cuyos permisos también tenga; la contraseña temporal llega por correo.', sensitive: true),
+                    'usuarios.ver_vinculo' => self::p('Consultar relación usuario–colaborador', 'operacion', 'Muestra qué colaborador corresponde a cada cuenta (en Usuarios) y qué cuenta tiene cada colaborador (en Colaboradores y en su exportación).'),
+                    'usuarios.editar' => self::p('Editar usuarios autorizados', 'administracion', 'Muestra «Editar» en las cuentas que puede ver para cambiar nombre, correo y colaborador vinculado. Cambiar el rol, desactivar o reactivar requieren sus propios permisos.', sensitive: true),
+                    'usuarios.cambiar_rol' => self::p('Cambiar el rol de usuarios autorizados', 'administracion', 'En la edición de una cuenta, permite cambiarle el rol. Solo puede asignar roles cuyos permisos también tenga. Al marcarlo se agrega solo «Editar usuarios autorizados».', sensitive: true, requires: ['usuarios.editar']),
+                    'usuarios.desactivar' => self::p('Desactivar usuarios autorizados', 'administracion', 'Muestra «Desactivar» en las cuentas que puede ver: la persona deja de poder entrar de inmediato. No puede desactivar su propia cuenta ni dejar el sistema sin administrador.', sensitive: true),
+                    'usuarios.reactivar' => self::p('Reactivar usuarios autorizados', 'administracion', 'Muestra «Reactivar» en las cuentas desactivadas que puede ver, para devolverles el acceso.'),
+                    'usuarios.restablecer_contrasena' => self::p('Restablecer contraseñas', 'administracion', 'En la edición de las cuentas que puede ver, muestra «Restablecer contraseña»: genera una contraseña temporal y la envía al correo de la persona.', sensitive: true),
                 ],
             ],
             'roles' => [
                 'label' => 'Roles y permisos',
-                'description' => 'Qué puede hacer cada grupo de personas.',
+                'description' => 'Qué puede ver y hacer cada grupo de personas, y qué avisos recibe. Un cambio en un rol aplica de inmediato a todas sus cuentas.',
                 'scope' => ['global' => 'roles.ver'],
                 'permissions' => [
-                    'roles.ver' => self::p('Ver roles', 'alcance', 'Consultar roles, permisos y notificaciones.'),
-                    'roles.registrar' => self::p('Registrar roles', 'administracion', 'Crear roles personalizados.', sensitive: true),
-                    'roles.editar' => self::p('Editar roles y permisos', 'administracion', 'Cambiar permisos y notificaciones de los roles.', sensitive: true),
-                    'roles.eliminar' => self::p('Eliminar roles', 'administracion', 'Eliminar roles sin usuarios asignados.', sensitive: true),
+                    'roles.ver' => self::p('Ver roles', 'alcance', 'Muestra el módulo Roles y permisos para consultar cada rol, sus permisos y notificaciones, sin poder modificarlos.'),
+                    'roles.registrar' => self::p('Registrar roles', 'administracion', 'Muestra «Registrar rol» para crear roles personalizados con los permisos y notificaciones que se elijan.', sensitive: true),
+                    'roles.editar' => self::p('Editar roles y permisos', 'administracion', 'Permite cambiar los permisos, la descripción y las notificaciones de los roles (Administrador conserva siempre todos sus permisos). Junto con «Editar usuarios autorizados» da control total del sistema.', sensitive: true),
+                    'roles.eliminar' => self::p('Eliminar roles', 'administracion', 'Permite eliminar roles personalizados que no tengan usuarios asignados. Los roles iniciales del sistema no se pueden eliminar.', sensitive: true),
                 ],
             ],
             'logs' => [
                 'label' => 'Bitácora',
-                'description' => 'Quién hizo qué y cuándo. Es de solo lectura e inmutable.',
+                'description' => 'Registro de quién hizo qué y cuándo. Es de solo lectura: nadie puede editarlo ni borrarlo.',
                 'scope' => ['own' => 'logs.ver_propios', 'sucursal' => 'logs.ver_sucursal', 'corporativo' => 'logs.ver_corporativo', 'global' => 'logs.ver'],
                 'permissions' => [
-                    'logs.ver_propios' => self::p('Ver mi actividad', 'alcance', 'Solo los movimientos que hiciste tú.'),
-                    'logs.ver_sucursal' => self::p('Ver actividad de mi sucursal', 'alcance', 'Movimientos de personas de tu sucursal.'),
-                    'logs.ver_corporativo' => self::p('Ver actividad de mi corporativo', 'alcance', 'Movimientos de personas de tu corporativo.'),
-                    'logs.ver' => self::p('Ver toda la bitácora', 'alcance', 'Todos los movimientos del sistema.', sensitive: true),
+                    'logs.ver_propios' => self::p('Ver mi actividad', 'alcance', 'Ve en Bitácora solo los movimientos que hizo la propia persona.'),
+                    'logs.ver_sucursal' => self::p('Ver actividad de mi sucursal', 'alcance', 'Ve los movimientos hechos por personas de la sucursal de su colaborador, además de los propios.'),
+                    'logs.ver_corporativo' => self::p('Ver actividad de mi corporativo', 'alcance', 'Ve los movimientos hechos por personas de todas las sucursales del corporativo de su colaborador, además de los propios.'),
+                    'logs.ver' => self::p('Ver toda la bitácora', 'alcance', 'Ve todos los movimientos del sistema, de cualquier persona.', sensitive: true),
                 ],
             ],
             'configuracion' => [
                 'label' => 'Configuración',
-                'description' => 'Colores, logo y aplicación móvil.',
+                'description' => 'Apariencia del sistema: colores, paleta de gráficas, logo y enlace de la aplicación instalable. Los cambios se ven para todas las personas.',
                 'scope' => ['global' => 'configuracion.ver'],
                 'permissions' => [
-                    'configuracion.ver' => self::p('Ver configuración', 'alcance', 'Consultar la configuración visual.'),
-                    'configuracion.administrar' => self::p('Administrar configuración', 'administracion', 'Cambiar colores, logo y ajustes generales.', sensitive: true),
+                    'configuracion.ver' => self::p('Ver configuración', 'alcance', 'Muestra el módulo Configuración para consultar los ajustes actuales, sin poder cambiarlos.'),
+                    'configuracion.administrar' => self::p('Administrar configuración', 'administracion', 'Permite cambiar colores, paleta de gráficas, logo y enlace del instalador de la app, y restaurar los valores predeterminados.', sensitive: true),
                 ],
             ],
         ];
@@ -526,7 +571,7 @@ final class PermissionCatalog
                     ];
                 }
                 if ($perms !== []) {
-                    $groups[] = ['key' => $groupKey, 'label' => $groupLabel, 'permissions' => $perms];
+                    $groups[] = ['key' => $groupKey, 'label' => $groupLabel, 'description' => self::GROUP_HINTS[$groupKey] ?? '', 'permissions' => $perms];
                 }
             }
 
@@ -625,17 +670,17 @@ final class PermissionCatalog
     {
         return [
             self::ROLE_ADMIN => [
-                'descripcion' => 'Acceso total al sistema, usuarios, roles y configuración.',
+                'descripcion' => 'Control total: ve todo y puede hacer cualquier acción, incluidos usuarios, roles y configuración. Conserva siempre todos los permisos, también los que se agreguen después.',
                 'receive_all' => true,
                 'topics' => [],
             ],
             self::ROLE_CONTABILIDAD => [
-                'descripcion' => 'Autoriza pagos, revisa comprobaciones y ajustes, y administra catálogos.',
+                'descripcion' => 'Ve las requisiciones de todo el sistema; autoriza y registra pagos, acepta o rechaza comprobantes, autoriza y aplica ajustes, y administra corporativos, sucursales, áreas, conceptos y proveedores.',
                 'receive_all' => false,
                 'topics' => ['requisiciones', 'pagos', 'comprobaciones', 'ajustes'],
             ],
             self::ROLE_COLABORADOR => [
-                'descripcion' => 'Registra y da seguimiento a sus propias requisiciones.',
+                'descripcion' => 'Captura y envía sus propias requisiciones, sube sus comprobantes, pide ajustes y consulta sus pagos. Administra solo sus proveedores y plantillas.',
                 'receive_all' => false,
                 'topics' => [],
             ],
@@ -655,20 +700,32 @@ final class PermissionCatalog
         ], fn ($v) => $v !== null);
     }
 
-    /** Acciones estándar de un catálogo organizacional (sin el permiso de ver). */
-    private static function actions(string $plural, string $key): array
+    /**
+     * Acciones estándar de un catálogo organizacional (sin el permiso de ver),
+     * con textos propios del módulo. $t: plural, singular, pantalla (nombre
+     * del módulo en el menú), boton (botón de alta), y opcionalmente alta
+     * (dónde se registra) y baja (efecto adicional de dar de baja).
+     *
+     * @param  array<string, string>  $t
+     */
+    private static function actions(string $key, array $t): array
     {
+        ['plural' => $plural, 'singular' => $singular, 'pantalla' => $pantalla, 'boton' => $boton] = $t;
+        $alta = $t['alta'] ?? '';
+        $baja = isset($t['baja']) ? ' '.$t['baja'] : '';
+
         return [
-            "{$key}.registrar" => self::p("Registrar {$plural}", 'operacion', "Dar de alta {$plural} dentro de tu alcance."),
-            "{$key}.editar" => self::p("Editar {$plural}", 'administracion', "Modificar {$plural} que puedes ver."),
-            "{$key}.desactivar" => self::p("Desactivar {$plural}", 'administracion', "Baja lógica de {$plural} que puedes ver.", sensitive: true),
-            "{$key}.reactivar" => self::p("Reactivar {$plural}", 'administracion', "Volver a activar {$plural} que puedes ver."),
-            "{$key}.exportar" => self::p("Exportar {$plural}", 'exportacion', 'PDF o Excel con tus filtros y tu alcance.'),
+            "{$key}.registrar" => self::p("Registrar {$plural}", 'operacion', "Muestra el botón «{$boton}» en {$pantalla} y permite dar de alta {$plural}{$alta}."),
+            "{$key}.editar" => self::p("Editar {$plural}", 'administracion', "Muestra «Editar» en cada {$singular} que puede ver y permite cambiar sus datos."),
+            "{$key}.desactivar" => self::p("Desactivar {$plural}", 'administracion', "Permite dar de baja (también en lote) {$plural} que puede ver. No se borran: se conservan en el historial.{$baja}", sensitive: true),
+            "{$key}.reactivar" => self::p("Reactivar {$plural}", 'administracion', "Muestra el botón «Activar» para volver a dar de alta {$plural} que se dieron de baja, dentro de su alcance."),
+            "{$key}.exportar" => self::p("Exportar {$plural}", 'exportacion', "Muestra los botones «PDF» y «Excel» en {$pantalla} para descargar el listado filtrado. Solo incluye lo que su alcance le deja ver."),
         ];
     }
 
-    private static function crud(string $plural, string $verLabel, string $verDesc, string $key): array
+    /** Catálogo con un solo nivel de lectura más las acciones estándar. */
+    private static function crud(string $key, string $verLabel, string $verDesc, array $t): array
     {
-        return ["{$key}.ver" => self::p($verLabel, 'alcance', $verDesc)] + self::actions($plural, $key);
+        return ["{$key}.ver" => self::p($verLabel, 'alcance', $verDesc)] + self::actions($key, $t);
     }
 }

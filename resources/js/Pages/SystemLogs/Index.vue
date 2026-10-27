@@ -88,6 +88,7 @@ const actionStyle: Record<string, { icon: unknown; cls: string }> = {
     CREACION: { icon: Plus, cls: 'bg-brand-success/10 text-brand-success ring-brand-success/20' },
     ACTUALIZACION: { icon: FilePen, cls: 'bg-brand-accent/10 text-brand-accent ring-brand-accent/20' },
     CAMBIO_ESTATUS: { icon: ArrowRightLeft, cls: 'bg-brand-warning/10 text-brand-warning ring-brand-warning/20' },
+    CORRECCION: { icon: FilePen, cls: 'bg-brand-warning/10 text-brand-warning ring-brand-warning/20' },
     BAJA: { icon: Ban, cls: 'bg-brand-danger/10 text-brand-danger ring-brand-danger/20' },
     ELIMINACION: { icon: Trash2, cls: 'bg-brand-danger/10 text-brand-danger ring-brand-danger/20' },
     REACTIVACION: { icon: RotateCcw, cls: 'bg-brand-success/10 text-brand-success ring-brand-success/20' },
@@ -104,6 +105,7 @@ const FIELD_LABELS: Record<string, string> = {
     clabe: 'CLABE', banco: 'Banco', observaciones: 'Observaciones', telefono: 'Teléfono', puesto: 'Puesto', rol: 'Rol (legado)',
     apellido_paterno: 'Apellido paterno', apellido_materno: 'Apellido materno', codigo: 'Alias', direccion: 'Dirección',
     tipo_doc: 'Tipo de documento', monto: 'Monto', comentario_revision: 'Comentario de revisión', user_duenio_id: 'Dueño',
+    items_sucursal: 'Sucursal de los items',
 }
 const fieldLabel = (k: string) => FIELD_LABELS[k] ?? k.replace(/_id$/, '').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
 const show = (v: unknown) => {

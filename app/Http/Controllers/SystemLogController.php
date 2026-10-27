@@ -40,6 +40,7 @@ class SystemLogController extends Controller
         'CREACION' => 'Creación',
         'ACTUALIZACION' => 'Actualización',
         'CAMBIO_ESTATUS' => 'Cambio de estatus',
+        'CORRECCION' => 'Corrección de datos',
         'BAJA' => 'Baja (eliminación lógica)',
         'REACTIVACION' => 'Reactivación',
         'ACTIVACION' => 'Reactivación (versión anterior)',

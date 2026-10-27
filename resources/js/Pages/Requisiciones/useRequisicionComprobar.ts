@@ -3,6 +3,7 @@ import { router, useForm, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
 import type { RequisicionComprobarPageProps, ComprobanteRow } from './Comprobar.types'
 import { usePermissions } from '@/Composables/usePermissions'
+import { escapeHtml } from '@/Utils/dom'
 
 type SubmitOpts = { onAfterSuccess?: () => void }
 type ReviewStatus = 'APROBADO' | 'RECHAZADO'
@@ -653,7 +654,8 @@ const canUploadMore = computed(() => {
         <div class="space-y-3">
           <div>
             <label class="block text-sm font-semibold text-left">Folio</label>
-            <input id="swal-folio" class="swal2-input" value="${String(current.folio ?? '').replace(/"/g, '&quot;')}" />
+            <input class="swal2-input" value="${escapeHtml(String(current.folio ?? ''))}" disabled readonly aria-describedby="swal-folio-nota" style="opacity:.7;cursor:not-allowed" />
+            <p id="swal-folio-nota" class="mt-1 text-xs text-left text-slate-500">El folio no se puede modificar.</p>
           </div>
           <div>
             <label class="block text-sm font-semibold text-left">Monto total (opcional)</label>
@@ -666,13 +668,9 @@ const canUploadMore = computed(() => {
       confirmButtonText: 'Guardar',
       cancelButtonText: 'Cancelar',
       preConfirm: () => {
-        const folio = (document.getElementById('swal-folio') as HTMLInputElement)?.value?.trim()
+        // Solo se envía el monto: el número de folio es fijo.
         const monto = (document.getElementById('swal-monto') as HTMLInputElement)?.value?.trim()
-        if (!folio) {
-          Swal.showValidationMessage('El folio es requerido.')
-          return
-        }
-        return { folio, monto_total: monto || null }
+        return { monto_total: monto || null }
       },
     })
 

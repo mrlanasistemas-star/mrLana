@@ -25,9 +25,11 @@ use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RequisicionAjusteController;
 use App\Http\Controllers\RequisicionComprobanteController;
 use App\Http\Controllers\RequisicionController;
+use App\Http\Controllers\RequisicionCorreccionController;
 use App\Http\Controllers\RequisicionEliminacionController;
 use App\Http\Controllers\RequisicionPagoController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SeoController;
 use App\Http\Controllers\SucursalController;
 use App\Http\Controllers\SystemLogController;
 use App\Http\Controllers\UsuarioController;
@@ -54,6 +56,10 @@ Route::get('/', function () {
 
     return redirect()->route('login');
 });
+
+// SEO: públicos y generados con APP_URL (sin archivos estáticos en public/).
+Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     // Dashboard: la vista (personal, sucursal, corporativo o general) se elige con ?vista=.
@@ -246,6 +252,14 @@ Route::middleware('auth')->group(function () use ($scope, $any) {
     Route::post('/requisiciones/eliminaciones/{solicitud}/cancelar', [RequisicionEliminacionController::class, 'cancel'])
         ->middleware($any('requisiciones.solicitar_eliminacion', 'requisiciones.autorizar_eliminacion'))
         ->name('requisiciones.eliminacion.cancel');
+
+    // Corrección de datos de cabecera (concepto, solicitante, sucursal…) por administración
+    Route::get('/requisiciones/{requisicion}/corregir', [RequisicionCorreccionController::class, 'edit'])
+        ->middleware('permission:requisiciones.corregir')
+        ->name('requisiciones.corregir');
+    Route::patch('/requisiciones/{requisicion}/corregir', [RequisicionCorreccionController::class, 'update'])
+        ->middleware('permission:requisiciones.corregir')
+        ->name('requisiciones.corregir.update');
 
     // Pagos (heredan el alcance de la requisición)
     Route::post('/requisiciones/{requisicion}/autorizar-pago', [RequisicionPagoController::class, 'authorizePago'])

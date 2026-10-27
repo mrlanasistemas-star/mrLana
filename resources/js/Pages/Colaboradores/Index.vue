@@ -460,7 +460,7 @@ const inputClass =
                         <p v-if="errors.corporativo_id" class="field-error" role="alert">{{ errors.corporativo_id }}</p>
                     </div>
                     <div>
-                        <SearchableSelect v-model="form.sucursal_id" :options="sucursalesForm" label="Sucursal *" placeholder="Seleccione…" rounded="xl" :error="errors.sucursal_id" />
+                        <SearchableSelect v-model="form.sucursal_id" :options="sucursalesForm" label="Sucursal *" placeholder="Seleccione…" rounded="xl" />
                         <p v-if="errors.sucursal_id" class="field-error" role="alert">{{ errors.sucursal_id }}</p>
                     </div>
                     <div>

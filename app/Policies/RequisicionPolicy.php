@@ -91,6 +91,18 @@ class RequisicionPolicy
         return $user->can('requisiciones.autorizar_eliminacion') && $this->view($user, $requisicion);
     }
 
+    /**
+     * Corregir datos de cabecera (concepto, solicitante, sucursal, etc.) de
+     * una requisición ya registrada, en cualquier estatus salvo eliminada.
+     * Solo dentro del alcance de lectura: el permiso no amplía lo que se ve.
+     */
+    public function correct(User $user, Requisicion $requisicion): bool
+    {
+        return $requisicion->status !== 'ELIMINADA'
+            && $user->can('requisiciones.corregir')
+            && $this->view($user, $requisicion);
+    }
+
     /* ------------------------------------------------------------ Ajustes */
 
     public function viewAjustes(User $user, Requisicion $requisicion): bool

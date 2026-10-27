@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { AlertTriangle, CheckSquare, ChevronDown, Info, Lock, ShieldAlert, Square } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { AlertTriangle, CheckSquare, ChevronDown, Info, Link2, Lock, ShieldAlert, Square } from 'lucide-vue-next'
 import ScopeSelector from './ScopeSelector.vue'
 import type { ModuleUi, PermissionItem, ScopeKey } from '../useRoleForm'
 
@@ -21,6 +21,8 @@ const props = defineProps<{
     notice?: string
     locked: boolean
     isSelected: (name: string) => boolean
+    /** Nombre visible de un permiso (para «Requiere: …»). */
+    labelOf: (name: string, fromModule?: string) => string
     defaultOpen?: boolean
 }>()
 
@@ -33,7 +35,16 @@ const emit = defineEmits<{
 const open = ref(props.defaultOpen ?? false)
 const contentId = `mod-${props.module.key}`
 
-const requiresLabel = (p: PermissionItem) => p.requires.length ? 'Incluye automáticamente sus requisitos.' : ''
+const requiresLabels = (p: PermissionItem) => p.requires.map((r) => props.labelOf(r, props.module.label))
+
+/** Explicación breve del alcance: los niveles de sucursal y corporativo dependen del colaborador vinculado. */
+const scopeHint = computed(() => {
+    const levels = props.module.scope.map((s) => s.level)
+    if (levels.length === 1) return 'Con acceso, el módulo aparece en su menú y puede consultarlo.'
+    const org = levels.includes('sucursal') || levels.includes('corporativo')
+    return 'Qué registros ve en este módulo. Cada nivel incluye lo de los anteriores.'
+        + (org ? ' «Sucursal» y «Corporativo» se toman del colaborador vinculado a la cuenta: sin colaborador, esos niveles no muestran nada.' : '')
+})
 </script>
 
 <template>
@@ -81,7 +92,8 @@ const requiresLabel = (p: PermissionItem) => p.requires.length ? 'Incluye autom�
             </p>
 
             <div v-if="showScope && module.scope.length">
-                <p class="mb-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Alcance de lectura</p>
+                <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Alcance de lectura</p>
+                <p class="mb-1.5 mt-0.5 break-words text-xs leading-snug text-slate-500 dark:text-zinc-400">{{ scopeHint }}</p>
                 <ScopeSelector
                     :module-key="module.key"
                     :module-label="module.label"
@@ -91,10 +103,20 @@ const requiresLabel = (p: PermissionItem) => p.requires.length ? 'Incluye autom�
                     :disabled="locked"
                     @update:model-value="(v) => emit('scope', v)"
                 />
+                <details v-if="module.scope.length > 1" class="mt-1">
+                    <summary class="inline-flex min-h-[32px] cursor-pointer select-none items-center rounded-lg text-xs font-semibold text-brand-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/40">¿Qué ve con cada nivel?</summary>
+                    <dl class="mt-1 space-y-2 rounded-xl bg-slate-50 p-3 text-xs dark:bg-white/[0.04]">
+                        <div v-for="o in module.scope" :key="o.name" class="min-w-0">
+                            <dt class="font-semibold text-slate-700 dark:text-zinc-200">{{ o.label }}</dt>
+                            <dd class="break-words leading-snug text-slate-500 dark:text-zinc-400">{{ o.description }}</dd>
+                        </div>
+                    </dl>
+                </details>
             </div>
 
             <fieldset v-for="g in groups" :key="g.key" class="min-w-0" :disabled="locked">
-                <legend class="mb-1.5 text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{{ g.label }}</legend>
+                <legend class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{{ g.label }}</legend>
+                <p v-if="g.description" class="mb-1.5 mt-0.5 break-words text-xs leading-snug text-slate-500 dark:text-zinc-400">{{ g.description }}</p>
                 <ul class="grid grid-cols-1 gap-1.5 xl:grid-cols-2">
                     <li v-for="p in g.permissions" :key="p.name" class="min-w-0">
                         <label
@@ -121,11 +143,21 @@ const requiresLabel = (p: PermissionItem) => p.requires.length ? 'Incluye autom�
                                         class="inline-flex items-center gap-0.5 rounded-md bg-amber-50 px-1.5 py-px text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20"
                                         title="Permiso sensible: asígnalo solo a personas de confianza"
                                     >
-                                        <AlertTriangle class="h-2.5 w-2.5" aria-hidden="true" /> Sensible
+                                        <AlertTriangle class="h-2.5 w-2.5" aria-hidden="true" /> Sensible<span class="sr-only">: asígnalo solo a personas de confianza</span>
                                     </span>
                                 </span>
                                 <span class="mt-0.5 block break-words text-xs leading-snug text-slate-500 dark:text-zinc-400">
-                                    {{ p.description }} <span v-if="requiresLabel(p)" class="text-slate-400">{{ requiresLabel(p) }}</span>
+                                    {{ p.description }}
+                                </span>
+                                <span v-if="p.requires.length" class="mt-1 flex flex-wrap items-center gap-1 text-[11px] leading-snug text-slate-500 dark:text-zinc-400">
+                                    <Link2 class="h-3 w-3 shrink-0" aria-hidden="true" />
+                                    <span class="font-semibold">Requiere:</span>
+                                    <span
+                                        v-for="r in requiresLabels(p)"
+                                        :key="r"
+                                        class="rounded-md bg-slate-100 px-1.5 py-px font-medium text-slate-600 dark:bg-white/10 dark:text-zinc-300"
+                                    >{{ r }}</span>
+                                    <span class="text-slate-400 dark:text-zinc-500">(se marca sola)</span>
                                 </span>
                             </span>
                             <Lock v-if="locked" class="mt-1 h-3.5 w-3.5 shrink-0 text-slate-300" aria-hidden="true" />

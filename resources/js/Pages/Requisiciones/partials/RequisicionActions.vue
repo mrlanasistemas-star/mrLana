@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Link } from '@inertiajs/vue3'
-import { Ban, Banknote, Eye, FileText, Printer, Scale, Send, Trash2 } from 'lucide-vue-next'
+import { Ban, Banknote, Eye, FileText, PencilLine, Printer, Scale, Send, Trash2 } from 'lucide-vue-next'
 import type { RequisicionRow } from '../Requisiciones.types'
 
 /**
@@ -66,6 +66,9 @@ const icon = 'h-4 w-4 shrink-0 transition-transform duration-150 group-hover/btn
             </Link>
             <Link v-if="can.solicitar_ajuste || can.ver_ajustes" :href="route('requisiciones.ajustes', row.id)" :class="[base, tone.violet]">
                 <Scale :class="icon" aria-hidden="true" /> {{ can.solicitar_ajuste ? 'Ajustes' : 'Ver ajustes' }}
+            </Link>
+            <Link v-if="can.corregir" :href="route('requisiciones.corregir', row.id)" :class="[base, tone.amber]" title="Corregir concepto, solicitante, sucursal y otros datos">
+                <PencilLine :class="icon" aria-hidden="true" /> Corregir datos
             </Link>
         </template>
 

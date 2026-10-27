@@ -57,6 +57,7 @@ export type RequisicionAbilities = {
   subir_comprobante: boolean
   imprimir?: boolean
   rechazar_pago?: boolean
+  corregir?: boolean
 }
 
 export type RequisicionRow = {

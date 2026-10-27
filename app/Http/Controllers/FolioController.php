@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Folio;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class FolioController extends Controller
 {
@@ -14,6 +13,7 @@ class FolioController extends Controller
         $limit = (int) $request->query('limit', 200);
         $limit = max(1, min($limit, 500));
         $folios = Folio::query()
+            ->visibleTo($request->user())
             ->when($q !== '', function ($query) use ($q) {
                 $query->where('folio', 'like', "%{$q}%");
             })
@@ -58,23 +58,19 @@ class FolioController extends Controller
     /**
      * Actualizar folio
      * PATCH /folios/{folio} -> folios.update
-     */
-    /**
-     * Requiere el permiso "Editar folios de factura" (middleware de la ruta).
+     *
+     * Requiere "Editar folios de factura" y que el folio esté dentro de su
+     * alcance de comprobaciones (FolioPolicy). El número de folio es fijo: no
+     * se valida ni se usa aunque venga en la petición; solo cambia el monto.
      */
     public function update(Request $request, Folio $folio)
     {
+        $this->authorize('update', $folio);
+
         $data = $request->validate([
-            'folio' => [
-                'required',
-                'string',
-                'max:100',
-                Rule::unique('folios', 'folio')->ignore($folio->id),
-            ],
             'monto_total' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
         ]);
         $folio->update([
-            'folio' => $data['folio'],
             'monto_total' => $data['monto_total'] ?? null,
         ]);
         // Si viene de Inertia: redirect con flash

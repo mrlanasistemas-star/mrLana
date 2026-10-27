@@ -56,7 +56,9 @@ class RequisicionComprobanteController extends Controller
                 ],
             ],
 
+            // Solo folios dentro de su alcance de comprobaciones (FolioPolicy::view).
             'folios' => Folio::query()
+                ->visibleTo($user)
                 ->select('id', 'folio', 'monto_total')
                 ->orderByDesc('id')
                 ->get(),

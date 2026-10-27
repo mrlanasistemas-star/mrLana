@@ -686,6 +686,7 @@ class RequisicionController extends Controller
             'subir_comprobante' => $user->can('uploadComprobante', $r),
             'rechazar_pago' => $user->can('rejectPayment', $r),
             'imprimir' => $user->can('print', $r),
+            'corregir' => $user->can('correct', $r),
         ];
     }
 

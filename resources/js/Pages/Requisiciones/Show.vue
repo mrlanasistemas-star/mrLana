@@ -4,7 +4,7 @@
     import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
     import Swal from 'sweetalert2'
     import { X } from 'lucide-vue-next'
-    import { Send, Scale, Ban, CalendarClock, CalendarCheck2, Hourglass } from 'lucide-vue-next'
+    import { Send, Scale, Ban, CalendarClock, CalendarCheck2, Hourglass, PencilLine } from 'lucide-vue-next'
     import { formatDateOnlyEsMx } from '@/Utils/date'
     import { ConfirmDialog } from '@/Components/ui/dialog'
     import type { RequisicionAbilities } from './Requisiciones.types'
@@ -533,6 +533,19 @@
                                 >
                                     <Scale class="h-4 w-4" aria-hidden="true" />
                                     {{ abilities.solicitar_ajuste ? 'Solicitar ajuste' : 'Ver ajustes' }}
+                                </a>
+
+                                <a
+                                    v-if="abilities.corregir"
+                                    :href="route('requisiciones.corregir', req.id)"
+                                    title="Corregir concepto, solicitante, sucursal y otros datos"
+                                    class="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs sm:text-sm font-black
+                                        ring-1 ring-amber-500/30 bg-amber-50 text-amber-800 hover:bg-amber-100
+                                        dark:bg-amber-500/10 dark:text-amber-200 dark:hover:bg-amber-500/20
+                                        transition hover:-translate-y-[1px] active:scale-[0.99] motion-reduce:transform-none"
+                                >
+                                    <PencilLine class="h-4 w-4" aria-hidden="true" />
+                                    Corregir datos
                                 </a>
 
                                 <button

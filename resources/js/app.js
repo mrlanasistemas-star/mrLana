@@ -10,7 +10,7 @@ import { initPwa } from './Composables/usePwaInstall';
 // Aplicación instalable: captura el aviso de instalación y registra el service worker.
 initPwa();
 
-const appName = 'MR-Lana ERP';
+const appName = 'ERP Mr. Lana';
 
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),

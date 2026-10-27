@@ -155,7 +155,6 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
                                 :allow-null="true"
                                 null-label="Sin colaborador vinculado"
                                 rounded="xl"
-                                :error="form.errors.empleado_id"
                             />
                             <p v-else class="ui-input flex items-center">{{ colaboradorSel?.nombre ?? 'Sin colaborador vinculado' }}</p>
                             <p v-if="form.errors.empleado_id" class="ui-error" role="alert">{{ form.errors.empleado_id }}</p>

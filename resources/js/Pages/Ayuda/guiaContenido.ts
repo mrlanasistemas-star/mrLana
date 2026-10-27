@@ -80,7 +80,7 @@ export type GuiaModulo = {
 export const GRUPOS = ['General', 'Operación', 'Organización', 'Personas y accesos', 'Catálogos', 'Sistema', 'Tu cuenta y la app'] as const
 
 export const ESTADOS_REQUISICION: Estado[] = [
-    { nombre: 'Borrador', tono: 'gris', texto: 'Guardada sin enviar. La edita y envía quien la creó, o quien puede editar cualquier borrador dentro de su alcance.' },
+    { nombre: 'Borrador', tono: 'gris', texto: 'Guardada sin enviar. La envía o la descarta quien la creó, o quien puede editar cualquier borrador dentro de su alcance.' },
     { nombre: 'Capturada', tono: 'azul', texto: 'Enviada a revisión. Espera la autorización del pago; aquí todavía puede solicitarse su eliminación.' },
     { nombre: 'Pago autorizado', tono: 'violeta', texto: 'Se autorizó y programó la fecha de pago. Sigue así mientras haya pagos parciales.' },
     { nombre: 'Pagada', tono: 'verde', texto: 'Se registró el pago total. El solicitante ya puede cargar comprobantes.' },
@@ -188,11 +188,13 @@ export const MODULOS: GuiaModulo[] = [
             'Abrir varias requisiciones en pestañas distintas.',
             { texto: 'Descargar o imprimir el PDF de una requisición.', anyOf: ['requisiciones.imprimir'] },
             { texto: 'Crear una requisición nueva.', anyOf: ['requisiciones.registrar'] },
-            { texto: 'Editar y enviar tus borradores.', anyOf: ['requisiciones.editar'] },
-            { texto: 'Editar y enviar borradores de otras personas dentro de tu alcance.', anyOf: ['requisiciones.editar_cualquiera'] },
+            { texto: 'Enviar tus borradores a autorización con el botón «Enviar».', anyOf: ['requisiciones.enviar'] },
+            { texto: 'Enviar borradores de otras personas dentro de tu alcance (requiere también el permiso de enviar).', anyOf: ['requisiciones.editar_cualquiera'] },
+            { texto: 'Eliminar tus borradores.', anyOf: ['requisiciones.eliminar_borrador'] },
             { texto: 'Exportar el listado filtrado a PDF o Excel.', anyOf: ['requisiciones.exportar'] },
             { texto: 'Eliminar requisiciones (baja lógica).', anyOf: ['requisiciones.eliminar'] },
             { texto: 'Solicitar la eliminación de una requisición capturada.', anyOf: ['requisiciones.solicitar_eliminacion'] },
+            { texto: 'Corregir concepto, solicitante, sucursal, corporativo, proveedor u observaciones con «Corregir datos», eligiendo entre todo el catálogo; pide un motivo y queda en la bitácora.', anyOf: ['requisiciones.corregir'] },
         ],
         filtros: [
             'Búsqueda libre.',
@@ -203,7 +205,7 @@ export const MODULOS: GuiaModulo[] = [
         estados: ESTADOS_REQUISICION,
         errores: [
             'No encontrar una requisición: revisa la pestaña (las eliminadas están aparte) y limpia los filtros.',
-            'No ver el botón de editar: solo los borradores se editan; una requisición enviada se corrige con un ajuste de monto.',
+            'No ver un botón de editar: por ahora no hay pantalla para editar borradores. Si a un borrador le falta algo, elimínalo y captúralo de nuevo; una requisición enviada se corrige con un ajuste de monto o con «Corregir datos».',
         ],
         advertencias: ['Las requisiciones no se borran físicamente: la eliminación es lógica y queda en bitácora.'],
         consejos: ['Comparte siempre el folio al pedir apoyo.', 'Usa la exportación con los mismos filtros que revisaste en pantalla.'],
@@ -235,7 +237,7 @@ export const MODULOS: GuiaModulo[] = [
             { texto: 'Guardar como borrador.', anyOf: ['requisiciones.guardar_borrador'] },
             { texto: 'Enviar a revisión.', anyOf: ['requisiciones.enviar'] },
             'Partir de una plantilla.',
-            { texto: 'Editar un borrador antes de enviarlo.', anyOf: ['requisiciones.editar'] },
+            { texto: 'Enviar después un borrador guardado, desde el listado o su detalle.', anyOf: ['requisiciones.enviar'] },
         ],
         errores: [
             '«Selecciona un proveedor activo»: el proveedor es obligatorio para guardar y para enviar, y debe estar activo.',
@@ -431,7 +433,7 @@ export const MODULOS: GuiaModulo[] = [
             { texto: 'Rechazar comprobantes.', anyOf: ['comprobaciones.rechazar'] },
             { texto: 'Eliminar los comprobantes que cargaste y aún no se aprueban.', anyOf: ['comprobaciones.eliminar_propios'] },
             { texto: 'Eliminar cualquier comprobante dentro de tu alcance.', anyOf: ['comprobaciones.eliminar'] },
-            { texto: 'Editar folios de factura.', anyOf: ['comprobaciones.administrar_folios'] },
+            { texto: 'Corregir el monto total de folios de factura dentro de tu alcance (el número de folio es fijo y no se puede cambiar).', anyOf: ['comprobaciones.administrar_folios'] },
             { texto: 'Exportar el listado a PDF o Excel.', anyOf: ['comprobaciones.exportar'] },
         ],
         filtros: ['Búsqueda por folio, proveedor, archivo o comentario.', 'Requisición, solicitante, estatus, tipo, quien cargó y quien revisó.', 'Fecha (desde / hasta).'],
@@ -554,7 +556,7 @@ export const MODULOS: GuiaModulo[] = [
         pasos: [
             { titulo: 'Crea o abre un rol', texto: 'Dale un nombre y una descripción clara.', anyOf: ['roles.registrar', 'roles.editar'] },
             { titulo: 'Elige el alcance de cada módulo', texto: 'Sin acceso, Propio, Sucursal, Corporativo o Global. Elegir uno incluye los inferiores.', anyOf: ['roles.editar', 'roles.registrar'] },
-            { titulo: 'Marca las acciones', texto: 'Agrupadas en operación, captura especial, administración y exportación. Las sensibles están señaladas.', anyOf: ['roles.editar', 'roles.registrar'] },
+            { titulo: 'Marca las acciones', texto: 'Agrupadas en operación, captura especial, administración y exportación. Debajo de cada casilla se explica qué pantallas y botones habilita; las sensibles están señaladas y «Requiere» indica los permisos que se marcan solos.', anyOf: ['roles.editar', 'roles.registrar'] },
             { titulo: 'Revisa el resumen', texto: 'Antes de guardar verás módulos, alcances globales, acciones sensibles y qué perderán los usuarios del rol.', anyOf: ['roles.editar', 'roles.registrar'] },
             { titulo: 'Elige notificaciones', texto: 'Indica qué temas recibe el rol o si recibe todos.', anyOf: ['roles.editar'] },
             { titulo: 'Asigna el rol', texto: 'Desde Usuarios, a cada cuenta.' },

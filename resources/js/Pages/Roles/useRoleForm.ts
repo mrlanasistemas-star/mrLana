@@ -22,7 +22,7 @@ export type ModuleUi = {
     label: string
     description: string
     scope: ScopeOption[]
-    groups: { key: string; label: string; permissions: PermissionItem[] }[]
+    groups: { key: string; label: string; description?: string; permissions: PermissionItem[] }[]
 }
 
 export type RoleFilter = 'todos' | 'seleccionados' | 'sin_acceso' | 'advertencias'
@@ -228,7 +228,14 @@ export function useRoleForm(modules: ModuleUi[], initial: string[], opts: { lock
     /** Lista a enviar, en el orden del catálogo. */
     const payload = () => allNames.filter((n) => selected.value.has(n))
 
+    /** Nombre visible de un permiso (con su módulo si es de otro), para «Requiere: …». */
+    function labelOf(name: string, fromModule?: string): string {
+        const d = describe(name)
+        return fromModule && d.module && d.module !== fromModule ? `${d.label} (${d.module})` : d.label
+    }
+
     return {
+        labelOf,
         selected, has, notices, scopeOf, setScope, minScope, toggle, setModule,
         moduleCount, moduleTotal, isGlobalScope, sensitiveSelected, moduleWarnings, totals,
         q, filter, visibleModules, removed, added, summary, payload, allNames,

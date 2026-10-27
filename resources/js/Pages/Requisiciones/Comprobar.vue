@@ -327,7 +327,7 @@ const montoPendiente = computed({
                                disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
                         :disabled="!folioSelectedId"
                         @click="editFolio"
-                        title="Editar folio seleccionado"
+                        title="Editar el monto del folio seleccionado (el número de folio es fijo)"
                       >
                         <Pencil class="h-4 w-4" />
                         Editar

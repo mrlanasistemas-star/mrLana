@@ -26,7 +26,7 @@ const items = computed(() => {
     // Un módulo con un solo nivel (p. ej. Roles) se muestra como "Sin acceso / Con acceso".
     const single = props.options.length === 1
     return [
-        { level: 'none' as ScopeKey, label: short.none, description: 'No ve registros de este módulo.' },
+        { level: 'none' as ScopeKey, label: short.none, description: 'Sin acceso: el módulo no aparece en su menú ni puede consultar sus registros.' },
         ...props.options.map((o) => ({ level: o.level as ScopeKey, label: single ? 'Con acceso' : short[o.level], description: o.label + ' — ' + o.description })),
     ]
 })
