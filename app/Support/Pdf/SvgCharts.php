@@ -21,16 +21,16 @@ final class SvgCharts
     /**
      * @param  list<array{name: string, value: int|float}>  $points
      */
-    public static function bars(array $points, string $color, string $unit = '', int $width = 520, int $height = 220): string
+    public static function bars(array $points, string $color, string $unit = '', int $width = 520, int $height = 220, bool $money = false): string
     {
-        [$plotX, $plotY, $plotW, $plotH] = [40, 16, $width - 52, $height - 48];
+        [$plotX, $plotY, $plotW, $plotH] = [$money ? 48 : 40, 16, $width - ($money ? 60 : 52), $height - 48];
         $max = self::niceMax(max(array_column($points, 'value') ?: [0]));
         $n = max(1, count($points));
         $slot = $plotW / $n;
         $barW = min(26, $slot * 0.62);
 
         $svg = self::open($width, $height);
-        $svg .= self::grid($plotX, $plotY, $plotW, $plotH, $max, fn ($v) => self::short($v));
+        $svg .= self::grid($plotX, $plotY, $plotW, $plotH, $max, fn ($v) => ($money ? '$' : '').self::short($v));
 
         foreach ($points as $i => $p) {
             $h = $max > 0 ? ($p['value'] / $max) * $plotH : 0;
@@ -104,7 +104,7 @@ final class SvgCharts
      * @param  list<array{name: string, value: int|float}>  $slices
      * @param  list<string>  $palette
      */
-    public static function donut(array $slices, array $palette, int $width = 520, int $height = 200): string
+    public static function donut(array $slices, array $palette, int $width = 520, int $height = 200, string $centerLabel = 'Total'): string
     {
         $total = array_sum(array_column($slices, 'value'));
         $cx = 100;
@@ -135,7 +135,7 @@ final class SvgCharts
         }
 
         $svg .= self::text($cx, $cy - 2, number_format($total), 'middle', 18, '#18181B', 700);
-        $svg .= self::text($cx, $cy + 14, 'Total', 'middle', 9, self::AXIS);
+        $svg .= self::text($cx, $cy + 14, $centerLabel, 'middle', 9, self::AXIS);
 
         $lx = 210;
         $rowH = 20;
@@ -150,6 +150,64 @@ final class SvgCharts
         }
 
         return self::uri($svg.'</svg>');
+    }
+
+    /**
+     * Ranking en barras horizontales: etiqueta a la izquierda, barra sobre un
+     * riel tenue y el valor a la derecha. La altura se ajusta al número de
+     * filas. Cada punto puede traer su propio `color` (p. ej. «Otros» en gris).
+     *
+     * @param  list<array{name: string, value: int|float, color?: string, note?: string}>  $items
+     */
+    public static function hbars(array $items, string $color, bool $money = true, int $width = 460, int $labelWidth = 150, int $rowH = 24): string
+    {
+        $valueW = 92;
+        $padT = 4;
+        $n = count($items);
+        $height = max(40, $padT * 2 + $n * $rowH);
+        $svg = self::open($width, $height);
+
+        if ($n === 0) {
+            $svg .= self::text($width / 2, $height / 2 + 4, 'Sin datos', 'middle', 11, self::AXIS);
+
+            return self::uri($svg.'</svg>');
+        }
+
+        $max = max(array_map(fn ($i) => (float) $i['value'], $items)) ?: 1;
+        $trackX = $labelWidth + 8;
+        $trackW = $width - $trackX - $valueW;
+        $barH = min(12, $rowH - 10);
+        $maxChars = max(8, (int) floor($labelWidth / 5.6));
+
+        foreach ($items as $i => $it) {
+            $y = $padT + $i * $rowH;
+            $mid = $y + $rowH / 2;
+            $name = (string) $it['name'];
+            if (mb_strlen($name) > $maxChars) {
+                $name = rtrim(mb_substr($name, 0, $maxChars - 1)).'…';
+            }
+            $svg .= self::text($labelWidth, $mid + 3.5, $name, 'end', 10, '#27272A');
+            $svg .= sprintf('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="%.2f" fill="#F4F4F5"/>', $trackX, $mid - $barH / 2, $trackW, $barH, $barH / 2);
+            $w = max(0, ((float) $it['value'] / $max) * $trackW);
+            if ($w > 0) {
+                $svg .= sprintf(
+                    '<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="%.2f" fill="%s"/>',
+                    $trackX, $mid - $barH / 2, max($w, $barH), $barH, $barH / 2, self::e($it['color'] ?? $color)
+                );
+            }
+            $value = $money ? self::money((float) $it['value']) : number_format((float) $it['value']);
+            $svg .= self::text($width - 2, $mid + 3.5, $value, 'end', 10, '#18181B', 600);
+            if (! empty($it['note'])) {
+                $svg .= self::text($width - 2, $mid + 13, (string) $it['note'], 'end', 8, self::AXIS);
+            }
+        }
+
+        return self::uri($svg.'</svg>');
+    }
+
+    private static function money(float $v): string
+    {
+        return ($v < 0 ? '-$' : '$').number_format(abs($v), abs($v) >= 100_000 ? 0 : 2);
     }
 
     private static function open(int $w, int $h): string

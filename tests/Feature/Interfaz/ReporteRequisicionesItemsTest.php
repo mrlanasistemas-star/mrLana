@@ -50,8 +50,17 @@ class ReporteRequisicionesItemsTest extends TestCase
         $response->assertOk();
         $path = tempnam(sys_get_temp_dir(), 'xlsx');
         copy($response->baseResponse->getFile()->getPathname(), $path);
-        $rows = IOFactory::load($path)->getActiveSheet()->toArray(null, true, false);
+        $book = IOFactory::load($path);
         @unlink($path);
+
+        // Resumen primero; luego una fila por requisición, el detalle y los filtros.
+        $this->assertSame(['Resumen', 'Requisiciones', 'Detalle', 'Filtros'], $book->getSheetNames());
+        $lista = collect($book->getSheetByName('Requisiciones')->toArray(null, true, false))
+            ->filter(fn ($r) => ($r[0] ?? null) === 'REQ-PC-001')->values();
+        $this->assertCount(1, $lista);
+        $this->assertEquals(2120, $lista[0][14]);
+
+        $rows = $book->getSheetByName('Detalle')->toArray(null, true, false);
 
         $flat = collect($rows)->filter(fn ($r) => ($r[0] ?? null) === 'REQ-PC-001')->values();
         $tipos = $flat->pluck(2)->all();

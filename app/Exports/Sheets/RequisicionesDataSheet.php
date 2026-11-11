@@ -4,6 +4,7 @@ namespace App\Exports\Sheets;
 
 use App\Exports\Core\BaseReportExport;
 use App\Services\Dashboard\DashboardDataService;
+use Maatwebsite\Excel\Concerns\WithTitle;
 
 /**
  * Hoja de requisiciones: una fila por item, una por ajuste y una de
@@ -11,11 +12,16 @@ use App\Services\Dashboard\DashboardDataService;
  * poder filtrar y hacer tablas dinámicas; sumar «Importe» de las filas
  * «Item» y «Ajuste aplicado» da el total efectuado.
  */
-class RequisicionesDataSheet extends BaseReportExport
+class RequisicionesDataSheet extends BaseReportExport implements WithTitle
 {
     public function __construct(array $requisiciones, array $filters, array $meta)
     {
         parent::__construct(self::flatten($requisiciones), $filters, $meta);
+    }
+
+    public function title(): string
+    {
+        return 'Detalle';
     }
 
     /** @param  list<array<string, mixed>>  $requisiciones */

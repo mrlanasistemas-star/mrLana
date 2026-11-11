@@ -10,8 +10,10 @@ use App\Models\Empleado;
 use App\Models\Proveedor;
 use App\Models\Requisicion;
 use App\Models\Sucursal;
+use App\Services\Dashboard\DashboardDataService;
 use App\Services\Pdf\PdfService;
 use App\Support\BusinessDate;
+use App\Support\Reports\RequisicionesSummary;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -20,18 +22,10 @@ class RequisicionExportController
     public function excel(Request $request)
     {
         $rows = $this->buildRows($request);
-        $filters = $this->presentFilters($request);
-
-        $meta = [
-            'title' => 'Reporte de Requisiciones',
-            'subtitle' => 'Exportación con filtros actuales',
-            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
-            'generated_by' => optional($request->user())->name,
-            'footer_left' => 'ERP MR-Lana',
-        ];
+        $summary = RequisicionesSummary::fromRows($rows);
 
         return Excel::download(
-            new RequisicionesExport($rows, $filters, $meta),
+            new RequisicionesExport($rows, $this->presentFilters($request), $this->meta($request, $summary), $summary),
             'requisiciones.xlsx'
         );
     }
@@ -39,21 +33,31 @@ class RequisicionExportController
     public function pdf(Request $request)
     {
         $rows = $this->buildRows($request);
-        $filters = $this->presentFilters($request);
-
-        $meta = [
-            'title' => 'Reporte de Requisiciones',
-            'subtitle' => 'Exportación con filtros actuales',
-            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
-            'generated_by' => optional($request->user())->name,
-            'footer_left' => 'ERP MR-Lana',
-        ];
+        $summary = RequisicionesSummary::fromRows($rows);
 
         return app(PdfService::class)->download('exports.requisiciones.index', [
             'rows' => $rows,
-            'filters' => $filters,
-            'meta' => $meta,
+            'summary' => $summary,
+            'filters' => $this->presentFilters($request),
+            'meta' => $this->meta($request, $summary),
         ], 'requisiciones.pdf', ['paper' => 'letter', 'landscape' => true]);
+    }
+
+    private function meta(Request $request, RequisicionesSummary $summary): array
+    {
+        $periodo = $summary->periodoLabel();
+
+        return [
+            'title' => 'Reporte de requisiciones',
+            'subtitle' => match (true) {
+                $periodo === null => 'Requisiciones con los filtros del listado',
+                $summary->periodo['desde'] === $summary->periodo['hasta'] => "Registradas el {$periodo}",
+                default => "Registradas del {$periodo}",
+            },
+            'generated_at' => BusinessDate::now()->format('d/m/Y H:i'),
+            'generated_by' => optional($request->user())->name,
+            'footer_left' => 'ERP MR-Lana',
+        ];
     }
 
     /**
@@ -278,23 +282,44 @@ class RequisicionExportController
         ];
     }
 
+    private const TAB_LABELS = [
+        'BORRADOR' => 'Borradores',
+        'CAPTURADAS' => 'Capturadas',
+        'ELIMINADAS' => 'Eliminadas',
+    ];
+
+    /**
+     * Filtros aplicados, en texto legible y solo los que cambian el resultado
+     * (más el orden y, si se exportó una sola página, cuál).
+     *
+     * @return array<string, string>
+     */
     private function presentFilters(Request $request): array
     {
-        $sortRaw = (string) $request->query('sort', 'created_at');
-        $sort = $this->normalizeSort($sortRaw);
+        $sort = $this->normalizeSort((string) $request->query('sort', 'created_at'));
+        $asc = strtolower((string) $request->query('dir', 'desc')) === 'asc';
+        if (! in_array($sort, ['folio', 'created_at', 'monto_total', 'status', 'id'], true)) {
+            $sort = 'created_at';
+        }
 
-        $sortLabel = match ($sort) {
-            'created_at' => 'Fecha de captura',
-            'folio' => 'Folio',
-            'monto_total' => 'Total',
-            'status' => 'Estatus',
-            'tipo' => 'Tipo',
-            default => 'Fecha de captura',
+        $orden = match ($sort) {
+            'folio' => $asc ? 'Folio, de menor a mayor' : 'Folio, de mayor a menor',
+            'monto_total' => $asc ? 'Menor monto primero' : 'Mayor monto primero',
+            'status' => $asc ? 'Estatus, de la A a la Z' : 'Estatus, de la Z a la A',
+            default => $asc ? 'Más antiguas primero' : 'Más recientes primero',
         };
 
-        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc'
-            ? 'Ascendente'
-            : 'Descendente';
+        $tab = strtoupper((string) $request->query('tab', 'ACTIVAS'));
+        $status = (string) $request->query('status', '');
+        $vista = $status === '' ? (self::TAB_LABELS[$tab] ?? '') : '';
+        $estatus = $status !== '' ? (DashboardDataService::STATUS_LABELS[$status] ?? $status) : '';
+
+        $user = $request->user();
+        $verTodos = $user && \App\Support\Permissions\AccessScope::for($user, 'requisiciones')->value > \App\Support\Permissions\Scope::Own->value;
+
+        $page = (int) $request->query('page', 0);
+        [$perPage, $showAll] = RequisicionController::resolvePerPage($request->query('perPage'));
+        $alcance = (! $showAll && $perPage > 0 && $page > 0) ? "Página {$page}, {$perPage} por página" : '';
 
         $corpId = $request->query('comprador_corp_id');
         $sucursalId = $request->query('sucursal_id');
@@ -310,7 +335,7 @@ class RequisicionExportController
             ? (Sucursal::select('id', 'nombre')->find((int) $sucursalId)?->nombre ?? "#{$sucursalId}")
             : '';
 
-        $sol = $solicitanteId
+        $sol = ($verTodos && $solicitanteId)
             ? Empleado::select('id', 'nombre', 'apellido_paterno', 'apellido_materno')->find((int) $solicitanteId)
             : null;
 
@@ -326,23 +351,39 @@ class RequisicionExportController
             ? (Proveedor::select('id', 'razon_social')->find((int) $proveedorId)?->razon_social ?? "#{$proveedorId}")
             : '';
 
+        $registro = $this->rangeLabel(
+            $this->safeYmd($request->query('fecha_registro_from') ?? $request->query('fecha_from')),
+            $this->safeYmd($request->query('fecha_registro_to') ?? $request->query('fecha_to')),
+        );
+        $pago = $this->rangeLabel($this->safeYmd($request->query('fecha_pago_from')), $this->safeYmd($request->query('fecha_pago_to')));
+
         return array_filter([
-            'Búsqueda' => trim((string) $request->query('q', '')),
-            'Tab' => strtoupper((string) $request->query('tab', 'ACTIVAS')),
-            'Estatus' => (string) $request->query('status', ''),
+            'Búsqueda' => ($q = trim((string) $request->query('q', ''))) !== '' ? "«{$q}»" : '',
+            'Vista' => $vista,
+            'Estatus' => $estatus,
             'Corporativo' => $corp,
             'Sucursal' => $suc,
             'Solicitante' => $solName,
             'Concepto' => $con,
             'Proveedor' => $prov,
-            'Tipo' => (string) $request->query('tipo', ''),
-            'Registro desde' => (string) ($request->query('fecha_registro_from') ?? $request->query('fecha_from', '')),
-            'Registro hasta' => (string) ($request->query('fecha_registro_to') ?? $request->query('fecha_to', '')),
-            'Pago desde' => (string) ($request->query('fecha_pago_from', '')),
-            'Pago hasta' => (string) ($request->query('fecha_pago_to', '')),
-            'Orden' => $sortLabel,
-            'Dirección' => $dir,
+            'Fecha de registro' => $registro,
+            'Fecha de pago' => $pago,
+            'Orden' => $orden,
+            'Alcance' => $alcance,
         ], fn ($v) => $v !== null && $v !== '');
+    }
+
+    /** «Del 01/03/2026 al 31/03/2026», «Desde el 01/03/2026» o «Hasta el …». */
+    private function rangeLabel(?string $from, ?string $to): string
+    {
+        $fmt = fn (string $ymd) => \Carbon\Carbon::createFromFormat('Y-m-d', $ymd)->format('d/m/Y');
+
+        return match (true) {
+            $from && $to => 'Del '.$fmt($from).' al '.$fmt($to),
+            (bool) $from => 'Desde el '.$fmt($from),
+            (bool) $to => 'Hasta el '.$fmt($to),
+            default => '',
+        };
     }
 
     private function safeYmd($v): ?string
