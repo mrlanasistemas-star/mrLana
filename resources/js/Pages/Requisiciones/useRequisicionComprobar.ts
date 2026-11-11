@@ -1,5 +1,5 @@
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { router, useForm, usePage } from '@inertiajs/vue3'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { router, usePage } from '@inertiajs/vue3'
 import Swal from 'sweetalert2'
 import type { RequisicionComprobarPageProps, ComprobanteRow } from './Comprobar.types'
 import { usePermissions } from '@/Composables/usePermissions'
@@ -11,7 +11,17 @@ type ReviewStatus = 'APROBADO' | 'RECHAZADO'
 type PreviewKind = 'pdf' | 'image' | 'other'
 type PreviewState = { url: string; label: string; kind: PreviewKind } | null
 
-type UploadPreviewState = { url: string; name: string; kind: PreviewKind } | null
+type QueueItem = {
+  uid: number
+  file: File
+  url: string
+  kind: PreviewKind
+  monto: string
+  touched: boolean
+  tipo_doc: string
+  fecha_emision: string
+  error: string | null
+}
 
 export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   const page = usePage<any>()
@@ -102,68 +112,6 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   const canReview = computed(() => serverCan.value.revisar || props.canReview === true)
 
   /** =========================================================
-   * Form upload (NO cambio nombres)
-   * ========================================================= */
-  const form = useForm<{
-    archivo: File | null
-    monto: string
-    tipo_doc: string
-    fecha_emision: string
-  }>({
-    archivo: null,
-    monto: '',
-    tipo_doc: 'NOTA',
-    fecha_emision: new Date().toISOString().slice(0, 10),
-  })
-
-  const fileKey = ref(0)
-  const dragActive = ref(false)
-
-  const pickedName = computed(() => form.archivo?.name || 'Sin archivo seleccionado')
-  const hasPicked = computed(() => !!form.archivo)
-
-  const clearFile = () => {
-    form.archivo = null
-    fileKey.value++
-  }
-
-  const onPickFile = (e: Event) => {
-    if (isFullyApproved.value) return
-
-    const input = e.target as HTMLInputElement
-    form.archivo = input.files?.[0] ?? null
-    }
-
-    const onDropFile = (e: DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragActive.value = false
-
-    if (isFullyApproved.value) return
-
-    const f = e.dataTransfer?.files?.[0] ?? null
-    if (f) form.archivo = f
-    }
-
-  const onDragEnter = (e: DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (isFullyApproved.value) return
-    dragActive.value = true
-    }
-
-    const onDragOver = (e: DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (isFullyApproved.value) return
-    }
-  const onDragLeave = (e: DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragActive.value = false
-  }
-
-  /** =========================================================
  * Helpers cents + pendiente
  * ========================================================= */
     const toNumber = (v: any) => {
@@ -210,38 +158,6 @@ const canUploadMore = computed(() => {
 })
 
   /** =========================================================
-   * Autocompletar monto con el pendiente (tu intención original)
-   * ========================================================= */
-  // El monto se propone con lo que falta por cargar, pero en cuanto la persona
-  // escribe se respeta lo que escribió: cambiar el tipo, la fecha o el archivo
-  // no lo restablece. Solo vuelve a proponerse tras subir un comprobante.
-  const montoTouched = ref(false)
-  const centsToFixed = (c: number) => (c / 100).toFixed(2)
-
-  const syncMontoToPendiente = () => {
-    form.monto = pendientePorCargarCents.value > 0 ? centsToFixed(pendientePorCargarCents.value) : ''
-  }
-
-  /** La persona escribió en el campo: se conserva su monto. */
-  const onMontoInput = () => {
-    montoTouched.value = true
-  }
-
-  /** Vuelve a proponer todo lo que falta por cargar. */
-  const usarRestante = () => {
-    montoTouched.value = false
-    syncMontoToPendiente()
-  }
-
-  watch(
-    pendientePorCargarCents,
-    () => {
-      if (!montoTouched.value) syncMontoToPendiente()
-    },
-    { immediate: true },
-  )
-
-  /** =========================================================
    * Resumen de montos (en centavos)
    * - Comprobado: aprobado por Contabilidad.
    * - En revisión: cargado y aún sin revisar.
@@ -261,70 +177,11 @@ const canUploadMore = computed(() => {
   // La barra nunca pasa de 100 % aunque lo cargado exceda el total.
   const enRevisionPct = computed(() => Math.min(pct(enRevisionCents.value), 100 - approvedPct.value))
 
-  /** Monto capturado en el formulario y lo que quedaría por cargar después. */
-  const montoCents = computed(() => toCents(form.monto))
-  const montoExcede = computed(() => montoCents.value > pendientePorCargarCents.value)
-  const restanteTrasCents = computed(() => Math.max(0, pendientePorCargarCents.value - montoCents.value))
-
   /** =========================================================
-   * canSubmit
+   * Cola de carga: varios archivos, cada uno con su monto, tipo y fecha
    * ========================================================= */
-  const canSubmit = computed(() => {
-    if (!canUploadMore.value) return false
-
-    const hasFile = !!form.archivo
-    const hasTipo = !!(form.tipo_doc && String(form.tipo_doc).trim())
-    const hasFecha = !!(form.fecha_emision && String(form.fecha_emision).trim())
-    const m = String(form.monto ?? '').trim()
-    const hasMonto = m !== '' && !Number.isNaN(Number(m)) && montoCents.value > 0 && !montoExcede.value
-
-    return hasFile && hasTipo && hasFecha && hasMonto && !form.processing
-    })
-
-  /** =========================================================
-   * Submit
-   * ========================================================= */
-  const submit = (opts?: SubmitOpts) => {
-    if (!req.value?.id) return
-
-    Swal.fire({
-      title: 'Subiendo comprobante…',
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading(),
-    })
-
-    form.post(route('requisiciones.comprobar.store', { requisicion: req.value.id }), {
-      forceFormData: true,
-      preserveScroll: true,
-      onSuccess: () => {
-        Swal.fire({ icon: 'success', title: 'Comprobante cargado', timer: 1200, showConfirmButton: false })
-        form.reset('archivo')
-        opts?.onAfterSuccess?.()
-        // El siguiente comprobante arranca con lo que aún falta por cargar.
-        usarRestante()
-        // reset picker
-        fileKey.value++
-        dragActive.value = false
-      },
-      onError: (errors: Record<string, string>) => {
-        Swal.fire({
-          icon: 'error',
-          title: 'No se pudo subir',
-          text: Object.values(errors)[0] ?? 'Revisa los campos y vuelve a intentar.',
-        })
-      },
-      onFinish: () => {
-        if (Swal.isLoading()) Swal.close()
-      },
-    })
-  }
-
-  const doSubmit = () => submit()
-
-  /** =========================================================
-   * Preview (archivo por subir)
-   * ========================================================= */
-  const uploadPreview = ref<UploadPreviewState>(null)
+  const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'xlsx', 'xls', 'docx', 'doc']
+  const MAX_BYTES = 10 * 1024 * 1024
 
   const extOf = (s: string) => {
     const clean = (s || '').split('?')[0].split('#')[0]
@@ -339,26 +196,224 @@ const canUploadMore = computed(() => {
     return 'other'
   }
 
-  const revokeUploadPreview = () => {
-    const u = uploadPreview.value?.url
-    if (u && u.startsWith('blob:')) URL.revokeObjectURL(u)
-    uploadPreview.value = null
+  // Fecha local (no UTC): por la tarde toISOString() ya devuelve el día siguiente.
+  const today = () => {
+    const d = new Date()
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
   }
 
-  watch(
-    () => form.archivo,
-    (f) => {
-      revokeUploadPreview()
-      if (!f) return
-      const url = URL.createObjectURL(f)
-      uploadPreview.value = { url, name: f.name, kind: detectKind(f.name) }
-    },
-    { immediate: true },
+  const fmtSize = (bytes: number) =>
+    bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
+
+  const centsToFixed = (c: number) => (c / 100).toFixed(2)
+
+  let uidSeq = 0
+  const queue = ref<QueueItem[]>([])
+  const dragActive = ref(false)
+  const fileKey = ref(0)
+  const uploading = ref(false)
+  const uploadProgress = ref({ done: 0, total: 0 })
+
+  /**
+   * Propone el monto de los archivos que la persona no ha tocado: cada uno
+   * toma lo que queda por cargar después de los anteriores. Lo que la persona
+   * escribió nunca se cambia.
+   */
+  const recalcMontos = () => {
+    let running = pendientePorCargarCents.value
+    for (const item of queue.value) {
+      if (!item.touched) item.monto = running > 0 ? centsToFixed(running) : ''
+      running -= toCents(item.monto)
+    }
+  }
+
+  const onItemMontoInput = (item: QueueItem) => {
+    item.touched = true
+    item.error = null
+    recalcMontos()
+  }
+
+  const addFiles = (list: FileList | File[] | null | undefined) => {
+    if (!canUploadMore.value || uploading.value) return
+    const rechazados: string[] = []
+
+    for (const file of Array.from(list ?? [])) {
+      if (!ALLOWED_EXT.includes(extOf(file.name))) {
+        rechazados.push(`${file.name}: formato no permitido`)
+        continue
+      }
+      if (file.size > MAX_BYTES) {
+        rechazados.push(`${file.name}: pesa más de 10 MB`)
+        continue
+      }
+      queue.value.push({
+        uid: ++uidSeq,
+        file,
+        url: URL.createObjectURL(file),
+        kind: detectKind(file.name),
+        monto: '',
+        touched: false,
+        tipo_doc: 'FACTURA',
+        fecha_emision: today(),
+        error: null,
+      })
+    }
+
+    recalcMontos()
+    fileKey.value++
+
+    if (rechazados.length) {
+      Swal.fire({
+        icon: 'warning',
+        title: rechazados.length === 1 ? 'No se agregó un archivo' : 'No se agregaron algunos archivos',
+        html: `<div style="text-align:left">${rechazados.map((r) => escapeHtml(r)).join('<br>')}</div><div style="margin-top:.75rem">Usa PDF, imagen, Excel o Word de hasta 10 MB.</div>`,
+      })
+    }
+  }
+
+  const dropItem = (uid: number) => {
+    const i = queue.value.findIndex((q) => q.uid === uid)
+    if (i < 0) return
+    const [item] = queue.value.splice(i, 1)
+    if (preview.value?.url === item.url) preview.value = null
+    URL.revokeObjectURL(item.url)
+  }
+
+  const removeItem = (uid: number) => {
+    if (uploading.value) return
+    dropItem(uid)
+    recalcMontos()
+  }
+
+  const clearQueue = () => {
+    if (uploading.value) return
+    for (const item of [...queue.value]) dropItem(item.uid)
+  }
+
+  const onPickFiles = (e: Event) => addFiles((e.target as HTMLInputElement).files)
+
+  const onDropFiles = (e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragActive.value = false
+    addFiles(e.dataTransfer?.files)
+  }
+
+  const onDragEnter = (e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (canUploadMore.value && !uploading.value) dragActive.value = true
+  }
+
+  const onDragOver = (e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const onDragLeave = (e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragActive.value = false
+  }
+
+  // Al cambiar lo que falta por cargar (se subió, aprobó o eliminó algo) se
+  // vuelven a proponer solo los montos que la persona no escribió.
+  watch(pendientePorCargarCents, () => recalcMontos())
+
+  const queueCents = computed(() => queue.value.reduce((acc, q) => acc + toCents(q.monto), 0))
+  const queueExcede = computed(() => queueCents.value > pendientePorCargarCents.value)
+  const restanteTrasCents = computed(() => Math.max(0, pendientePorCargarCents.value - queueCents.value))
+
+  const itemSinMonto = (item: QueueItem) => toCents(item.monto) <= 0
+  const queueIncompleta = computed(() => queue.value.some((q) => itemSinMonto(q) || !q.fecha_emision || !q.tipo_doc))
+
+  const canSubmit = computed(() =>
+    canUploadMore.value && queue.value.length > 0 && !uploading.value && !queueExcede.value && !queueIncompleta.value,
   )
 
+  const uploadOne = (item: QueueItem) =>
+    new Promise<boolean>((resolve) => {
+      let settled = false
+      const done = (ok: boolean, error?: string) => {
+        if (settled) return
+        settled = true
+        if (!ok) item.error = error ?? 'No se pudo subir. Revisa tu conexión y vuelve a intentar.'
+        resolve(ok)
+      }
+
+      router.post(
+        route('requisiciones.comprobar.store', { requisicion: req.value.id }),
+        { archivo: item.file, monto: item.monto, tipo_doc: item.tipo_doc, fecha_emision: item.fecha_emision },
+        {
+          forceFormData: true,
+          preserveScroll: true,
+          preserveState: true,
+          onSuccess: () => done(true),
+          onError: (errors: Record<string, string>) => done(false, Object.values(errors)[0]),
+          onFinish: () => done(false),
+        },
+      )
+    })
+
+  /** Sube los archivos de la cola uno por uno; se detiene en el primero que falle. */
+  const submitAll = async () => {
+    if (!canSubmit.value || !req.value?.id) return
+
+    const items = [...queue.value]
+    // Los montos quedan fijos durante la carga.
+    for (const item of items) {
+      item.touched = true
+      item.error = null
+    }
+
+    uploading.value = true
+    uploadProgress.value = { done: 0, total: items.length }
+
+    let fallo: QueueItem | null = null
+    for (const item of items) {
+      const ok = await uploadOne(item)
+      if (!ok) {
+        fallo = item
+        break
+      }
+      dropItem(item.uid)
+      uploadProgress.value = { done: uploadProgress.value.done + 1, total: items.length }
+    }
+
+    uploading.value = false
+    const subidos = uploadProgress.value.done
+
+    if (fallo) {
+      Swal.fire({
+        icon: 'error',
+        title: 'No se pudo subir un archivo',
+        text: `${fallo.file.name}: ${fallo.error}${subidos ? ` Los ${subidos} anteriores sí se cargaron.` : ''}`,
+      })
+      return
+    }
+
+    Swal.fire({
+      icon: 'success',
+      title: subidos === 1 ? 'Comprobante cargado' : `${subidos} comprobantes cargados`,
+      timer: 1400,
+      showConfirmButton: false,
+    })
+  }
+
   onBeforeUnmount(() => {
-    revokeUploadPreview()
+    for (const item of queue.value) URL.revokeObjectURL(item.url)
   })
+
+  /** Muestra en la vista previa un archivo que aún no se sube. */
+  const openQueuePreview = async (item: QueueItem) => {
+    preview.value = { url: item.url, label: item.file.name, kind: item.kind }
+    await nextTick()
+    if (previewWrapRef.value && window.matchMedia('(max-width: 1279px)').matches) {
+      previewWrapRef.value.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
 
   /** =========================================================
    * Preview (archivos ya subidos)
@@ -399,44 +454,6 @@ const canUploadMore = computed(() => {
   }
 
   const previewTitle = computed(() => preview.value?.label || 'Selecciona un archivo')
-
-  /** =========================================================
-   * Tipo select “bonito” (tu versión, pero centralizada)
-   * ========================================================= */
-  const tipoOpen = ref(false)
-  const tipoWrap = ref<HTMLElement | null>(null)
-
-  const tipoOptions = computed(() => (Array.isArray(props.tipoDocOptions) ? props.tipoDocOptions : []))
-  const tipoSelected = computed(() => {
-    const id = (form.tipo_doc ?? '').toString()
-    return tipoOptions.value.find((o: any) => (o?.id ?? '').toString() === id) ?? null
-  })
-
-  const setTipo = (id: string) => {
-    form.tipo_doc = id
-    tipoOpen.value = false
-  }
-
-  const closeTipoIfOutside = (ev: MouseEvent) => {
-    if (!tipoOpen.value) return
-    const el = tipoWrap.value
-    const t = ev.target as Node | null
-    if (el && t && !el.contains(t)) tipoOpen.value = false
-  }
-
-  const closeTipoOnEsc = (ev: KeyboardEvent) => {
-    if (ev.key === 'Escape') tipoOpen.value = false
-  }
-
-  onMounted(() => {
-    document.addEventListener('mousedown', closeTipoIfOutside, { passive: true })
-    document.addEventListener('keydown', closeTipoOnEsc)
-  })
-
-  onBeforeUnmount(() => {
-    document.removeEventListener('mousedown', closeTipoIfOutside as any)
-    document.removeEventListener('keydown', closeTipoOnEsc as any)
-  })
 
   /** =========================================================
    * Review routes
@@ -949,21 +966,28 @@ const canUploadMore = computed(() => {
     destroyComprobante,
     isFullyApproved,
     canUploadMore,
-    // upload form + UX
-    form,
+    // cola de carga
+    queue,
     fileKey,
     dragActive,
-    pickedName,
-    hasPicked,
-    clearFile,
-    onPickFile,
+    uploading,
+    uploadProgress,
+    onPickFiles,
     onDragEnter,
     onDragOver,
     onDragLeave,
-    onDropFile,
+    onDropFiles,
+    onItemMontoInput,
+    removeItem,
+    clearQueue,
+    openQueuePreview,
+    itemSinMonto,
+    fmtSize,
+    queueCents,
+    queueExcede,
+    queueIncompleta,
     canSubmit,
-    submit,
-    doSubmit,
+    submitAll,
     inputBase,
 
     // pending
@@ -976,13 +1000,7 @@ const canUploadMore = computed(() => {
     approvedPct,
     enRevisionPct,
     isFullyLoaded,
-    montoExcede,
     restanteTrasCents,
-    onMontoInput,
-    usarRestante,
-
-    // preview before upload
-    uploadPreview,
 
     // preview existing
     preview,
@@ -991,12 +1009,6 @@ const canUploadMore = computed(() => {
     closePreview,
     previewWrapRef,
     canSendNotification,
-    // tipo dropdown
-    tipoOpen,
-    tipoWrap,
-    tipoOptions,
-    tipoSelected,
-    setTipo,
 
     // folios
     foliosOpen,

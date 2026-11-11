@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
-import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
 import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
 import { computed } from 'vue'
 
@@ -21,6 +20,7 @@ import {
   Mail,
   BellRing,
   Clock,
+  Eye,
 } from 'lucide-vue-next'
 
 import type { RequisicionComprobarPageProps } from './Comprobar.types'
@@ -39,39 +39,44 @@ const {
   tipoDocLabel,
   estatusLabel,
   estatusPillClass,
-    reqStatus,
   isFinalizada,
 
-  // roles/perms
+  // permisos
   serverCan,
-  canDelete,
   canReview,
   canUseFoliosPanel,
   canEditFolio,
 
-  // review actions
+  // revisión
   approve,
   reject,
   destroyComprobante,
   canDeleteComprobante,
 
-  // upload form + UX
-  form,
+  // cola de carga
+  queue,
   fileKey,
   dragActive,
-  pickedName,
-  hasPicked,
-  clearFile,
-  onPickFile,
+  uploading,
+  uploadProgress,
+  onPickFiles,
   onDragEnter,
   onDragOver,
   onDragLeave,
-  onDropFile,
+  onDropFiles,
+  onItemMontoInput,
+  removeItem,
+  clearQueue,
+  openQueuePreview,
+  itemSinMonto,
+  fmtSize,
+  queueCents,
+  queueExcede,
+  queueIncompleta,
   canSubmit,
-  doSubmit,
-  inputBase,
+  submitAll,
 
-  // pending calc
+  // montos
   pendienteCents,
   pendientePorCargarCents,
   totalCents,
@@ -81,32 +86,20 @@ const {
   approvedPct,
   enRevisionPct,
   isFullyLoaded,
-  montoExcede,
+  isFullyApproved,
   restanteTrasCents,
-  onMontoInput,
-  usarRestante,
+  canUploadMore,
+  estaPagada,
+  esperaPagoMensaje,
 
-  // local preview (before upload)
-  uploadPreview,
-    canSendNotification,
-  // preview (existing uploaded docs)
+  // vista previa
   preview,
   previewTitle,
   openPreview,
   closePreview,
   previewWrapRef,
 
-  // tipo dropdown
-  tipoOpen,
-  tipoWrap,
-  tipoOptions,
-  tipoSelected,
-  setTipo,
-    isFullyApproved,
-  canUploadMore,
-  estaPagada,
-  esperaPagoMensaje,
-  // folios panel
+  // folios
   foliosOpen,
   toggleFoliosOpen,
   folioSelectedId,
@@ -114,8 +107,9 @@ const {
   addFolio,
   editFolio,
 
-  // notifications (COLABORADOR)
+  // avisos
   canNotify,
+  canSendNotification,
   notifyWhatsApp,
   notifyEmail,
   notifySystem,
@@ -129,6 +123,46 @@ const etapa = computed(() => {
   return { texto: 'Faltan comprobantes por cargar', clase: 'border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-200' }
 })
 
+/** Por qué no se puede cargar (null cuando sí se puede). */
+const motivoSinCarga = computed(() => {
+  if (canUploadMore.value) return null
+  if (!estaPagada.value) return esperaPagoMensaje.value
+  if (isFullyApproved.value || isFinalizada.value) return 'Esta requisición ya quedó comprobada. No hace falta subir más archivos.'
+  if (isFullyLoaded.value) return 'Ya cargaste comprobantes por el total. Avisa a Contabilidad y espera su revisión; si rechazan alguno podrás cargarlo de nuevo.'
+  return 'No tienes permiso para cargar comprobantes en esta requisición.'
+})
+
+/** Por qué no se puede avisar todavía (se muestra en una sola línea). */
+const motivoSinAviso = computed(() => {
+  if (canSendNotification.value) return null
+  return estaPagada.value
+    ? 'Se habilita cuando lo cargado cubra el total.'
+    : 'Se habilita cuando la requisición esté pagada.'
+})
+
+const textoSubir = computed(() => {
+  if (uploading.value) return `Subiendo ${Math.min(uploadProgress.value.done + 1, uploadProgress.value.total)} de ${uploadProgress.value.total}…`
+  return queue.value.length === 1 ? 'Subir comprobante' : `Subir ${queue.value.length} comprobantes`
+})
+
+const card = 'rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm'
+const iconBtn =
+  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border transition active:scale-[0.98] ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 motion-reduce:transform-none'
+const iconBtnNeutral =
+  'border-slate-200/70 bg-white hover:bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 dark:text-neutral-100'
+// Todos los campos de la cola miden lo mismo para que queden alineados.
+const field =
+  'block h-11 w-full rounded-2xl border border-slate-200/70 bg-white/90 px-3 text-sm font-semibold text-slate-900 ' +
+  'placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/40 ' +
+  'disabled:opacity-60 disabled:cursor-not-allowed ' +
+  'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:[color-scheme:dark]'
+const fieldLabel = 'mb-1 block truncate text-xs font-bold text-slate-600 dark:text-neutral-300'
+const notifyBtn =
+  'inline-flex h-10 items-center gap-2 rounded-2xl border px-3 text-sm font-black transition active:scale-[0.98] ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 motion-reduce:transform-none ' +
+  'disabled:cursor-not-allowed disabled:border-slate-200/70 disabled:bg-slate-100 disabled:text-slate-400 ' +
+  'dark:disabled:border-white/10 dark:disabled:bg-white/5 dark:disabled:text-neutral-500'
 </script>
 
 <template>
@@ -143,6 +177,7 @@ const etapa = computed(() => {
                  hover:bg-slate-50 hover:shadow-sm transition active:scale-[0.98]
                  dark:border-white/10 dark:bg-neutral-900/60 dark:hover:bg-white/10"
           title="Volver"
+          aria-label="Volver a requisiciones"
         >
           <ArrowLeft class="h-5 w-5 text-slate-800 dark:text-neutral-100" />
         </Link>
@@ -173,255 +208,118 @@ const etapa = computed(() => {
               {{ esperaPagoMensaje }}
             </div>
             <div class="mt-1 text-xs font-bold text-amber-700 dark:text-amber-300">
-              Pagado: {{ money(props.pago?.pagado ?? 0) }} · Pendiente de pago: {{ money(props.pago?.pendiente ?? 0) }}
+              Pagado: {{ money(props.pago?.pagado ?? 0) }}. Pendiente de pago: {{ money(props.pago?.pendiente ?? 0) }}.
             </div>
           </div>
         </div>
 
-        <!-- TOP BANNER -->
-        <div
-          class="rounded-3xl overflow-hidden border border-slate-200/70 dark:border-white/10 shadow-sm
-                 bg-white/90 dark:bg-neutral-950/40 backdrop-blur"
-        >
+        <!-- Encabezado + resumen de montos -->
+        <section :class="card" class="p-5" aria-labelledby="resumen-comprobacion">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h2 id="resumen-comprobacion" class="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+                Requisición {{ req?.folio || '—' }}
+              </h2>
+              <p class="mt-0.5 text-sm text-slate-600 dark:text-neutral-300 break-words">
+                {{ req?.concepto || 'Sin concepto' }}, solicitada por {{ req?.solicitante_nombre || '—' }}
+              </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center rounded-full border px-3 py-1 text-[12px] font-black" :class="etapa.clase">
+                {{ etapa.texto }}
+              </span>
+              <button
+                v-if="canUseFoliosPanel"
+                type="button"
+                class="inline-flex h-10 items-center gap-2 rounded-2xl border border-slate-200/70 bg-white px-4 text-sm font-black text-slate-900
+                       hover:bg-slate-50 transition active:scale-[0.98]
+                       dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                :aria-expanded="foliosOpen"
+                @click="toggleFoliosOpen"
+              >
+                <Search class="h-4 w-4" aria-hidden="true" />
+                Buscar folios
+              </button>
+            </div>
+          </div>
+
+          <!-- Panel de folios -->
           <div
-            class="px-5 py-4
-                   bg-gradient-to-r from-indigo-500/10 via-transparent to-emerald-500/10
-                   dark:from-indigo-500/15 dark:to-emerald-500/10"
+            v-if="foliosOpen && canUseFoliosPanel"
+            class="mt-4 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
           >
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-3">
               <div class="min-w-0">
-                <div class="text-xs font-black text-slate-600 dark:text-neutral-300">
-                  Folio
-                </div>
-                <div class="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
-                  {{ req?.folio || '—' }}
-                </div>
-                <div class="mt-1 text-xs text-slate-600 dark:text-neutral-300">
-                  Pendiente por comprobar:
-                  <span class="font-black text-slate-900 dark:text-white">
-                    {{ money(pendienteCents / 100) }}
-                  </span>
+                <div class="text-sm font-black text-slate-900 dark:text-white">Gestión de folios</div>
+                <div class="text-xs text-slate-600 dark:text-neutral-300">
+                  Elige un folio para consultarlo. Edita su monto solo si requiere un ajuste documental.
                 </div>
               </div>
 
-                <!-- acciones -->
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div class="flex flex-col items-start sm:items-end gap-3">
-                    <div class="flex flex-wrap items-center gap-2">
-                    <button
-                        v-if="canUseFoliosPanel"
-                        type="button"
-                        class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                            border border-slate-200/70 bg-white/70 text-slate-900
-                            hover:bg-white hover:shadow-sm hover:-translate-y-[1px]
-                            transition active:scale-[0.98]
-                            dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                        @click="toggleFoliosOpen"
-                    >
-                        <Search class="h-4 w-4" />
-                        Buscar folios
-                    </button>
-
-                    <button
-                        v-if="canNotify"
-                        type="button"
-                        :disabled="!canSendNotification"
-                        class="group inline-flex min-h-[44px] items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                            transition active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-primary/50
-                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0 motion-reduce:transform-none"
-                        :class="canSendNotification
-                        ? 'bg-brand-button text-brand-button-fg shadow-sm hover:bg-brand-button/90 hover:shadow-md hover:-translate-y-[1px]'
-                        : 'border border-slate-200/70 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-neutral-500'"
-                        @click="notifySystem"
-                        :title="canSendNotification
-                        ? 'Contabilidad recibirá el aviso en la campana de notificaciones del sistema'
-                        : 'Primero debes subir comprobantes por el total de la requisición'"
-                    >
-                        <BellRing class="h-4 w-4" aria-hidden="true" />
-                        Avisar a Contabilidad en el sistema
-                    </button>
-
-                    <button
-                        v-if="canNotify"
-                        type="button"
-                        :disabled="!canSendNotification"
-                        class="group inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                            border transition active:scale-[0.98]
-                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
-                        :class="canSendNotification
-                        ? 'border-emerald-300/40 bg-emerald-500/12 text-emerald-700 hover:bg-emerald-500/18 hover:shadow-md hover:-translate-y-[1px] dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/15'
-                        : 'border-slate-200/70 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-neutral-500'"
-                        @click="notifyWhatsApp"
-                        :title="canSendNotification
-                        ? 'Avisar a contabilidad que ya terminaste de subir los comprobantes'
-                        : 'Primero debes subir comprobantes por el total de la requisición'"
-                    >
-                        <span
-                        class="inline-flex h-8 w-8 items-center justify-center rounded-xl transition"
-                        :class="canSendNotification
-                            ? 'bg-emerald-500/15 text-emerald-700 group-hover:bg-emerald-500/20 dark:bg-emerald-500/15 dark:text-emerald-300'
-                            : 'bg-slate-200/70 text-slate-400 dark:bg-white/10 dark:text-neutral-500'"
-                        >
-                        <MessageCircle class="h-4 w-4" />
-                        </span>
-                        WhatsApp
-                    </button>
-
-                    <button
-                        v-if="canNotify"
-                        type="button"
-                        :disabled="!canSendNotification"
-                        class="group inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                            border transition active:scale-[0.98]
-                            disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
-                        :class="canSendNotification
-                        ? 'border-sky-300/40 bg-sky-500/12 text-sky-700 hover:bg-sky-500/18 hover:shadow-md hover:-translate-y-[1px] dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-300 dark:hover:bg-sky-500/15'
-                        : 'border-slate-200/70 bg-slate-100 text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-neutral-500'"
-                        @click="notifyEmail"
-                        :title="canSendNotification
-                        ? 'Avisar a contabilidad por correo'
-                        : 'Primero debes dejar el pendiente por comprobar en $0.00'"
-                    >
-                        <span
-                        class="inline-flex h-8 w-8 items-center justify-center rounded-xl transition"
-                        :class="canSendNotification
-                            ? 'bg-sky-500/15 text-sky-700 group-hover:bg-sky-500/20 dark:bg-sky-500/15 dark:text-sky-300'
-                            : 'bg-slate-200/70 text-slate-400 dark:bg-white/10 dark:text-neutral-500'"
-                        >
-                        <Mail class="h-4 w-4" />
-                        </span>
-                        Correo
-                    </button>
-                    </div>
-
-                    <div v-if="canNotify" class="w-full sm:max-w-md text-right text-justify">
-                    <div class="text-sm leading-5 text-slate-600 dark:text-neutral-300">
-                        Cuando completes la carga de comprobantes, avisa a Contabilidad para iniciar la revisión: en el sistema (les llega a su campana), por correo o por WhatsApp.
-                    </div>
-
-                    <div v-if="!canSendNotification"
-                    class="mt-1 text-xs font-bold text-amber-600 dark:text-amber-400" >
-                        {{ estaPagada
-                          ? 'Estos botones se habilitan cuando la suma de los comprobantes subidos cubra el total de la requisición.'
-                          : 'Estos botones se habilitan cuando la requisición haya sido pagada.' }}
-                    </div>
-                    </div>
-                </div>
-                </div>
+              <button
+                type="button"
+                class="inline-flex h-10 items-center gap-2 rounded-2xl bg-brand-button px-4 text-sm font-black text-brand-button-fg
+                       hover:bg-brand-button/90 transition active:scale-[0.98]"
+                @click="addFolio"
+              >
+                <Plus class="h-4 w-4" aria-hidden="true" />
+                Agregar folio
+              </button>
             </div>
 
-            <!-- PANEL INLINE: FOLIOS -->
-            <div v-if="foliosOpen && canUseFoliosPanel" class="mt-4">
-              <div class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 backdrop-blur p-4">
-                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div class="min-w-0">
-                    <div class="text-sm font-black text-slate-900 dark:text-white">
-                      Gestión de folios
-                    </div>
-                    <div class="text-xs text-slate-600 dark:text-neutral-300">
-                      Selecciona un folio y vincúlalo sin romper trazabilidad.
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black
-                           bg-brand-button text-brand-button-fg hover:bg-brand-button/90
-                           transition active:scale-[0.98]
-                           "
-                    @click="addFolio"
-                  >
-                    <Plus class="h-4 w-4" />
-                    Agregar
-                  </button>
-                </div>
-
-                <div class="mt-3 grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
-                  <div class="lg:col-span-9">
-                    <div class="flex items-start gap-2">
-                      <div class="flex-1 min-w-0">
-                        <SearchableSelect
-                          v-model="folioSelectedId"
-                          :options="(props as any).folios ?? []"
-                          label="Folio"
-                          placeholder="Selecciona un folio..."
-                          searchPlaceholder="Escribe para filtrar..."
-                          labelKey="folio"
-                          secondaryKey="monto_total"
-                          valueKey="id"
-                          :compact="true"
-                          maxHeightClass="max-h-64"
-                          :panelClass="'rounded-3xl'"
-                        />
-                      </div>
-
-                      <button
-                        v-if="canEditFolio"
-                        type="button"
-                        class="mt-[22px] inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-black
-                               border border-slate-200/70 bg-white/70 text-slate-900
-                               hover:bg-white hover:shadow-sm hover:-translate-y-[1px]
-                               transition active:scale-[0.98]
-                               dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15
-                               disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
-                        :disabled="!folioSelectedId"
-                        @click="editFolio"
-                        title="Editar el monto del folio seleccionado (el número de folio es fijo)"
-                      >
-                        <Pencil class="h-4 w-4" />
-                        Editar
-                      </button>
-                    </div>
-
-                    <div v-if="folioSelected" class="mt-2 text-xs text-slate-600 dark:text-neutral-300">
-                      Seleccionado:
-                      <span class="font-black text-slate-900 dark:text-white">{{ folioSelected.folio }}</span>
-                      <span class="opacity-80"> · Monto:</span>
-                      <span class="font-black text-slate-900 dark:text-white">{{ money(folioSelected.monto_total ?? 0) }}</span>
-                    </div>
-                  </div>
-
-                  <div class="lg:col-span-3">
-                    <div class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-white/5 p-3">
-                      <div class="text-[11px] font-black text-slate-600 dark:text-neutral-300">
-                        Contexto
-                      </div>
-                      <div class="mt-1 text-xs text-slate-600 dark:text-neutral-300">
-                        Usa “Editar” solo si el folio seleccionado requiere ajuste documental.
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <div class="mt-3 flex items-start gap-2">
+              <div class="flex-1 min-w-0">
+                <SearchableSelect
+                  v-model="folioSelectedId"
+                  :options="(props as any).folios ?? []"
+                  label="Folio"
+                  placeholder="Selecciona un folio..."
+                  searchPlaceholder="Escribe para filtrar..."
+                  labelKey="folio"
+                  secondaryKey="monto_total"
+                  valueKey="id"
+                  :compact="true"
+                  maxHeightClass="max-h-64"
+                  :panelClass="'rounded-3xl'"
+                />
               </div>
+
+              <button
+                v-if="canEditFolio"
+                type="button"
+                class="mt-[22px] inline-flex items-center gap-2 rounded-2xl border border-slate-200/70 bg-white px-4 py-3 text-sm font-black text-slate-900
+                       hover:bg-slate-50 transition active:scale-[0.98]
+                       dark:border-white/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/15
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="!folioSelectedId"
+                title="Editar el monto del folio seleccionado (el número de folio es fijo)"
+                @click="editFolio"
+              >
+                <Pencil class="h-4 w-4" aria-hidden="true" />
+                Editar
+              </button>
             </div>
-            <!-- /folios -->
-          </div>
-        </div>
 
-        <!-- RESUMEN DE MONTOS -->
-        <section
-          aria-labelledby="resumen-comprobacion"
-          class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-5"
-        >
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="resumen-comprobacion" class="text-xs font-black text-slate-500 dark:text-neutral-300">
-              RESUMEN DE LA COMPROBACIÓN
-            </h2>
-            <span class="inline-flex items-center rounded-full border px-3 py-1 text-[12px] font-black" :class="etapa.clase">
-              {{ etapa.texto }}
-            </span>
+            <div v-if="folioSelected" class="mt-2 text-xs text-slate-600 dark:text-neutral-300">
+              Seleccionado:
+              <span class="font-black text-slate-900 dark:text-white">{{ folioSelected.folio }}</span>,
+              monto
+              <span class="font-black text-slate-900 dark:text-white">{{ money(folioSelected.monto_total ?? 0) }}</span>
+            </div>
           </div>
 
-          <div class="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <!-- Montos -->
+          <div class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4 min-w-0">
               <div class="flex items-center gap-2 text-[12px] font-black text-slate-600 dark:text-neutral-300">
                 <FileText class="h-4 w-4 shrink-0" aria-hidden="true" />
-                Total de la requisición
+                Total a comprobar
               </div>
               <div class="mt-1 text-lg sm:text-xl font-black tabular-nums text-slate-900 dark:text-white truncate">
                 {{ money(totalCents / 100) }}
               </div>
-              <div class="mt-0.5 text-[11px] text-slate-500 dark:text-neutral-400">Monto que se debe comprobar</div>
+              <div class="mt-0.5 text-[11px] text-slate-500 dark:text-neutral-400">Monto de la requisición</div>
             </div>
 
             <div class="rounded-2xl border border-emerald-200/80 dark:border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-500/10 p-4 min-w-0">
@@ -460,14 +358,14 @@ const etapa = computed(() => {
 
           <!-- Avance -->
           <div class="mt-4">
-            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
-              <div class="text-slate-700 dark:text-neutral-200">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm text-slate-700 dark:text-neutral-200">
+              <div>
                 Comprobado
                 <span class="font-black tabular-nums text-slate-900 dark:text-white">{{ money(approvedCents / 100) }}</span>
                 de
                 <span class="font-black tabular-nums text-slate-900 dark:text-white">{{ money(totalCents / 100) }}</span>
               </div>
-              <div class="text-slate-700 dark:text-neutral-200">
+              <div>
                 Por comprobar:
                 <span class="font-black tabular-nums text-slate-900 dark:text-white">{{ money(pendienteCents / 100) }}</span>
               </div>
@@ -494,794 +392,485 @@ const etapa = computed(() => {
           </div>
         </section>
 
-        <!-- GRID MAESTRO -->
-        <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start min-w-0">
-          <!-- LEFT -->
-          <div class="xl:col-span-8 2xl:col-span-7 min-w-0 space-y-4">
-            <!-- Cards info -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
-              <div class="h-full min-w-0 rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-5">
-                <div class="text-xs font-black text-slate-500 dark:text-neutral-300">
-                  DATOS DE LA REQUISICIÓN
-                </div>
-
-                <div class="mt-3 grid gap-2 text-sm">
-                  <div class="text-slate-900 dark:text-neutral-100 break-words">
-                    <span class="font-black text-slate-700 dark:text-neutral-200">Solicitante: </span>
-                    <span class="font-semibold"> {{ req?.solicitante_nombre || '—' }}</span>
-                  </div>
-
-                  <div class="text-slate-900 dark:text-neutral-100 break-words">
-                    <span class="font-black text-slate-700 dark:text-neutral-200">Concepto: </span>
-                    <span class="font-semibold"> {{ req?.concepto || '—' }}</span>
-                  </div>
-
-                  <div class="text-slate-900 dark:text-neutral-100">
-                    <span class="font-black text-slate-700 dark:text-neutral-200">Cantidad a comprobar: </span>
-                    <span class="font-black"> {{ money(req?.monto_total) }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="h-full min-w-0 rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-5">
-                <div class="text-xs font-black text-slate-500 dark:text-neutral-300">
-                  DATOS PARA FACTURACIÓN
-                </div>
-
-                <div class="mt-3 grid gap-2 text-sm">
-                  <div class="text-slate-900 dark:text-neutral-100 break-words">
-                    <span class="font-black text-slate-700 dark:text-neutral-200">Nombre: </span>
-                    <span class="font-semibold"> {{ req?.razon_social || '—' }}</span>
-                  </div>
-
-                  <div class="text-slate-900 dark:text-neutral-100 break-words">
-                    <span class="font-black text-slate-700 dark:text-neutral-200">RFC: </span>
-                    <span class="font-semibold"> {{ req?.rfc || '—' }}</span>
-                  </div>
-
-                  <div class="text-slate-900 dark:text-neutral-100 break-words">
-                    <span class="font-black text-slate-700 dark:text-neutral-200">Dirección: </span>
-                    <span class="font-semibold"> {{ req?.direccion || '—' }}</span>
-                  </div>
-
-                  <div class="text-slate-900 dark:text-neutral-100 break-words">
-                    <span class="font-black text-slate-700 dark:text-neutral-200">Teléfono: </span>
-                    <span class="font-semibold"> {{ req?.telefono || '—' }}</span>
-                  </div>
-
-                  <div class="text-slate-900 dark:text-neutral-100 break-words">
-                    <span class="font-black text-slate-700 dark:text-neutral-200">Email: </span>
-                    <span class="font-semibold break-all"> {{ req?.correo || '—' }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Cargar comprobante -->
-            <div v-if="serverCan.subir" class="relative z-[30] rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm overflow-visible">
+        <!-- Dos columnas: comprobantes cargados + vista previa | carga + datos -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start min-w-0">
+          <!-- Comprobantes cargados + vista previa -->
+          <div class="min-w-0 space-y-4">
+            <section :class="card" class="overflow-hidden" aria-labelledby="titulo-relacion">
               <div class="px-5 py-4 border-b border-slate-200/70 dark:border-white/10">
-                <div class="text-lg font-black text-slate-900 dark:text-neutral-100">Cargar comprobante</div>
-                <div class="text-sm text-slate-500 dark:text-neutral-300">
-                  Sube un archivo por cada factura, ticket o nota y escribe el monto que ampara. El monto se propone con lo que falta por cargar y puedes cambiarlo.
-                </div>
-              </div>
-              <!-- Form de carga -->
-              <div class="p-5">
-                <div class="space-y-4">
-                  <!-- Archivo -->
-                  <div class="min-w-0">
-                    <div class="flex items-end justify-between gap-3">
-                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
-                        Carga el comprobante
-                      </label>
-
-                      <div class="text-[12px] font-black text-slate-500 dark:text-neutral-300">
-                        Falta por cargar:
-                        <span class="tabular-nums text-slate-900 dark:text-neutral-100">
-                          {{ money(pendientePorCargarCents / 100) }}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div
-                      class="mt-1 rounded-3xl border bg-white/80 dark:bg-neutral-950/40 p-3 select-none
-                             transition duration-200 hover:shadow-sm hover:-translate-y-[1px] min-w-0"
-                        :class="[
-                            dragActive
-                                ? 'border-indigo-400/60 ring-2 ring-indigo-500/20 dark:border-indigo-400/40'
-                                : 'border-slate-200/70 dark:border-white/10',
-                            !canUploadMore ? 'pointer-events-none opacity-60' : ''
-                        ]"
-                      @dragenter="onDragEnter"
-                      @dragover="onDragOver"
-                      @dragleave="onDragLeave"
-                      @drop="onDropFile"
-                    >
-                      <div class="flex items-center gap-3 min-w-0">
-                        <input
-                            :key="fileKey"
-                            id="comprobante-file"
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc"
-                            class="sr-only"
-                            :disabled="!canUploadMore"
-                            @change="onPickFile"
-                        />
-
-                        <label
-                            for="comprobante-file"
-                            class="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-black
-                                    transition active:scale-[0.98] shrink-0"
-                            :class="canUploadMore
-                                ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md cursor-pointer'
-                                : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
-                            >
-                            <Upload class="h-4 w-4" />
-                            Seleccionar archivo
-                        </label>
-
-                        <div class="min-w-0 flex-1">
-                          <div
-                            class="text-sm font-black truncate"
-                            :class="hasPicked ? 'text-slate-900 dark:text-neutral-100' : 'text-slate-500 dark:text-neutral-400'"
-                            :title="pickedName"
-                          >
-                            {{ pickedName }}
-                          </div>
-                          <div class="text-[12px] text-slate-500 dark:text-neutral-400">
-                            {{ dragActive ? 'Suelta aquí para adjuntar.' : (hasPicked ? 'Listo para subir.' : 'Adjunta el comprobante correspondiente.') }}
-                          </div>
-
-                            <div v-if="!estaPagada" class="mt-2 text-xs font-bold text-amber-700 dark:text-amber-300">
-                                {{ esperaPagoMensaje }}
-                            </div>
-                            <div v-else-if="isFullyApproved || isFinalizada" class="mt-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                                Esta requisición ya fue comprobada completamente. Ya no hace falta subir más comprobantes.
-                            </div>
-                            <div v-else-if="isFullyLoaded" class="mt-2 text-xs font-bold text-sky-700 dark:text-sky-300">
-                                Ya cargaste comprobantes por el total. Avisa a Contabilidad y espera su revisión; si rechazan alguno podrás cargarlo de nuevo.
-                            </div>
-                        </div>
-
-                        <button
-                          v-if="hasPicked"
-                          type="button"
-                          class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
-                                 border border-slate-200/70 bg-white
-                                 hover:bg-slate-50 hover:shadow-sm
-                                 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15
-                                 transition active:scale-[0.98] shrink-0"
-                          title="Quitar archivo"
-                          @click="clearFile"
-                        >
-                          <X class="h-4 w-4 text-slate-700 dark:text-neutral-100" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div v-if="form.errors.archivo" class="mt-1 text-xs font-bold text-rose-600">
-                      {{ form.errors.archivo }}
-                    </div>
-
-                    <!-- PREVIEW antes de subir -->
-                    <div
-                      v-if="uploadPreview"
-                      class="mt-3 rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 overflow-hidden"
-                    >
-                      <div class="px-4 py-3 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-3">
-                        <div class="min-w-0">
-                          <div class="text-xs font-black text-slate-500 dark:text-neutral-300">
-                            PREVISUALIZACIÓN ANTES DE SUBIR
-                          </div>
-                          <div class="text-sm font-black text-slate-900 dark:text-neutral-100 truncate" :title="uploadPreview.name">
-                            {{ uploadPreview.name }}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="p-3">
-                        <div class="rounded-3xl border border-slate-200/60 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 overflow-hidden">
-                          <div class="h-[38vh] sm:h-[42vh] max-h-[420px]">
-                            <iframe
-                              v-if="uploadPreview.kind === 'pdf'"
-                              :src="uploadPreview.url"
-                              class="w-full h-full block"
-                              style="border:0;"
-                              title="Preview antes de subir"
-                            />
-                            <div v-else-if="uploadPreview.kind === 'image'" class="w-full h-full flex items-center justify-center">
-                              <img :src="uploadPreview.url" alt="Preview" class="w-full h-full object-contain" />
-                            </div>
-                            <div v-else class="w-full h-full flex items-center justify-center p-6 text-center">
-                              <div class="text-sm text-slate-600 dark:text-neutral-300">
-                                Este archivo no tiene preview aquí. Igual se puede subir.
-                              </div>
-                              <div class="text-xs text-slate-500 dark:text-neutral-400">
-                                Los archivos Excel (.xlsx, .xls) sí se pueden subir correctamente.
-                                </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div class="mt-2 text-[12px] text-slate-500 dark:text-neutral-400">
-                          Se subirá exactamente este archivo.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Monto + tipo + fecha + submit -->
-                  <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start min-w-0">
-                    <div class="lg:col-span-3 min-w-0">
-                      <div class="flex items-end justify-between gap-3">
-                        <label for="comprobante-monto" class="block text-xs font-black text-slate-600 dark:text-neutral-300">
-                          Monto de este comprobante
-                        </label>
-                        <div class="text-[11px] font-black tabular-nums text-slate-500 dark:text-neutral-300">
-                          Máx: {{ money(pendientePorCargarCents / 100) }}
-                        </div>
-                      </div>
-
-                      <div class="relative mt-1">
-                        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400 dark:text-neutral-500" aria-hidden="true">$</span>
-                        <input
-                          id="comprobante-monto"
-                          v-model="form.monto"
-                          type="number"
-                          inputmode="decimal"
-                          min="0"
-                          step="0.01"
-                          :disabled="!canUploadMore"
-                          :class="[inputBase, montoExcede ? 'border-rose-400 focus:ring-rose-500/25 focus:border-rose-500/50' : '']"
-                          class="pl-8 tabular-nums"
-                          placeholder="0.00"
-                          aria-describedby="comprobante-monto-ayuda"
-                          @input="onMontoInput"
-                        />
-                      </div>
-
-                      <div v-if="canUploadMore" id="comprobante-monto-ayuda" class="mt-1 text-xs font-semibold" aria-live="polite">
-                        <span v-if="montoExcede" class="font-bold text-rose-600 dark:text-rose-400">
-                          Supera lo que falta por cargar ({{ money(pendientePorCargarCents / 100) }}).
-                        </span>
-                        <span v-else class="text-slate-500 dark:text-neutral-400">
-                          Después de este quedarán por cargar
-                          <span class="font-black tabular-nums text-slate-800 dark:text-neutral-100">{{ money(restanteTrasCents / 100) }}</span>.
-                        </span>
-                        <button
-                          v-if="restanteTrasCents > 0 || montoExcede"
-                          type="button"
-                          class="ml-1 font-black text-indigo-700 underline hover:text-indigo-800 dark:text-indigo-300 dark:hover:text-indigo-200"
-                          @click="usarRestante"
-                        >
-                          Usar todo el restante
-                        </button>
-                      </div>
-
-                      <div
-                        v-if="form.errors.monto"
-                        class="mt-1 text-xs font-bold text-rose-600 flex flex-wrap items-center gap-x-2 gap-y-1"
-                      >
-                        <span>{{ form.errors.monto }}</span>
-                        <span v-if="serverCan.solicitar_ajuste" class="opacity-70">—</span>
-                        <Link
-                          v-if="serverCan.solicitar_ajuste"
-                          :href="route('requisiciones.ajustes', req?.id)"
-                          class="underline font-black hover:text-rose-700 dark:hover:text-rose-300"
-                        >
-                          Solicitar ajuste
-                        </Link>
-                      </div>
-                    </div>
-
-                    <!-- Tipo dropdown -->
-                    <div class="lg:col-span-4 min-w-0 relative z-[40]" ref="tipoWrap">
-                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
-                        Tipo de comprobante
-                      </label>
-
-                      <button
-                        type="button"
-                        :disabled="!canUploadMore"
-                        class="mt-1 w-full rounded-2xl border px-4 py-3 text-sm font-semibold text-left
-                                bg-white/90 text-slate-900 hover:bg-slate-50 hover:shadow-sm
-                                dark:bg-neutral-950/40 dark:text-neutral-100 dark:hover:bg-white/5
-                                border-slate-200/70 dark:border-white/10
-                                focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/40
-                                transition active:scale-[0.99]
-                                disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white/90 disabled:hover:shadow-none"
-                        @click="canUploadMore && (tipoOpen = !tipoOpen)"
-                        >
-                        <div class="flex items-center justify-between gap-2 min-w-0">
-                          <span class="truncate">
-                            {{ tipoSelected?.nombre ?? 'Selecciona tipo' }}
-                          </span>
-                          <svg
-                            class="h-4 w-4 opacity-70 shrink-0 transition-transform duration-200"
-                            :class="tipoOpen ? 'rotate-180' : ''"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fill-rule="evenodd"
-                              d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
-                              clip-rule="evenodd"
-                            />
-                          </svg>
-                        </div>
-                      </button>
-
-                      <div v-if="tipoOpen" class="absolute left-0 right-0 top-full z-[120] mt-2">
-                        <div
-                          class="rounded-3xl border border-slate-200/80 bg-white shadow-2xl overflow-hidden
-                                 dark:border-white/10 dark:bg-neutral-950
-                                 animate-in fade-in-0 zoom-in-95 duration-150"
-                        >
-                          <div class="max-h-64 overflow-auto">
-                            <button
-                              v-for="t in tipoOptions"
-                              :key="t.id"
-                              type="button"
-                              class="w-full px-4 py-3 text-left text-sm font-semibold transition
-                                     hover:bg-slate-50 dark:hover:bg-white/5 flex items-center justify-between gap-2"
-                              :class="String(form.tipo_doc) === String(t.id)
-                                ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-500/10 dark:text-indigo-200'
-                                : 'text-slate-900 dark:text-neutral-100'"
-                              @click="setTipo(String(t.id))"
-                            >
-                              <span class="truncate">{{ t.nombre }}</span>
-                              <span v-if="String(form.tipo_doc) === String(t.id)" class="text-[12px] font-black">✓</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-if="form.errors.tipo_doc" class="mt-1 text-xs font-bold text-rose-600">
-                        {{ form.errors.tipo_doc }}
-                      </div>
-                    </div>
-
-                    <!-- Fecha -->
-                    <div class="lg:col-span-3 min-w-0 relative z-[30]">
-                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
-                        Fecha del comprobante
-                      </label>
-
-                      <DatePickerShadcn
-                        v-model="form.fecha_emision"
-                        placeholder="Selecciona fecha"
-                        :disabled="!canUploadMore"
-                        />
-
-                      <div v-if="form.errors.fecha_emision" class="mt-1 text-xs font-bold text-rose-600">
-                        {{ form.errors.fecha_emision }}
-                      </div>
-                    </div>
-
-                    <!-- Submit -->
-                    <div class="lg:col-span-2 min-w-0 lg:pt-[22px]">
-                      <button
-                        type="button"
-                        @click="doSubmit"
-                        :disabled="!canSubmit"
-                        class="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black
-                               bg-gradient-to-r from-slate-900 to-slate-950 text-white
-                               hover:shadow-md hover:-translate-y-[1px]
-                               transition active:scale-[0.98]
-                               dark:from-white dark:to-neutral-200 dark:text-slate-900
-                               disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
-                      >
-                        <Upload class="h-4 w-4" />
-                        Subir
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <!-- /form -->
-            </div>
-
-            <!-- Relación de comprobantes -->
-            <div class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm overflow-visible">
-              <div class="px-5 py-4 border-b border-slate-200/70 dark:border-white/10">
-                <div class="text-lg font-black text-slate-900 dark:text-neutral-100">
-                  Relación de comprobaciones de esta requisición
-                </div>
-                <div class="text-sm text-slate-500 dark:text-neutral-300">
-                  Cada comprobante se revisa de forma independiente. Rechazar uno no tumba la requisición.
-                </div>
+                <h2 id="titulo-relacion" class="text-lg font-black text-slate-900 dark:text-neutral-100">
+                  Comprobantes cargados
+                  <span v-if="rows.length" class="ml-1 text-sm font-bold text-slate-500 dark:text-neutral-400">({{ rows.length }})</span>
+                </h2>
+                <p class="text-sm text-slate-500 dark:text-neutral-300">
+                  Cada comprobante se revisa por separado. Rechazar uno no afecta a los demás.
+                </p>
               </div>
 
-              <!-- Table 2XL+ -->
-              <div class="hidden 2xl:block">
-                <table class="w-full table-fixed">
-                  <thead class="bg-slate-50/80 dark:bg-neutral-950/40">
-                    <tr class="text-left text-[12px] font-black text-slate-600 dark:text-neutral-300">
-                      <th class="px-5 py-3 w-[170px]">Fecha</th>
-                      <th class="px-5 py-3 w-[110px]">Tipo</th>
-                      <th class="px-5 py-3 w-[120px]">Monto</th>
-                      <th class="px-5 py-3">Archivo</th>
-                      <th class="px-5 py-3 w-[180px]">Estatus</th>
-                      <th v-if="canReview" class="px-5 py-3 w-[140px] text-right">Acciones</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    <tr
-                      v-for="c in rows"
-                      :key="c.id"
-                      class="border-t border-slate-200/70 dark:border-white/10
-                             hover:bg-slate-50/70 dark:hover:bg-white/5 transition"
-                    >
-                      <td class="px-5 py-3 text-sm text-slate-800 dark:text-neutral-100 align-top">
-                        {{ fmtLong(c.fecha_emision) }}
-                      </td>
-
-                      <td class="px-5 py-3 text-sm text-slate-800 dark:text-neutral-100 align-top">
-                        {{ tipoDocLabel(c.tipo_doc) }}
-                      </td>
-
-                      <td class="px-5 py-3 text-sm font-black text-slate-900 dark:text-neutral-100 align-top">
-                        {{ money(c.monto) }}
-                      </td>
-
-                      <td class="px-5 py-3 text-sm align-top min-w-0">
-                        <div class="flex items-center gap-2 min-w-0">
-                          <button
-                            v-if="c.archivo?.url"
-                            type="button"
-                            class="inline-flex items-center gap-2 font-black
-                                   text-indigo-700 hover:text-indigo-800
-                                   dark:text-indigo-300 dark:hover:text-indigo-200
-                                   min-w-0 transition hover:-translate-y-[1px] active:translate-y-0"
-                            title="Previsualizar aquí"
-                            @click="openPreview(c)"
-                          >
-                            <FileText class="h-4 w-4 shrink-0" />
-                            <span class="truncate max-w-[340px]">{{ c.archivo.label || 'Ver archivo' }}</span>
-                          </button>
-
-                          <a
-                            v-if="c.archivo?.url"
-                            :href="c.archivo.url"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="inline-flex items-center justify-center h-9 w-9 rounded-2xl
-                                   border border-slate-200/70 bg-white
-                                   hover:bg-slate-50 hover:shadow-sm
-                                   transition active:scale-[0.98] shrink-0
-                                   dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                            title="Abrir en otra pestaña"
-                          >
-                            <ExternalLink class="h-4 w-4 text-slate-700 dark:text-neutral-100" />
-                          </a>
-
-                          <span v-if="!c.archivo?.url" class="text-slate-500 dark:text-neutral-400">—</span>
-                        </div>
-                      </td>
-
-                      <td class="px-5 py-3 align-top">
-                        <div class="flex items-center gap-2">
-                          <div
-                            class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-black"
-                            :class="estatusPillClass(c.estatus)"
-                          >
-                            <span
-                              class="h-2 w-2 rounded-full"
-                              :class="c.estatus === 'APROBADO'
-                                ? 'bg-emerald-500'
-                                : c.estatus === 'RECHAZADO'
-                                ? 'bg-rose-500'
-                                : 'bg-slate-400'"
-                            />
-                            {{ estatusLabel(c.estatus) }}
-                          </div>
-
-                          <button
-                            v-if="canDeleteComprobante(c)"
-                            type="button"
-                            class="inline-flex h-9 w-9 items-center justify-center rounded-2xl
-                                    border border-slate-200/70 bg-white
-                                    hover:bg-slate-50 hover:shadow-sm
-                                    dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15
-                                    transition active:scale-[0.98]"
-                            title="Eliminar comprobante (BD)"
-                            @click="destroyComprobante(c.id)"
-                            >
-                            <Trash2 class="h-4 w-4 text-slate-700 dark:text-neutral-100" />
-                            </button>
-                        </div>
-
-                        <div
-                          v-if="c.estatus === 'RECHAZADO' && c.comentario_revision"
-                          class="mt-2 text-[12px] font-semibold text-rose-700 dark:text-rose-200 break-words"
-                        >
-                          Motivo: {{ c.comentario_revision }}
-                        </div>
-                      </td>
-
-                      <td v-if="canReview" class="px-5 py-3 align-top">
-                        <div class="flex items-center justify-end gap-2">
-                          <button
-                            v-if="!isFinalizada"
-                            type="button"
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
-                                    border border-emerald-200 bg-emerald-50 hover:bg-emerald-100
-                                    dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15
-                                    transition active:scale-[0.98]"
-                            title="Aprobar"
-                            @click="approve(c.id)"
-                            >
-                            <Check class="h-4 w-4 text-emerald-700 dark:text-emerald-200" />
-                          </button>
-
-                          <button
-                            type="button"
-                            class="inline-flex items-center justify-center h-9 w-9 rounded-2xl
-                                   border border-rose-200 bg-rose-50 hover:bg-rose-100
-                                   dark:border-rose-500/20 dark:bg-rose-500/10 dark:hover:bg-rose-500/15
-                                   transition active:scale-[0.98]"
-                            title="Rechazar"
-                            @click="reject(c.id)"
-                          >
-                            <Ban class="h-4 w-4 text-rose-700 dark:text-rose-200" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-
-                    <tr v-if="rows.length === 0">
-                      <td :colspan="canReview ? 6 : 5" class="px-5 py-10 text-center text-sm text-slate-500 dark:text-neutral-400">
-                        Aún no hay comprobantes cargados.
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Cards <2XL -->
-              <div class="2xl:hidden p-4 space-y-3">
-                <div
-                  v-for="c in rows"
-                  :key="c.id"
-                  class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-neutral-950/30 p-4 shadow-sm
-                         hover:shadow-md hover:-translate-y-[1px] transition min-w-0"
-                >
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                      <div class="text-sm font-black text-slate-900 dark:text-neutral-100">
-                        {{ tipoDocLabel(c.tipo_doc) }} · {{ money(c.monto) }}
-                      </div>
-                      <div class="text-[12px] text-slate-500 dark:text-neutral-400">
-                        {{ fmtLong(c.fecha_emision) }}
-                      </div>
-                    </div>
-
-                    <div class="flex items-center gap-2 shrink-0">
-                      <div
-                        class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[12px] font-black"
-                        :class="estatusPillClass(c.estatus)"
-                      >
+              <ul v-if="rows.length" class="divide-y divide-slate-200/70 dark:divide-white/10">
+                <li v-for="c in rows" :key="c.id" class="px-5 py-3">
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <div class="min-w-0 flex-1 basis-56">
+                      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span class="text-sm font-black tabular-nums text-slate-900 dark:text-neutral-100">{{ money(c.monto) }}</span>
+                        <span class="text-sm font-semibold text-slate-600 dark:text-neutral-300">{{ tipoDocLabel(c.tipo_doc) }}</span>
                         <span
-                          class="h-2 w-2 rounded-full"
-                          :class="c.estatus === 'APROBADO'
-                            ? 'bg-emerald-500'
-                            : c.estatus === 'RECHAZADO'
-                            ? 'bg-rose-500'
-                            : 'bg-slate-400'"
-                        />
-                        {{ estatusLabel(c.estatus) }}
+                          class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-black"
+                          :class="estatusPillClass(c.estatus)"
+                        >
+                          <span
+                            class="h-1.5 w-1.5 rounded-full"
+                            :class="c.estatus === 'APROBADO' ? 'bg-emerald-500' : c.estatus === 'RECHAZADO' ? 'bg-rose-500' : 'bg-amber-400'"
+                            aria-hidden="true"
+                          />
+                          {{ c.estatus === 'PENDIENTE' ? 'En revisión' : estatusLabel(c.estatus) }}
+                        </span>
                       </div>
+
+                      <div class="mt-0.5 flex min-w-0 items-center gap-2 text-[12px] text-slate-500 dark:text-neutral-400">
+                        <span class="shrink-0">{{ fmtLong(c.fecha_emision) }}</span>
+                        <button
+                          v-if="c.archivo?.url"
+                          type="button"
+                          class="inline-flex min-w-0 items-center gap-1 font-bold text-indigo-700 hover:underline dark:text-indigo-300"
+                          :title="`Ver ${c.archivo.label || 'archivo'}`"
+                          @click="openPreview(c)"
+                        >
+                          <FileText class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          <span class="truncate">{{ c.archivo.label || 'Ver archivo' }}</span>
+                        </button>
+                        <span v-else>Sin archivo</span>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                      <a
+                        v-if="c.archivo?.url"
+                        :href="c.archivo.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        :class="[iconBtn, iconBtnNeutral]"
+                        title="Abrir en otra pestaña"
+                        aria-label="Abrir archivo en otra pestaña"
+                      >
+                        <ExternalLink class="h-4 w-4" aria-hidden="true" />
+                      </a>
+
+                      <template v-if="canReview">
+                        <button
+                          v-if="!isFinalizada && c.estatus !== 'APROBADO'"
+                          type="button"
+                          :class="iconBtn"
+                          class="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100
+                                 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200 dark:hover:bg-emerald-500/15"
+                          title="Aprobar"
+                          aria-label="Aprobar comprobante"
+                          @click="approve(c.id)"
+                        >
+                          <Check class="h-4 w-4" aria-hidden="true" />
+                        </button>
+
+                        <button
+                          v-if="c.estatus !== 'RECHAZADO'"
+                          type="button"
+                          :class="iconBtn"
+                          class="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100
+                                 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:bg-rose-500/15"
+                          title="Rechazar"
+                          aria-label="Rechazar comprobante"
+                          @click="reject(c.id)"
+                        >
+                          <Ban class="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </template>
 
                       <button
                         v-if="canDeleteComprobante(c)"
                         type="button"
-                        class="inline-flex h-10 w-10 items-center justify-center rounded-2xl
-                                border border-slate-200/70 bg-white
-                                hover:bg-slate-50 hover:shadow-sm
-                                dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15
-                                transition active:scale-[0.98]"
-                        title="Eliminar comprobante (BD)"
+                        :class="[iconBtn, iconBtnNeutral]"
+                        title="Eliminar comprobante"
+                        aria-label="Eliminar comprobante"
                         @click="destroyComprobante(c.id)"
-                        >
-                        <Trash2 class="h-4 w-4 text-slate-700 dark:text-neutral-100" />
-                        </button>
-                    </div>
-                  </div>
-
-                  <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="rounded-2xl border border-slate-200/60 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3">
-                      <div class="text-[11px] font-black text-slate-600 dark:text-neutral-300">Archivo</div>
-                      <div class="mt-1 min-w-0 flex items-center justify-between gap-2">
-                        <button
-                          v-if="c.archivo?.url"
-                          type="button"
-                          class="inline-flex items-center gap-2 font-black
-                                 text-indigo-700 hover:text-indigo-800
-                                 dark:text-indigo-300 dark:hover:text-indigo-200
-                                 min-w-0 transition hover:-translate-y-[1px] active:translate-y-0"
-                          @click="openPreview(c)"
-                        >
-                          <FileText class="h-4 w-4 shrink-0" />
-                          <span class="truncate">{{ c.archivo.label || 'Ver archivo' }}</span>
-                        </button>
-
-                        <a
-                          v-if="c.archivo?.url"
-                          :href="c.archivo.url"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="inline-flex items-center justify-center h-9 w-9 rounded-2xl
-                                 border border-slate-200/70 bg-white
-                                 hover:bg-slate-50 hover:shadow-sm
-                                 transition active:scale-[0.98] shrink-0
-                                 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                          title="Abrir en otra pestaña"
-                        >
-                          <ExternalLink class="h-4 w-4" />
-                        </a>
-
-                        <span v-if="!c.archivo?.url" class="text-slate-500 dark:text-neutral-400">—</span>
-                      </div>
-                    </div>
-
-                    <div v-if="canReview" class="rounded-2xl border border-slate-200/60 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3">
-                      <div class="text-[11px] font-black text-slate-600 dark:text-neutral-300">Acciones</div>
-                      <div class="mt-2 flex items-center justify-end gap-2">
-                        <button
-                            v-if="!isFinalizada"
-                            type="button"
-                            class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
-                                    border border-emerald-200 bg-emerald-50 hover:bg-emerald-100
-                                    dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/15
-                                    transition active:scale-[0.98]"
-                            title="Aprobar"
-                            @click="approve(c.id)"
-                            >
-                          <Check class="h-4 w-4 text-emerald-700 dark:text-emerald-200" />
-                        </button>
-
-                        <button
-                          type="button"
-                          class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
-                                 border border-rose-200 bg-rose-50 hover:bg-rose-100
-                                 dark:border-rose-500/20 dark:bg-rose-500/10 dark:hover:bg-rose-500/15
-                                 transition active:scale-[0.98]"
-                          title="Rechazar"
-                          @click="reject(c.id)"
-                        >
-                          <Ban class="h-4 w-4 text-rose-700 dark:text-rose-200" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-if="c.estatus === 'RECHAZADO' && c.comentario_revision"
-                    class="mt-3 text-[12px] font-semibold text-rose-700 dark:text-rose-200 break-words"
-                  >
-                    Motivo: {{ c.comentario_revision }}
-                  </div>
-                </div>
-
-                <div v-if="rows.length === 0" class="px-2 py-10 text-center text-sm text-slate-500 dark:text-neutral-400">
-                  Aún no hay comprobantes cargados.
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- RIGHT -->
-          <div ref="previewWrapRef" class="xl:col-span-4 2xl:col-span-5 min-w-0 space-y-4">
-            <!-- CTA Ajustes (bien puesto, no “colgando”) -->
-            <div v-if="!isFinalizada && serverCan.solicitar_ajuste" class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-4">
-              <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                <div class="min-w-0">
-                  <p class="font-black text-slate-900 dark:text-white">
-                    ¿Hubo algún cambio en el monto de tu requisición?
-                  </p>
-                  <p class="text-sm text-slate-600 dark:text-neutral-300">
-                    Solicita un ajuste para mantener auditoría y evitar ediciones directas de la requisición.
-                  </p>
-                </div>
-
-                <Link
-                    :href="route('requisiciones.ajustes', req.id)"
-                    class="shrink-0 inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-black
-                            bg-brand-button text-brand-button-fg hover:bg-brand-button/90
-                            transition active:scale-[0.98]
-                            "
-                    >
-                    Ir a Ajustes
-                </Link>
-              </div>
-            </div>
-
-            <!-- PREVIEW sticky -->
-            <div class="xl:sticky xl:top-6">
-              <div class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm overflow-hidden">
-                <div class="px-5 py-4 border-b border-slate-200/70 dark:border-white/10">
-                  <div class="flex items-start justify-between gap-3 min-w-0">
-                    <div class="min-w-0">
-                      <div class="text-xs font-black text-slate-500 dark:text-neutral-300">VISTA PREVIA</div>
-                      <div class="text-sm font-black text-slate-900 dark:text-neutral-100 truncate" :title="previewTitle">
-                        {{ previewTitle }}
-                      </div>
-                    </div>
-
-                    <div class="flex items-center gap-2 shrink-0">
-                      <a
-                        v-if="preview?.url"
-                        :href="preview.url"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black
-                               border border-slate-200/70 bg-white hover:bg-slate-50 hover:shadow-sm
-                               transition active:scale-[0.98]
-                               dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                        title="Abrir en otra pestaña"
                       >
-                        <ExternalLink class="h-4 w-4" />
-                        Abrir
-                      </a>
-
-                      <button
-                        v-if="preview"
-                        type="button"
-                        class="inline-flex items-center justify-center h-9 w-9 rounded-2xl
-                               border border-slate-200/70 bg-white hover:bg-slate-50 hover:shadow-sm
-                               transition active:scale-[0.98]
-                               dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                        title="Cerrar vista previa"
-                        @click="closePreview"
-                      >
-                        <X class="h-4 w-4 text-slate-700 dark:text-neutral-100" />
+                        <Trash2 class="h-4 w-4" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
+
+                  <p
+                    v-if="c.estatus === 'RECHAZADO' && c.comentario_revision"
+                    class="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-[12px] font-semibold text-rose-700 break-words dark:bg-rose-500/10 dark:text-rose-200"
+                  >
+                    Motivo del rechazo: {{ c.comentario_revision }}
+                  </p>
+                </li>
+              </ul>
+
+              <div v-else class="px-5 py-8 text-center">
+                <FileText class="mx-auto h-8 w-8 text-slate-300 dark:text-neutral-600" aria-hidden="true" />
+                <p class="mt-2 text-sm font-bold text-slate-700 dark:text-neutral-200">Aún no hay comprobantes cargados</p>
+                <p v-if="serverCan.subir && canUploadMore" class="text-sm text-slate-500 dark:text-neutral-400">
+                  Arrastra tus archivos a «Cargar comprobantes» para empezar.
+                </p>
+              </div>
+
+              <!-- Aviso a Contabilidad -->
+              <div
+                v-if="canNotify"
+                class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-slate-200/70 bg-slate-50/60 px-5 py-3
+                       dark:border-white/10 dark:bg-white/5"
+              >
+                <div class="min-w-0">
+                  <div class="text-sm font-black text-slate-900 dark:text-neutral-100">Avisar a Contabilidad</div>
+                  <div class="text-xs text-slate-500 dark:text-neutral-400">
+                    {{ motivoSinAviso ?? 'Ya cargaste todo: avisa para que inicien la revisión.' }}
+                  </div>
                 </div>
 
-                <div class="p-4">
-                  <div
-                    class="rounded-3xl border border-slate-200/60 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 overflow-hidden"
-                    :class="preview ? 'p-0' : 'p-4'"
+                <div class="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    :disabled="!canSendNotification"
+                    :class="[notifyBtn, canSendNotification ? 'border-transparent bg-brand-button text-brand-button-fg hover:bg-brand-button/90' : '']"
+                    title="Les llega a su campana de notificaciones"
+                    @click="notifySystem"
                   >
-                    <div v-if="!preview" class="text-sm text-slate-600 dark:text-neutral-300">
-                      Da clic en el nombre del archivo en la lista para previsualizar aquí mismo.
-                    </div>
+                    <BellRing class="h-4 w-4" aria-hidden="true" />
+                    En el sistema
+                  </button>
 
-                    <div v-else class="w-full">
-                      <div class="w-full h-[70vh] sm:h-[75vh] xl:h-[calc(100vh-260px)] max-h-[820px] xl:max-h-none">
-                        <iframe
-                          v-if="preview.kind === 'pdf'"
-                          :src="preview.url"
-                          class="w-full h-full block"
-                          style="border:0;"
-                          title="Vista previa PDF"
-                        />
-                        <div v-else-if="preview.kind === 'image'" class="w-full h-full flex items-center justify-center">
-                          <img :src="preview.url" alt="Vista previa" class="w-full h-full object-contain" />
-                        </div>
-                        <div v-else class="w-full h-full flex items-center justify-center p-6 text-center">
-                          <div class="text-sm text-slate-600 dark:text-neutral-300">
-                            No puedo previsualizar este tipo de archivo aquí. Usa “Abrir” para verlo en otra pestaña.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  <button
+                    type="button"
+                    :disabled="!canSendNotification"
+                    :class="[notifyBtn, canSendNotification ? 'border-sky-300/60 bg-sky-50 text-sky-800 hover:bg-sky-100 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200' : '']"
+                    title="Enviar aviso por correo"
+                    @click="notifyEmail"
+                  >
+                    <Mail class="h-4 w-4" aria-hidden="true" />
+                    Correo
+                  </button>
+
+                  <button
+                    type="button"
+                    :disabled="!canSendNotification"
+                    :class="[notifyBtn, canSendNotification ? 'border-emerald-300/60 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200' : '']"
+                    title="Abrir WhatsApp con el aviso escrito"
+                    @click="notifyWhatsApp"
+                  >
+                    <MessageCircle class="h-4 w-4" aria-hidden="true" />
+                    WhatsApp
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <!-- Vista previa -->
+            <section ref="previewWrapRef" :class="card" class="overflow-hidden" aria-labelledby="titulo-preview">
+              <div class="flex items-center justify-between gap-3 px-5 py-3 border-b border-slate-200/70 dark:border-white/10">
+                <div class="min-w-0">
+                  <h2 id="titulo-preview" class="text-sm font-black text-slate-900 dark:text-neutral-100">Vista previa</h2>
+                  <div v-if="preview" class="text-xs text-slate-500 dark:text-neutral-400 truncate" :title="previewTitle">
+                    {{ previewTitle }}
                   </div>
+                </div>
 
-                  <div v-if="preview?.url" class="mt-3 text-[12px] text-slate-500 dark:text-neutral-400">
-                    Tip: si el preview no carga por políticas del navegador, abre en otra pestaña.
+                <div v-if="preview" class="flex items-center gap-2 shrink-0">
+                  <a
+                    :href="preview.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    :class="[iconBtn, iconBtnNeutral]"
+                    title="Abrir en otra pestaña"
+                    aria-label="Abrir en otra pestaña"
+                  >
+                    <ExternalLink class="h-4 w-4" aria-hidden="true" />
+                  </a>
+                  <button type="button" :class="[iconBtn, iconBtnNeutral]" title="Cerrar vista previa" aria-label="Cerrar vista previa" @click="closePreview">
+                    <X class="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="!preview" class="px-5 py-6 text-sm text-slate-500 dark:text-neutral-400">
+                Haz clic en el nombre de un archivo, cargado o por subir, para verlo aquí.
+              </div>
+
+              <div v-else class="bg-slate-50/60 dark:bg-white/5">
+                <div class="w-full h-[65vh] max-h-[760px]">
+                  <iframe v-if="preview.kind === 'pdf'" :src="preview.url" class="w-full h-full block" style="border:0;" title="Vista previa del PDF" />
+                  <div v-else-if="preview.kind === 'image'" class="w-full h-full flex items-center justify-center">
+                    <img :src="preview.url" alt="Vista previa del comprobante" class="w-full h-full object-contain" />
+                  </div>
+                  <div v-else class="w-full h-full flex items-center justify-center p-6 text-center text-sm text-slate-600 dark:text-neutral-300">
+                    Este tipo de archivo no se puede mostrar aquí. Ábrelo en otra pestaña.
                   </div>
                 </div>
               </div>
+            </section>
+          </div>
+
+          <!-- Carga + datos -->
+          <div class="min-w-0 space-y-4">
+            <section v-if="serverCan.subir" :class="card" aria-labelledby="titulo-carga">
+              <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-4 border-b border-slate-200/70 dark:border-white/10">
+                <h2 id="titulo-carga" class="text-lg font-black text-slate-900 dark:text-neutral-100">Cargar comprobantes</h2>
+                <div class="text-sm text-slate-600 dark:text-neutral-300">
+                  Falta por cargar
+                  <span class="font-black tabular-nums text-slate-900 dark:text-neutral-100">{{ money(pendientePorCargarCents / 100) }}</span>
+                </div>
+              </div>
+
+              <div class="p-5 space-y-4">
+                <!-- Zona de arrastre -->
+                <div v-if="motivoSinCarga" class="rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 py-4 text-sm font-semibold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-neutral-300">
+                  {{ motivoSinCarga }}
+                </div>
+
+                <div v-else>
+                  <input
+                    :key="fileKey"
+                    id="comprobante-files"
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc"
+                    class="peer sr-only"
+                    :disabled="uploading"
+                    @change="onPickFiles"
+                  />
+                  <label
+                    for="comprobante-files"
+                    class="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-3xl border-2 border-dashed px-4 text-center
+                           transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-500/40"
+                    :class="[
+                      queue.length ? 'py-4' : 'py-9',
+                      dragActive
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10'
+                        : 'border-slate-300 bg-slate-50/60 hover:border-indigo-400 hover:bg-indigo-50/50 dark:border-white/15 dark:bg-white/5 dark:hover:border-indigo-400/60',
+                      uploading ? 'pointer-events-none opacity-60' : '',
+                    ]"
+                    @dragenter="onDragEnter"
+                    @dragover="onDragOver"
+                    @dragleave="onDragLeave"
+                    @drop="onDropFiles"
+                  >
+                    <Upload class="h-7 w-7 text-indigo-600 dark:text-indigo-300" aria-hidden="true" />
+                    <span class="text-base font-black text-slate-900 dark:text-neutral-100">
+                      {{ dragActive ? 'Suelta los archivos aquí' : (queue.length ? 'Arrastra más archivos aquí' : 'Arrastra tus archivos aquí') }}
+                    </span>
+                    <span class="text-sm text-slate-600 dark:text-neutral-300">
+                      o <span class="font-black text-indigo-700 underline dark:text-indigo-300">selecciónalos de tu equipo</span>. Puedes subir varios a la vez.
+                    </span>
+                    <span class="text-xs text-slate-500 dark:text-neutral-400">PDF, imagen, Excel o Word, hasta 10 MB cada uno</span>
+                  </label>
+                </div>
+
+                <!-- Archivos por subir -->
+                <ul v-if="queue.length" class="space-y-3">
+                  <li
+                    v-for="(item, i) in queue"
+                    :key="item.uid"
+                    class="rounded-2xl border p-3"
+                    :class="item.error ? 'border-rose-300 bg-rose-50/50 dark:border-rose-500/30 dark:bg-rose-500/5' : 'border-slate-200/70 bg-white/70 dark:border-white/10 dark:bg-white/5'"
+                  >
+                    <div class="flex items-center gap-3">
+                      <button
+                        type="button"
+                        class="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200/70 bg-slate-100
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40
+                               dark:border-white/10 dark:bg-white/10"
+                        :title="item.kind === 'other' ? 'Este archivo no tiene vista previa' : 'Ver en vista previa'"
+                        :aria-label="`Ver ${item.file.name} en vista previa`"
+                        :disabled="item.kind === 'other'"
+                        @click="openQueuePreview(item)"
+                      >
+                        <img v-if="item.kind === 'image'" :src="item.url" alt="" class="h-full w-full object-cover" />
+                        <span v-else class="flex h-full w-full flex-col items-center justify-center text-slate-500 dark:text-neutral-300">
+                          <FileText class="h-5 w-5" aria-hidden="true" />
+                          <span class="text-[10px] font-black">{{ item.kind === 'pdf' ? 'PDF' : 'Archivo' }}</span>
+                        </span>
+                      </button>
+
+                      <div class="min-w-0 flex-1">
+                        <div class="truncate text-sm font-black text-slate-900 dark:text-neutral-100" :title="item.file.name">
+                          {{ item.file.name }}
+                        </div>
+                        <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-neutral-400">
+                          <span>{{ fmtSize(item.file.size) }}</span>
+                          <button
+                            v-if="item.kind !== 'other'"
+                            type="button"
+                            class="inline-flex items-center gap-1 font-bold text-indigo-700 hover:underline dark:text-indigo-300"
+                            @click="openQueuePreview(item)"
+                          >
+                            <Eye class="h-3.5 w-3.5" aria-hidden="true" />
+                            Ver
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        :class="[iconBtn, iconBtnNeutral]"
+                        :disabled="uploading"
+                        title="Quitar archivo"
+                        :aria-label="`Quitar ${item.file.name}`"
+                        @click="removeItem(item.uid)"
+                      >
+                        <X class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+
+                    <!-- Los tres campos comparten altura y etiqueta de una línea -->
+                    <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div class="min-w-0">
+                        <label :for="`monto-${item.uid}`" :class="fieldLabel">Monto que ampara</label>
+                        <div class="relative">
+                          <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400 dark:text-neutral-500" aria-hidden="true">$</span>
+                          <input
+                            :id="`monto-${item.uid}`"
+                            v-model="item.monto"
+                            type="number"
+                            inputmode="decimal"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            :disabled="uploading"
+                            :class="[field, itemSinMonto(item) || queueExcede ? 'border-rose-300 dark:border-rose-500/40' : '']"
+                            class="pl-7 tabular-nums"
+                            @input="onItemMontoInput(item)"
+                          />
+                        </div>
+                      </div>
+
+                      <div class="min-w-0">
+                        <label :for="`tipo-${item.uid}`" :class="fieldLabel">Tipo</label>
+                        <select :id="`tipo-${item.uid}`" v-model="item.tipo_doc" :disabled="uploading" :class="field">
+                          <option v-for="t in props.tipoDocOptions" :key="t.id" :value="t.id">{{ t.nombre }}</option>
+                        </select>
+                      </div>
+
+                      <div class="min-w-0">
+                        <label :for="`fecha-${item.uid}`" :class="fieldLabel">Fecha del comprobante</label>
+                        <input :id="`fecha-${item.uid}`" v-model="item.fecha_emision" type="date" :disabled="uploading" :class="field" />
+                      </div>
+                    </div>
+
+                    <p v-if="item.error" class="mt-2 text-xs font-bold text-rose-700 dark:text-rose-300" role="alert">
+                      {{ item.error }}
+                    </p>
+                    <p v-else-if="itemSinMonto(item)" class="mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                      Escribe el monto que ampara este archivo{{ i > 0 ? ' o quítalo de la lista' : '' }}.
+                    </p>
+                  </li>
+                </ul>
+
+                <!-- Totales de la cola + subir -->
+                <div v-if="queue.length" class="space-y-3">
+                  <div
+                    class="rounded-2xl border px-4 py-3 text-sm"
+                    :class="queueExcede
+                      ? 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200'
+                      : 'border-slate-200/70 bg-slate-50/70 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-neutral-200'"
+                    aria-live="polite"
+                  >
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                      <span>
+                        Suma de {{ queue.length === 1 ? 'este archivo' : `estos ${queue.length} archivos` }}:
+                        <span class="font-black tabular-nums">{{ money(queueCents / 100) }}</span>
+                      </span>
+                      <span v-if="!queueExcede">
+                        Después quedará por cargar
+                        <span class="font-black tabular-nums">{{ money(restanteTrasCents / 100) }}</span>
+                      </span>
+                    </div>
+                    <div v-if="queueExcede" class="mt-1 font-bold">
+                      La suma supera lo que falta por cargar ({{ money(pendientePorCargarCents / 100) }}). Baja algún monto o quita un archivo.
+                      <template v-if="serverCan.solicitar_ajuste">
+                        Si la requisición cambió de monto,
+                        <Link :href="route('requisiciones.ajustes', req?.id)" class="underline font-black">solicita un ajuste</Link>.
+                      </template>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      class="inline-flex h-11 items-center rounded-2xl border border-slate-200/70 bg-white px-4 text-sm font-black text-slate-700
+                             hover:bg-slate-50 transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed
+                             dark:border-white/10 dark:bg-white/10 dark:text-neutral-100 dark:hover:bg-white/15"
+                      :disabled="uploading"
+                      @click="clearQueue"
+                    >
+                      Quitar todos
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 text-sm font-black text-white
+                             hover:bg-indigo-700 transition active:scale-[0.98]
+                             focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2
+                             disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500
+                             dark:disabled:bg-white/10 dark:disabled:text-neutral-500"
+                      :disabled="!canSubmit"
+                      :title="queueIncompleta ? 'Completa monto, tipo y fecha de cada archivo' : undefined"
+                      @click="submitAll"
+                    >
+                      <Upload class="h-4 w-4" aria-hidden="true" />
+                      {{ textoSubir }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Ajustes -->
+            <div
+              v-if="!isFinalizada && serverCan.solicitar_ajuste"
+              :class="card"
+              class="flex flex-wrap items-center justify-between gap-3 px-5 py-4"
+            >
+              <div class="min-w-0">
+                <p class="text-sm font-black text-slate-900 dark:text-white">¿Cambió el monto de tu requisición?</p>
+                <p class="text-sm text-slate-600 dark:text-neutral-300">Solicita un ajuste en lugar de editarla; queda registrado.</p>
+              </div>
+              <Link
+                :href="route('requisiciones.ajustes', req.id)"
+                class="inline-flex h-10 shrink-0 items-center rounded-2xl bg-brand-button px-4 text-sm font-black text-brand-button-fg
+                       hover:bg-brand-button/90 transition active:scale-[0.98]"
+              >
+                Ir a Ajustes
+              </Link>
             </div>
-            <!-- /preview -->
+
+            <!-- Datos para facturación -->
+            <section :class="card" class="p-5" aria-labelledby="titulo-facturacion">
+              <h2 id="titulo-facturacion" class="text-sm font-black text-slate-900 dark:text-neutral-100">Datos para facturación</h2>
+              <p class="text-xs text-slate-500 dark:text-neutral-400">Pide tus facturas a nombre de:</p>
+
+              <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div class="min-w-0 sm:col-span-2">
+                  <dt class="text-xs font-bold text-slate-500 dark:text-neutral-400">Razón social</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100 break-words">{{ req?.razon_social || '—' }}</dd>
+                </div>
+                <div class="min-w-0">
+                  <dt class="text-xs font-bold text-slate-500 dark:text-neutral-400">RFC</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100 break-words">{{ req?.rfc || '—' }}</dd>
+                </div>
+                <div class="min-w-0">
+                  <dt class="text-xs font-bold text-slate-500 dark:text-neutral-400">Teléfono</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100 break-words">{{ req?.telefono || '—' }}</dd>
+                </div>
+                <div class="min-w-0 sm:col-span-2">
+                  <dt class="text-xs font-bold text-slate-500 dark:text-neutral-400">Dirección</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100 break-words">{{ req?.direccion || '—' }}</dd>
+                </div>
+                <div class="min-w-0 sm:col-span-2">
+                  <dt class="text-xs font-bold text-slate-500 dark:text-neutral-400">Correo</dt>
+                  <dd class="font-semibold text-slate-900 dark:text-neutral-100 break-all">{{ req?.correo || '—' }}</dd>
+                </div>
+              </dl>
+            </section>
           </div>
         </div>
-        <!-- /grid -->
       </div>
     </div>
   </AuthenticatedLayout>
