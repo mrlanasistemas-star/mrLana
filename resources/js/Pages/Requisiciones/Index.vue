@@ -1,9 +1,15 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { Head, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import SearchableSelect from "@/Components/ui/SearchableSelect.vue";
 import DatePickerShadcn from "@/Components/ui/DatePickerShadcn.vue";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/Components/ui/dropdown-menu";
 import ICON_PDF from "@/img/pdf.png";
 import ICON_EXCEL from "@/img/excel.png";
 import { toQS, downloadFile } from "@/Utils/exports";
@@ -22,18 +28,24 @@ import {
     X,
     Copy,
     ArrowUpDown,
-    ClipboardList,
-    BadgeDollarSign,
     Building2,
-    Tags,
-    CalendarDays,
+    MapPin,
+    User,
+    Truck,
+    Check,
+    ChevronDown,
+    ChevronLeft,
+    ChevronRight,
+    SlidersHorizontal,
+    Download,
+    FileText,
 } from "lucide-vue-next";
 
 const props = defineProps<RequisicionesPageProps>();
 
-const PER_PAGE_OPTIONS: { id: number | 'all'; nombre: string }[] = [
-    ...[10, 15, 20, 50].map((n) => ({ id: n, nombre: String(n) })),
-    { id: 'all', nombre: 'Todos' },
+const PER_PAGE_OPTIONS: { id: number | "all"; nombre: string }[] = [
+    ...[10, 15, 20, 50].map((n) => ({ id: n, nombre: `${n} por página` })),
+    { id: "all", nombre: "Todas en una página" },
 ];
 
 const { can } = usePermissions();
@@ -50,16 +62,11 @@ const {
     empleadosFiltered,
     conceptosActive,
     proveedoresActive,
-    statusOptions,
-    inputBase,
     hasActiveFilters,
     clearFilters,
-    sortLabel,
     toggleSort,
     selectedCount,
-    isAllSelectedOnPage,
     toggleRow,
-    toggleAllOnPage,
     clearSelection,
     destroySelected,
     goTo,
@@ -72,200 +79,185 @@ const {
     copyText,
 } = useRequisicionesIndex(props);
 
+/* ---------- Exportar ---------- */
 const exportParams = computed(() => ({
     ...(state as any),
     page: meta.value?.current_page ?? 1,
     perPage: state.perPage,
 }));
+const exportPdfUrl = computed(() => route("requisiciones.export.pdf") + toQS(exportParams.value));
+const exportExcelUrl = computed(() => route("requisiciones.export.excel") + toQS(exportParams.value));
 
-const exportPdfUrl = computed(
-    () => route("requisiciones.export.pdf") + toQS(exportParams.value),
-);
+/* ---------- Estatus ---------- */
+type StatusKey =
+    | "BORRADOR" | "CAPTURADA" | "PAGO_AUTORIZADO" | "PAGO_RECHAZADO" | "PAGADA"
+    | "POR_COMPROBAR" | "COMPROBACION_ACEPTADA" | "COMPROBACION_RECHAZADA" | "ELIMINADA";
 
-const exportExcelUrl = computed(
-    () => route("requisiciones.export.excel") + toQS(exportParams.value),
-);
+/**
+ * Todo lo visual de un estatus en un solo lugar.
+ * - `paso`: etapa alcanzada del flujo (0 a 4); -1 si aún no entra al flujo.
+ * - `falla`: etapa que se rechazó, si aplica.
+ * - `sigue`: qué falta para avanzar.
+ */
+const STATUS: Record<StatusKey, { label: string; dot: string; pill: string; bar: string; paso: number; falla?: number; sigue: string }> = {
+    BORRADOR: { label: "Borrador", dot: "bg-slate-400", bar: "bg-slate-400", paso: -1, sigue: "Falta enviarla",
+        pill: "bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-200" },
+    CAPTURADA: { label: "Capturada", dot: "bg-sky-500", bar: "bg-sky-500", paso: 0, sigue: "Sigue: autorizar el pago",
+        pill: "bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-500/10 dark:border-sky-500/20 dark:text-sky-200" },
+    PAGO_AUTORIZADO: { label: "Pago autorizado", dot: "bg-amber-500", bar: "bg-amber-500", paso: 1, sigue: "Sigue: registrar el pago",
+        pill: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-200" },
+    PAGO_RECHAZADO: { label: "Pago rechazado", dot: "bg-rose-500", bar: "bg-sky-500", paso: 0, falla: 1, sigue: "El pago fue rechazado",
+        pill: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-200" },
+    PAGADA: { label: "Pagada", dot: "bg-emerald-500", bar: "bg-emerald-500", paso: 2, sigue: "Sigue: comprobar el gasto",
+        pill: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-200" },
+    POR_COMPROBAR: { label: "Por comprobar", dot: "bg-violet-500", bar: "bg-violet-500", paso: 3, sigue: "Sigue: revisión de Contabilidad",
+        pill: "bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-200" },
+    COMPROBACION_ACEPTADA: { label: "Comprobada", dot: "bg-teal-500", bar: "bg-teal-500", paso: 4, sigue: "Proceso terminado",
+        pill: "bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-500/10 dark:border-teal-500/20 dark:text-teal-200" },
+    COMPROBACION_RECHAZADA: { label: "Comprobación rechazada", dot: "bg-fuchsia-500", bar: "bg-violet-500", paso: 3, falla: 4, sigue: "Hay que corregir comprobantes",
+        pill: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:border-fuchsia-500/20 dark:text-fuchsia-200" },
+    ELIMINADA: { label: "Eliminada", dot: "bg-zinc-500", bar: "bg-zinc-400", paso: -1, sigue: "",
+        pill: "bg-zinc-100 border-zinc-200 text-zinc-700 dark:bg-zinc-500/10 dark:border-zinc-500/20 dark:text-zinc-200" },
+};
 
-const pageSummary = computed(() => {
-    const from = meta.value?.from ?? null;
-    const to = meta.value?.to ?? null;
-    const total = meta.value?.total ?? null;
-    if (!from || !to || !total) return "";
-    return `Mostrando ${from}–${to} de ${total}`;
-});
+const PASOS = ["Capturada", "Pago autorizado", "Pagada", "Por comprobar", "Comprobada"];
 
-const corpPicked = computed(() => Number(state.comprador_corp_id || 0) > 0);
+function st(s: any) {
+    return STATUS[String(s || "").toUpperCase() as StatusKey] ?? STATUS.BORRADOR;
+}
 
-const totalRows = computed(() => rows.value.length);
+function pasoClass(s: any, i: number) {
+    const info = st(s);
+    if (info.falla === i) return "bg-rose-500";
+    if (i <= info.paso) return info.bar;
+    return "bg-slate-200 dark:bg-white/10";
+}
 
-const totalMontoPagina = computed(() =>
-    rows.value.reduce(
-        (acc: number, r: any) => acc + Number(r?.monto_total ?? 0),
-        0,
-    ),
-);
-
-const capturadasCount = computed(
-    () =>
-        rows.value.filter(
-            (r: any) => String(r?.status || "").toUpperCase() === "CAPTURADA",
-        ).length,
-);
-
-const pendientesCount = computed(
-    () =>
-        rows.value.filter(
-            (r: any) =>
-                String(r?.status || "").toUpperCase() === "POR_COMPROBAR",
-        ).length,
-);
-
+function pasoTexto(s: any) {
+    const info = st(s);
+    if (info.paso < 0) return info.sigue;
+    return `Paso ${info.paso + 1} de ${PASOS.length}. ${info.sigue}`;
+}
 
 function rowDisabled(r: RequisicionRow) {
     return String((r as any).status || "").toUpperCase() === "ELIMINADA";
 }
 
-function pillText(s: any) {
-    const v = String(s || "").toUpperCase();
-    if (v === "BORRADOR") return "Borrador";
-    if (v === "ELIMINADA") return "Eliminada";
-    if (v === "CAPTURADA") return "Capturada";
-    if (v === "PAGO_AUTORIZADO") return "Pago autorizado";
-    if (v === "PAGO_RECHAZADO") return "Pago rechazado";
-    if (v === "PAGADA") return "Pagada";
-    if (v === "POR_COMPROBAR") return "Por comprobar";
-    if (v === "COMPROBACION_ACEPTADA") return "Comp. aceptada";
-    if (v === "COMPROBACION_RECHAZADA") return "Comp. rechazada";
-    return v || "—";
-}
+/* ---------- Accesos rápidos por estatus ---------- */
+const conteos = computed<Record<string, number>>(() => props.conteos ?? {});
 
-function statusClass(s: any) {
-    const v = String(s || "").toUpperCase();
-    const base =
-        "inline-flex max-w-full items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-black border whitespace-nowrap";
+const tabs = computed(() => {
+    const c = conteos.value;
+    const activas = Object.entries(c).reduce((acc, [k, n]) => (k === "ELIMINADA" ? acc : acc + Number(n)), 0);
+    const orden: StatusKey[] = [
+        "BORRADOR", "CAPTURADA", "PAGO_AUTORIZADO", "PAGADA", "POR_COMPROBAR",
+        "COMPROBACION_ACEPTADA", "PAGO_RECHAZADO", "COMPROBACION_RECHAZADA", "ELIMINADA",
+    ];
+    return [
+        { id: "", label: "Todas", dot: "", n: activas },
+        // Solo los estatus que tienen requisiciones (y el que esté elegido).
+        ...orden
+            .filter((k) => Number(c[k] ?? 0) > 0 || state.status === k)
+            .map((k) => ({ id: k as string, label: STATUS[k].label, dot: STATUS[k].dot, n: Number(c[k] ?? 0) })),
+    ];
+});
 
-    if (v === "BORRADOR") {
-        return (
-            base +
-            " bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-200"
-        );
-    }
+/* ---------- Filtros ---------- */
+const corpPicked = computed(() => Number(state.comprador_corp_id || 0) > 0);
 
-    if (v === "CAPTURADA") {
-        return (
-            base +
-            " bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-500/10 dark:border-sky-500/20 dark:text-sky-200"
-        );
-    }
-
-    if (v === "PAGO_AUTORIZADO") {
-        return (
-            base +
-            " bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-200"
-        );
-    }
-
-    if (v === "PAGO_RECHAZADO") {
-        return (
-            base +
-            " bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-200"
-        );
-    }
-
-    if (v === "PAGADA") {
-        return (
-            base +
-            " bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-200"
-        );
-    }
-
-    if (v === "POR_COMPROBAR") {
-        return (
-            base +
-            " bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-200"
-        );
-    }
-
-    if (v === "COMPROBACION_ACEPTADA") {
-        return (
-            base +
-            " bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-500/10 dark:border-teal-500/20 dark:text-teal-200"
-        );
-    }
-
-    if (v === "COMPROBACION_RECHAZADA") {
-        return (
-            base +
-            " bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:border-fuchsia-500/20 dark:text-fuchsia-200"
-        );
-    }
-
-    if (v === "ELIMINADA") {
-        return (
-            base +
-            " bg-zinc-100 border-zinc-200 text-zinc-700 dark:bg-zinc-500/10 dark:border-zinc-500/20 dark:text-zinc-200"
-        );
-    }
-
-    return (
-        base +
-        " bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-200"
-    );
-}
-
-function dotClass(s: any) {
-    const v = String(s || "").toUpperCase();
-
-    if (v === "BORRADOR") return "bg-slate-400";
-    if (v === "CAPTURADA") return "bg-sky-500";
-    if (v === "PAGO_AUTORIZADO") return "bg-amber-500";
-    if (v === "PAGO_RECHAZADO") return "bg-rose-500";
-    if (v === "PAGADA") return "bg-emerald-500";
-    if (v === "POR_COMPROBAR") return "bg-violet-500";
-    if (v === "COMPROBACION_ACEPTADA") return "bg-teal-500";
-    if (v === "COMPROBACION_RECHAZADA") return "bg-fuchsia-500";
-    if (v === "ELIMINADA") return "bg-zinc-500";
-
-    return "bg-slate-400";
-}
+const nameOf = (list: any[], id: any, key = "nombre") =>
+    String(list.find((x: any) => String(x.id) === String(id))?.[key] ?? "");
 
 function safeDateShort(v: any) {
     if (!v) return "—";
-
-    const txt = String(v).trim();
-
     // Toma solo YYYY-MM-DD aunque venga como datetime o ISO
-    const match = txt.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const match = String(v).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (!match) return "—";
-
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-
-    const raw = new Date(year, month - 1, day);
-
+    const raw = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
     if (Number.isNaN(raw.getTime())) return "—";
-
-    return new Intl.DateTimeFormat("es-MX", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-    }).format(raw);
+    return new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "short", year: "numeric" }).format(raw);
 }
 
+const rango = (from: any, to: any) => {
+    if (from && to) return `${safeDateShort(from)} a ${safeDateShort(to)}`;
+    return from ? `desde ${safeDateShort(from)}` : `hasta ${safeDateShort(to)}`;
+};
 
-function statusAccentColor(s: any): string {
-    const st = String(s ?? '').toUpperCase()
-    if (st === 'PAGADA')               return '#10b981'
-    if (st === 'PAGO_AUTORIZADO')      return '#f59e0b'
-    if (st === 'CAPTURADA')            return '#0ea5e9'
-    if (st === 'BORRADOR')             return '#94a3b8'
-    if (st === 'ELIMINADA')            return '#ef4444'
-    if (st === 'POR_COMPROBAR')        return '#8b5cf6'
-    if (st === 'COMPROBACION_ACEPTADA') return '#14b8a6'
-    if (st === 'COMPROBACION_RECHAZADA') return '#d946ef'
-    return '#cbd5e1'
-}
+/** Filtros aplicados, cada uno con su forma de quitarlo. */
+const chips = computed(() => {
+    const out: { key: string; label: string; clear: () => void }[] = [];
+    if (state.comprador_corp_id)
+        out.push({ key: "corp", label: `Corporativo: ${nameOf(corporativosActive.value, state.comprador_corp_id)}`, clear: () => (state.comprador_corp_id = "") });
+    if (state.sucursal_id)
+        out.push({ key: "suc", label: `Sucursal: ${nameOf(sucursalesFiltered.value, state.sucursal_id)}`, clear: () => (state.sucursal_id = "") });
+    if (!isColaborador.value && state.solicitante_id)
+        out.push({ key: "sol", label: `Solicitante: ${nameOf(empleadosFiltered.value, state.solicitante_id)}`, clear: () => (state.solicitante_id = "") });
+    if (state.concepto_id)
+        out.push({ key: "con", label: `Concepto: ${nameOf(conceptosActive.value, state.concepto_id)}`, clear: () => (state.concepto_id = "") });
+    if (state.proveedor_id)
+        out.push({ key: "prov", label: `Proveedor: ${nameOf(proveedoresActive.value, state.proveedor_id, "razon_social")}`, clear: () => (state.proveedor_id = "") });
+    if (state.fecha_registro_from || state.fecha_registro_to)
+        out.push({
+            key: "freg",
+            label: `Registro: ${rango(state.fecha_registro_from, state.fecha_registro_to)}`,
+            clear: () => { state.fecha_registro_from = ""; state.fecha_registro_to = ""; state.fecha_from = ""; state.fecha_to = ""; },
+        });
+    if (state.fecha_pago_from || state.fecha_pago_to)
+        out.push({
+            key: "fpago",
+            label: `Fecha de pago: ${rango(state.fecha_pago_from, state.fecha_pago_to)}`,
+            clear: () => { state.fecha_pago_from = ""; state.fecha_pago_to = ""; },
+        });
+    return out;
+});
+
+// El panel abre solo si ya hay filtros aplicados al llegar.
+const filtersOpen = ref(chips.value.length > 0);
+
+const sortTexto = computed(() => (state.dir === "asc" ? "Más antiguas primero" : "Más recientes primero"));
+const perPageTexto = computed(() => PER_PAGE_OPTIONS.find((o) => o.id === state.perPage)?.nombre ?? "Por página");
+
+/* ---------- Paginación ---------- */
+const total = computed(() => Number(meta.value?.total ?? rows.value.length));
+
+const pageSummary = computed(() => {
+    const from = meta.value?.from ?? null;
+    const to = meta.value?.to ?? null;
+    if (!from || !to || !total.value) return "";
+    return `${from} a ${to} de ${total.value}`;
+});
+
+/**
+ * Laravel entrega [anterior, ...páginas, siguiente]. Los extremos se pintan
+ * como flechas, así que su texto (que llega con entidades como &laquo;) no se usa.
+ */
+const pager = computed(() => {
+    const links = safePagerLinks.value as any[];
+    if (links.length < 3) return null;
+    return {
+        prev: links[0],
+        next: links[links.length - 1],
+        pages: links.slice(1, -1).map((l) => ({ ...l, text: /^\d+$/.test(l.cleanLabel) ? l.cleanLabel : "…" })),
+    };
+});
+
+const totalMontoPagina = computed(() =>
+    rows.value.reduce((acc: number, r: any) => acc + Number(r?.monto_total ?? 0), 0),
+);
+
+/* ---------- Clases compartidas ---------- */
+const toolBtn =
+    "inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 " +
+    "hover:border-slate-300 hover:bg-slate-50 transition active:scale-[0.98] " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30 motion-reduce:transform-none " +
+    "dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10";
+const menuItem = "flex min-h-10 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm font-semibold text-slate-800 dark:text-zinc-100";
+const filterLabel = "block truncate text-xs font-semibold text-slate-600 dark:text-zinc-300";
+const pageBtn =
+    "inline-flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-semibold tabular-nums transition " +
+    "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30 disabled:pointer-events-none disabled:opacity-40";
+const pageBtnIdle =
+    "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10";
 </script>
 
 <template>
@@ -274,795 +266,548 @@ function statusAccentColor(s: any): string {
     <AuthenticatedLayout>
         <template #header>
             <div class="flex items-center justify-between gap-3 min-w-0">
-                <div class="min-w-0">
-                    <h2
-                        class="text-xl font-black text-slate-900 dark:text-zinc-100 truncate"
+                <div class="flex min-w-0 items-baseline gap-2.5">
+                    <h2 class="text-xl font-black text-slate-900 dark:text-zinc-100 truncate">Requisiciones</h2>
+                    <span
+                        v-if="total"
+                        class="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold tabular-nums text-slate-600 dark:bg-white/10 dark:text-zinc-300"
+                        :title="`${total} con los filtros actuales`"
                     >
-                        Requisiciones
-                    </h2>
-                    <p
-                        class="text-xs sm:text-sm text-slate-500 dark:text-zinc-400"
-                    >
-                        Panel de seguimiento y control
-                    </p>
+                        {{ total }}
+                    </span>
                 </div>
 
-                <button data-tour="requisiciones-nueva"
+                <button
                     v-if="can('requisiciones.registrar')"
+                    data-tour="requisiciones-nueva"
                     type="button"
+                    class="inline-flex h-11 items-center gap-2 rounded-xl bg-brand-button px-4 text-sm font-black text-brand-button-fg shadow-sm
+                           hover:bg-brand-button/90 active:scale-[0.99] transition
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:ring-offset-2"
                     aria-label="Nueva requisición"
                     @click="goCreate"
-                    class="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-black bg-brand-button text-brand-button-fg shadow-sm shadow-brand-button/20 hover:bg-brand-button/90 active:scale-[0.99] transition"
                 >
-                    <Plus class="h-4 w-4" />
-                    <span class="hidden sm:inline">Nueva</span>
+                    <Plus class="h-4 w-4" aria-hidden="true" />
+                    <span class="hidden sm:inline">Nueva requisición</span>
+                    <span class="sm:hidden">Nueva</span>
                 </button>
             </div>
         </template>
 
-        <div
-            class="w-full max-w-full min-w-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4"
-        >
-            <!-- RESUMEN -->
-            <div
-                class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-neutral-900/60 backdrop-blur p-4 sm:p-5 shadow-sm"
-            >
-                <div
-                    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3"
-                >
-                    <div
-                        class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
-                    >
-                        <div
-                            class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400"
-                        >
-                            <ClipboardList class="h-4 w-4" />
-                            Registros visibles
-                        </div>
-                        <div
-                            class="mt-2 text-2xl font-black text-slate-900 dark:text-zinc-100"
-                        >
-                            {{ totalRows }}
-                        </div>
-                        <div class="text-xs text-slate-500 dark:text-zinc-400">
-                            {{ pageSummary || "Página actual" }}
-                        </div>
-                    </div>
-
-                    <div
-                        class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
-                    >
-                        <div
-                            class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400"
-                        >
-                            <BadgeDollarSign class="h-4 w-4" />
-                            Total página
-                        </div>
-                        <div
-                            class="mt-2 text-xl font-black text-slate-900 dark:text-zinc-100"
-                        >
-                            {{ money(totalMontoPagina) }}
-                        </div>
-                        <div class="text-xs text-slate-500 dark:text-zinc-400">
-                            Suma del listado actual
-                        </div>
-                    </div>
-
-                    <div
-                        class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
-                    >
-                        <div
-                            class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400"
-                        >
-                            <CalendarDays class="h-4 w-4" />
-                            Capturadas
-                        </div>
-                        <div
-                            class="mt-2 text-2xl font-black text-slate-900 dark:text-zinc-100"
-                        >
-                            {{ capturadasCount }}
-                        </div>
-                        <div class="text-xs text-slate-500 dark:text-zinc-400">
-                            En esta página
-                        </div>
-                    </div>
-
-                    <div
-                        class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4"
-                    >
-                        <div
-                            class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-zinc-400"
-                        >
-                            <Tags class="h-4 w-4" />
-                            Por comprobar
-                        </div>
-                        <div
-                            class="mt-2 text-2xl font-black text-slate-900 dark:text-zinc-100"
-                        >
-                            {{ pendientesCount }}
-                        </div>
-                        <div class="text-xs text-slate-500 dark:text-zinc-400">
-                            Pendientes de comprobación
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-4 flex flex-wrap items-center gap-2">
-                    <button data-tour="requisiciones-exportar" v-if="can('requisiciones.exportar')"
-                        type="button"
-                        @click="downloadFile(exportExcelUrl)"
-                        class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                        title="Excel"
-                    >
-                        <img :src="ICON_EXCEL" class="h-5 w-5" alt="Excel" />
-                        Excel
-                    </button>
-
-                    <button v-if="can('requisiciones.exportar')"
-                        type="button"
-                        @click="downloadFile(exportPdfUrl)"
-                        class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                        title="PDF"
-                    >
-                        <img :src="ICON_PDF" class="h-5 w-5" alt="PDF" />
-                        PDF
-                    </button>
-
-                    <button
-                        type="button"
-                        @click="toggleSort"
-                        class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black bg-slate-100 hover:bg-slate-200 hover:shadow-sm active:scale-[0.99] transition dark:bg-white/10 dark:hover:bg-white/15 dark:text-zinc-100"
-                    >
-                        <ArrowUpDown class="h-4 w-4" />
-                        <span class="hidden sm:inline">Orden:</span>
-                        {{ sortLabel }}
-                    </button>
-
-                    <button
-                        v-if="hasActiveFilters"
-                        type="button"
-                        @click="clearFilters"
-                        class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                    >
-                        Limpiar
-                    </button>
-
-                    <template v-if="canDelete && selectedCount > 0">
+        <div class="w-full max-w-full min-w-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
+            <!-- Estatus: accesos rápidos con conteo -->
+            <nav aria-label="Filtrar por estatus" class="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+                <ul class="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+                    <li v-for="t in tabs" :key="t.id || 'todas'">
                         <button
                             type="button"
-                            @click="destroySelected"
-                            class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black bg-rose-600 text-white hover:bg-rose-700 hover:shadow-sm active:scale-[0.99] transition"
+                            class="inline-flex h-10 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold whitespace-nowrap transition
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
+                            :class="state.status === t.id
+                                ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10'"
+                            :aria-pressed="state.status === t.id"
+                            @click="state.status = t.id"
                         >
-                            Eliminar ({{ selectedCount }})
+                            <span v-if="t.dot" class="h-2 w-2 rounded-full" :class="t.dot" aria-hidden="true" />
+                            {{ t.label }}
+                            <span
+                                class="rounded-full px-1.5 text-xs font-bold tabular-nums"
+                                :class="state.status === t.id
+                                    ? 'bg-white/20 dark:bg-slate-900/10'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-zinc-300'"
+                            >{{ t.n }}</span>
                         </button>
+                    </li>
+                </ul>
+            </nav>
 
-                        <button
-                            type="button"
-                            @click="clearSelection"
-                            class="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 hover:shadow-sm active:scale-[0.99] transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                        >
-                            Quitar selección
-                        </button>
-                    </template>
-                </div>
-            </div>
-
-            <!-- FILTROS -->
+            <!-- Barra: buscar + filtros + orden + exportar -->
             <div
-                class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-neutral-900/60 backdrop-blur p-4 sm:p-5 shadow-sm"
+                data-tour="requisiciones-filtros"
+                class="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-neutral-900/70"
             >
-                <div data-tour="requisiciones-filtros" class="grid grid-cols-1 lg:grid-cols-12 gap-3">
-                    <div class="lg:col-span-5 min-w-0">
-                        <label
-                            class="block text-xs font-black text-slate-600 dark:text-zinc-300"
-                            >Buscar</label
-                        >
-                        <div class="relative mt-1">
-                            <Search
-                                class="h-4 w-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none"
-                            />
-                            <input
-                                v-model="state.q"
-                                type="text"
-                                placeholder="Folio, proveedor, concepto, sucursal, observación..."
-                                :class="inputBase"
-                                class="pl-11"
-                            />
-                            <button
-                                v-if="state.q"
-                                type="button"
-                                class="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center justify-center h-8 w-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                                @click="state.q = ''"
-                                title="Limpiar"
-                            >
-                                <X
-                                    class="h-4 w-4 text-slate-700 dark:text-zinc-200"
-                                />
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="lg:col-span-3 min-w-0">
-                        <SearchableSelect
-                            v-model="state.status"
-                            :options="statusOptions"
-                            label="Estatus"
-                            placeholder="Todos"
-                            searchPlaceholder="Buscar estatus..."
-                            rounded="2xl"
-                            zIndexClass="z-[200000]"
-                            labelKey="nombre"
-                            valueKey="id"
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative min-w-0 flex-1 basis-64">
+                        <label for="req-buscar" class="sr-only">Buscar requisiciones</label>
+                        <Search class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" aria-hidden="true" />
+                        <input
+                            id="req-buscar"
+                            v-model="state.q"
+                            type="search"
+                            placeholder="Buscar por folio, proveedor, concepto o sucursal"
+                            class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400
+                                   focus:border-brand-primary/60 focus:outline-none focus:ring-2 focus:ring-brand-primary/20
+                                   dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:placeholder:text-neutral-500
+                                   [&::-webkit-search-cancel-button]:hidden"
                         />
+                        <button
+                            v-if="state.q"
+                            type="button"
+                            class="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-zinc-300 dark:hover:bg-white/10"
+                            aria-label="Borrar búsqueda"
+                            @click="state.q = ''"
+                        >
+                            <X class="h-4 w-4" aria-hidden="true" />
+                        </button>
                     </div>
 
-                    <div class="lg:col-span-4 min-w-0">
-                        <label
-                            class="block text-xs font-black text-slate-600 dark:text-zinc-300"
-                        >
-                            Fecha de pago de la requisición
-                        </label>
-                        <div class="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <DatePickerShadcn
-                                v-model="state.fecha_pago_from"
-                                placeholder="Desde"
-                            />
-                            <DatePickerShadcn
-                                v-model="state.fecha_pago_to"
-                                placeholder="Hasta"
-                            />
-                        </div>
-                    </div>
+                    <button
+                        type="button"
+                        :class="[toolBtn, filtersOpen || chips.length ? 'border-brand-primary/50 text-brand-primary dark:text-zinc-50' : '']"
+                        :aria-expanded="filtersOpen"
+                        aria-controls="req-filtros"
+                        @click="filtersOpen = !filtersOpen"
+                    >
+                        <SlidersHorizontal class="h-4 w-4" aria-hidden="true" />
+                        Filtros
+                        <span
+                            v-if="chips.length"
+                            class="rounded-full bg-brand-primary px-1.5 text-xs font-bold tabular-nums text-brand-primary-fg"
+                        >{{ chips.length }}</span>
+                        <ChevronDown class="h-4 w-4 opacity-60 transition-transform motion-reduce:transition-none" :class="filtersOpen ? 'rotate-180' : ''" aria-hidden="true" />
+                    </button>
+
+                    <button type="button" :class="toolBtn" :title="`Orden por fecha de registro: ${sortTexto}`" @click="toggleSort">
+                        <ArrowUpDown class="h-4 w-4" aria-hidden="true" />
+                        <span class="hidden md:inline">{{ sortTexto }}</span>
+                        <span class="md:hidden">Orden</span>
+                    </button>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                            <button type="button" :class="toolBtn">
+                                {{ perPageTexto }}
+                                <ChevronDown class="h-4 w-4 opacity-60" aria-hidden="true" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" class="min-w-52 border-slate-200/80 bg-white dark:border-white/10 dark:bg-neutral-950">
+                            <DropdownMenuItem
+                                v-for="o in PER_PAGE_OPTIONS"
+                                :key="o.id"
+                                :class="[menuItem, 'justify-between', state.perPage === o.id ? 'bg-brand-tint text-brand-primary dark:bg-brand-primary/15 dark:text-zinc-50' : '']"
+                                @select="state.perPage = o.id as any"
+                            >
+                                {{ o.nombre }}
+                                <Check v-if="state.perPage === o.id" class="h-4 w-4" aria-hidden="true" />
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu v-if="can('requisiciones.exportar')">
+                        <DropdownMenuTrigger as-child>
+                            <button data-tour="requisiciones-exportar" type="button" :class="toolBtn">
+                                <Download class="h-4 w-4" aria-hidden="true" />
+                                Exportar
+                                <ChevronDown class="h-4 w-4 opacity-60" aria-hidden="true" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" class="min-w-52 border-slate-200/80 bg-white dark:border-white/10 dark:bg-neutral-950">
+                            <DropdownMenuItem :class="menuItem" @select="downloadFile(exportExcelUrl)">
+                                <img :src="ICON_EXCEL" class="h-5 w-5" alt="" />
+                                Descargar Excel
+                            </DropdownMenuItem>
+                            <DropdownMenuItem :class="menuItem" @select="downloadFile(exportPdfUrl)">
+                                <img :src="ICON_PDF" class="h-5 w-5" alt="" />
+                                Descargar PDF
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
 
-                <details class="mt-3">
-                    <summary
-                        class="cursor-pointer select-none text-xs font-black text-slate-700 dark:text-zinc-200 rounded-2xl px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 inline-flex items-center gap-2"
-                    >
-                        Más filtros
-                        <span
-                            class="text-[11px] font-extrabold text-slate-500 dark:text-zinc-400"
-                        >
-                            (corporativo, sucursal, solicitante, proveedor,
-                            concepto)
-                        </span>
-                    </summary>
-
-                    <div class="pt-3 grid grid-cols-1 lg:grid-cols-12 gap-3">
-                        <div class="lg:col-span-3 min-w-0 relative z-[999999]">
-                            <SearchableSelect
-                                v-model="state.comprador_corp_id"
-                                :options="corporativosActive"
-                                label="Corporativo"
-                                placeholder="Todos"
-                                searchPlaceholder="Buscar corporativo..."
-                                :allowNull="true"
-                                nullLabel="Todos"
-                                rounded="2xl"
-                                zIndexClass="z-[200000]"
-                                labelKey="nombre"
-                                valueKey="id"
-                            />
+                <!-- Panel de filtros -->
+                <div v-show="filtersOpen" id="req-filtros" class="mt-3 border-t border-slate-200/70 pt-3 dark:border-white/10">
+                    <div class="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div class="min-w-0">
+                            <label for="f-corp" :class="filterLabel">Corporativo</label>
+                            <div class="mt-1">
+                                <SearchableSelect
+                                    id="f-corp"
+                                    v-model="state.comprador_corp_id"
+                                    :options="corporativosActive"
+                                    placeholder="Todos"
+                                    searchPlaceholder="Buscar corporativo..."
+                                    :allowNull="true"
+                                    nullLabel="Todos"
+                                    :compact="true"
+                                    zIndexClass="z-[200000]"
+                                    labelKey="nombre"
+                                    valueKey="id"
+                                />
+                            </div>
                         </div>
 
-                        <div class="lg:col-span-3 min-w-0 relative z-[999997]">
-                            <template v-if="corpPicked">
+                        <div class="min-w-0">
+                            <label for="f-suc" :class="filterLabel">Sucursal</label>
+                            <div class="mt-1">
                                 <SearchableSelect
+                                    v-if="corpPicked"
+                                    id="f-suc"
                                     v-model="state.sucursal_id"
                                     :options="sucursalesFiltered"
-                                    label="Sucursal"
                                     placeholder="Todas"
                                     searchPlaceholder="Buscar sucursal..."
                                     :allowNull="true"
                                     nullLabel="Todas"
-                                    rounded="2xl"
+                                    :compact="true"
                                     zIndexClass="z-[200000]"
                                     labelKey="nombre"
                                     secondaryKey="codigo"
                                     valueKey="id"
                                 />
-                            </template>
-                            <template v-else>
-                                <label
-                                    class="block text-xs font-black text-slate-600 dark:text-zinc-300"
-                                    >Sucursal</label
-                                >
                                 <div
-                                    class="mt-1 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-4 py-3"
+                                    v-else
+                                    class="flex min-h-[42px] items-center rounded-xl border border-dashed border-slate-200 px-4 text-sm text-slate-500 dark:border-white/10 dark:text-zinc-400"
                                 >
-                                    <div
-                                        class="text-sm font-black text-slate-900 dark:text-zinc-100"
-                                    >
-                                        Todas
-                                    </div>
-                                    <div
-                                        class="text-[12px] font-semibold text-slate-500 dark:text-zinc-400"
-                                    >
-                                        Elige corporativo.
-                                    </div>
+                                    Elige primero un corporativo
                                 </div>
-                            </template>
+                            </div>
                         </div>
 
-                        <div class="lg:col-span-3 min-w-0 relative z-[999995]">
-                            <template v-if="!isColaborador">
+                        <div v-if="!isColaborador" class="min-w-0">
+                            <label for="f-sol" :class="filterLabel">Solicitante</label>
+                            <div class="mt-1">
                                 <SearchableSelect
+                                    id="f-sol"
                                     v-model="state.solicitante_id"
                                     :options="empleadosFiltered"
-                                    label="Solicitante"
                                     placeholder="Todos"
-                                    searchPlaceholder="Buscar empleado..."
+                                    searchPlaceholder="Buscar colaborador..."
                                     :allowNull="true"
                                     nullLabel="Todos"
-                                    rounded="2xl"
+                                    :compact="true"
                                     zIndexClass="z-[200000]"
                                     labelKey="nombre"
                                     secondaryKey="puesto"
                                     valueKey="id"
                                 />
-                            </template>
-                            <template v-else>
-                                <label
-                                    class="block text-xs font-black text-slate-600 dark:text-zinc-300"
-                                    >Solicitante</label
-                                >
-                                <div
-                                    class="mt-1 rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-4 py-3"
-                                >
-                                    <div
-                                        class="text-sm font-black text-slate-900 dark:text-zinc-100"
-                                    >
-                                        Mis requisiciones
-                                    </div>
-                                    <div
-                                        class="text-[12px] font-semibold text-slate-500 dark:text-zinc-400"
-                                    >
-                                        Solo se muestran las tuyas
-                                    </div>
-                                </div>
-                            </template>
+                            </div>
                         </div>
 
-                        <div class="lg:col-span-3 min-w-0">
-                            <SearchableSelect
-                                v-model="state.perPage"
-                                :options="PER_PAGE_OPTIONS"
-                                label="Por página"
-                                rounded="2xl"
-                                zIndexClass="z-[200000]"
-                                labelKey="nombre"
-                                valueKey="id"
-                            />
-                        </div>
-
-                        <div class="lg:col-span-6 min-w-0 relative z-[999994]">
-                            <SearchableSelect
-                                v-model="state.concepto_id"
-                                :options="conceptosActive"
-                                label="Concepto"
-                                placeholder="Todos"
-                                searchPlaceholder="Buscar concepto..."
-                                :allowNull="true"
-                                nullLabel="Todos"
-                                rounded="2xl"
-                                zIndexClass="z-[200000]"
-                                labelKey="nombre"
-                                valueKey="id"
-                            />
-                        </div>
-
-                        <div class="lg:col-span-6 min-w-0 relative z-[999992]">
-                            <SearchableSelect
-                                v-model="state.proveedor_id"
-                                :options="proveedoresActive"
-                                label="Proveedor"
-                                placeholder="Todos"
-                                searchPlaceholder="Buscar proveedor..."
-                                :allowNull="true"
-                                nullLabel="Todos"
-                                rounded="2xl"
-                                zIndexClass="z-[200000]"
-                                labelKey="razon_social"
-                                valueKey="id"
-                            />
-                        </div>
-
-                        <div class="lg:col-span-12 min-w-0">
-                            <label
-                                class="block text-xs font-black text-slate-600 dark:text-zinc-300"
-                            >
-                                Fecha de registro
-                            </label>
-                            <div class="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <DatePickerShadcn
-                                    v-model="state.fecha_registro_from"
-                                    placeholder="Desde"
-                                />
-                                <DatePickerShadcn
-                                    v-model="state.fecha_registro_to"
-                                    placeholder="Hasta"
+                        <div class="min-w-0">
+                            <label for="f-con" :class="filterLabel">Concepto</label>
+                            <div class="mt-1">
+                                <SearchableSelect
+                                    id="f-con"
+                                    v-model="state.concepto_id"
+                                    :options="conceptosActive"
+                                    placeholder="Todos"
+                                    searchPlaceholder="Buscar concepto..."
+                                    :allowNull="true"
+                                    nullLabel="Todos"
+                                    :compact="true"
+                                    zIndexClass="z-[200000]"
+                                    labelKey="nombre"
+                                    valueKey="id"
                                 />
                             </div>
                         </div>
+
+                        <div class="min-w-0" :class="isColaborador ? '' : 'sm:col-span-2 xl:col-span-2'">
+                            <label for="f-prov" :class="filterLabel">Proveedor</label>
+                            <div class="mt-1">
+                                <SearchableSelect
+                                    id="f-prov"
+                                    v-model="state.proveedor_id"
+                                    :options="proveedoresActive"
+                                    placeholder="Todos"
+                                    searchPlaceholder="Buscar proveedor..."
+                                    :allowNull="true"
+                                    nullLabel="Todos"
+                                    :compact="true"
+                                    zIndexClass="z-[200000]"
+                                    labelKey="razon_social"
+                                    valueKey="id"
+                                />
+                            </div>
+                        </div>
+
+                        <fieldset class="min-w-0">
+                            <legend :class="filterLabel">Fecha de registro</legend>
+                            <div class="grid grid-cols-2 gap-2">
+                                <DatePickerShadcn v-model="state.fecha_registro_from" placeholder="Desde" :max-value="state.fecha_registro_to || null" clearable />
+                                <DatePickerShadcn v-model="state.fecha_registro_to" placeholder="Hasta" :min-value="state.fecha_registro_from || null" clearable />
+                            </div>
+                        </fieldset>
+
+                        <fieldset class="min-w-0">
+                            <legend :class="filterLabel">Fecha de pago</legend>
+                            <div class="grid grid-cols-2 gap-2">
+                                <DatePickerShadcn v-model="state.fecha_pago_from" placeholder="Desde" :max-value="state.fecha_pago_to || null" clearable />
+                                <DatePickerShadcn v-model="state.fecha_pago_to" placeholder="Hasta" :min-value="state.fecha_pago_from || null" clearable />
+                            </div>
+                        </fieldset>
                     </div>
-                </details>
+                </div>
+
+                <!-- Filtros aplicados -->
+                <div v-if="chips.length || hasActiveFilters" class="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                        v-for="c in chips"
+                        :key="c.key"
+                        type="button"
+                        class="group inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-brand-primary/25 bg-brand-tint pl-3 pr-2 text-xs font-semibold text-brand-primary
+                               hover:border-brand-primary/50 dark:bg-brand-primary/15 dark:text-zinc-50"
+                        :aria-label="`Quitar filtro ${c.label}`"
+                        @click="c.clear()"
+                    >
+                        <span class="truncate">{{ c.label }}</span>
+                        <X class="h-3.5 w-3.5 shrink-0 opacity-60 group-hover:opacity-100" aria-hidden="true" />
+                    </button>
+
+                    <button
+                        v-if="hasActiveFilters"
+                        type="button"
+                        class="inline-flex h-8 items-center rounded-full px-3 text-xs font-bold text-slate-600 underline-offset-4 hover:underline dark:text-zinc-300"
+                        @click="clearFilters"
+                    >
+                        Limpiar todo
+                    </button>
+                </div>
             </div>
 
-            <!-- DESKTOP -->
-            <div data-tour="requisiciones-lista" class="hidden xl:block space-y-2">
-                <div
+            <!-- Selección múltiple -->
+            <div
+                v-if="canDelete && selectedCount > 0"
+                class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-500/25 dark:bg-rose-500/10"
+                role="status"
+            >
+                <span class="text-sm font-semibold text-rose-900 dark:text-rose-100">
+                    {{ selectedCount === 1 ? '1 requisición seleccionada' : `${selectedCount} requisiciones seleccionadas` }}
+                </span>
+                <div class="flex items-center gap-2">
+                    <button type="button" :class="toolBtn" class="!h-10" @click="clearSelection">Quitar selección</button>
+                    <button
+                        type="button"
+                        class="inline-flex h-10 items-center rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700 transition active:scale-[0.98]"
+                        @click="destroySelected"
+                    >
+                        Eliminar seleccionadas
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resumen del listado -->
+            <div v-if="rows.length" class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1 text-sm text-slate-600 dark:text-zinc-300">
+                <span>Mostrando <span class="font-bold tabular-nums text-slate-900 dark:text-zinc-100">{{ pageSummary || rows.length }}</span></span>
+                <span>
+                    Suma de esta página:
+                    <span class="font-bold tabular-nums text-slate-900 dark:text-zinc-100">{{ money(totalMontoPagina) }}</span>
+                </span>
+            </div>
+
+            <!-- Listado -->
+            <div data-tour="requisiciones-lista" class="space-y-3">
+                <article
                     v-for="r in rows"
                     :key="r.id"
-                    class="group border border-l-4 border-slate-200/80 dark:border-white/10 rounded-2xl
-                           bg-white dark:bg-neutral-900/90
-                           shadow-sm hover:shadow-lg hover:-translate-y-0.5
-                           transition-all duration-200
-                           hover:border-slate-300/80 dark:hover:border-white/20"
-                    :style="{ borderLeftColor: statusAccentColor((r as any).status) }"
+                    class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-md
+                           dark:border-white/10 dark:bg-neutral-900/90"
                     :class="rowDisabled(r) ? 'opacity-70' : ''"
+                    :aria-label="`Requisición ${(r as any).folio}`"
                 >
-                    <!-- Fila principal -->
-                    <div class="flex items-center gap-0 pl-4 pr-3 py-3.5">
-                        <!-- Checkbox -->
-                        <div class="shrink-0 pr-3">
+                    <div class="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:gap-6">
+                        <!-- Qué es -->
+                        <div class="flex min-w-0 flex-1 items-start gap-3">
                             <input
+                                v-if="canDelete"
                                 type="checkbox"
                                 :disabled="rowDisabled(r)"
+                                class="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-slate-900 dark:border-white/20 dark:accent-white"
+                                :aria-label="`Seleccionar ${(r as any).folio}`"
                                 @change="toggleRow(r.id, ($event.target as HTMLInputElement).checked)"
-                                class="h-4 w-4 rounded border-slate-300 dark:border-white/20 accent-slate-900 dark:accent-white cursor-pointer"
                             />
+
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                    <Link
+                                        :href="route('requisiciones.show', r.id)"
+                                        class="rounded text-sm font-bold tabular-nums text-slate-500 underline-offset-4 hover:text-brand-primary hover:underline
+                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:text-zinc-400"
+                                        :title="`Abrir ${(r as any).folio}`"
+                                    >{{ (r as any).folio }}</Link>
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700
+                                               focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                                        :aria-label="`Copiar folio ${(r as any).folio}`"
+                                        title="Copiar folio"
+                                        @click.stop="copyText((r as any).folio)"
+                                    >
+                                        <Copy class="h-3.5 w-3.5" aria-hidden="true" />
+                                    </button>
+                                    <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold whitespace-nowrap" :class="st((r as any).status).pill">
+                                        <span class="h-1.5 w-1.5 rounded-full" :class="st((r as any).status).dot" aria-hidden="true" />
+                                        {{ st((r as any).status).label }}
+                                    </span>
+                                    <span
+                                        v-if="(r as any).eliminacion_pendiente"
+                                        class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
+                                    >
+                                        Eliminación solicitada
+                                    </span>
+                                </div>
+
+                                <h3 class="mt-1.5 text-base font-black leading-snug text-slate-900 break-words dark:text-zinc-100">
+                                    {{ displayName((r as any).concepto) }}
+                                </h3>
+
+                                <dl class="mt-2 grid grid-cols-1 gap-x-5 gap-y-1.5 text-sm text-slate-600 sm:grid-cols-2 dark:text-zinc-300">
+                                    <div class="flex min-w-0 items-center gap-2">
+                                        <dt><Truck class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" /><span class="sr-only">Proveedor</span></dt>
+                                        <dd class="truncate" :title="`Proveedor: ${displayName((r as any).proveedor)}`">{{ displayName((r as any).proveedor) }}</dd>
+                                    </div>
+                                    <div class="flex min-w-0 items-center gap-2">
+                                        <dt><User class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" /><span class="sr-only">Solicitante</span></dt>
+                                        <dd class="truncate" :title="`Solicitante: ${displayName((r as any).solicitante)}`">{{ displayName((r as any).solicitante) }}</dd>
+                                    </div>
+                                    <div class="flex min-w-0 items-center gap-2">
+                                        <dt><Building2 class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" /><span class="sr-only">Corporativo</span></dt>
+                                        <dd class="truncate" :title="`Corporativo: ${displayName((r as any).comprador)}`">{{ displayName((r as any).comprador) }}</dd>
+                                    </div>
+                                    <div class="flex min-w-0 items-center gap-2">
+                                        <dt><MapPin class="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" /><span class="sr-only">Sucursal</span></dt>
+                                        <dd class="truncate" :title="`Sucursal: ${displayName((r as any).sucursal)}`">{{ displayName((r as any).sucursal) }}</dd>
+                                    </div>
+                                </dl>
+                            </div>
                         </div>
 
-                        <!-- Folio + Status badge -->
-                        <div class="shrink-0 w-[172px] pr-4">
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <Link
-                                    :href="route('requisiciones.show', r.id)"
-                                    class="font-black text-[13px] tracking-tight text-slate-900 dark:text-zinc-100 truncate leading-tight
-                                           underline-offset-4 decoration-2 decoration-slate-300 hover:underline hover:text-brand-primary
-                                           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 rounded"
-                                    :title="`Abrir ${(r as any).folio}`"
-                                >{{ (r as any).folio }}</Link>
-                                <button
-                                    type="button"
-                                    class="shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-md
-                                           border border-slate-200 bg-transparent hover:bg-slate-100
-                                           active:scale-95 transition-all
-                                           dark:border-white/10 dark:hover:bg-white/10"
-                                    title="Copiar folio"
-                                    @click.stop="copyText((r as any).folio)"
+                        <!-- En qué va -->
+                        <div class="min-w-0 lg:w-72 lg:shrink-0">
+                            <template v-if="!rowDisabled(r)">
+                                <div
+                                    class="flex gap-1"
+                                    role="img"
+                                    :aria-label="`Avance: ${st((r as any).status).label}. ${pasoTexto((r as any).status)}`"
                                 >
-                                    <Copy class="h-2.5 w-2.5 text-slate-400 dark:text-zinc-400" />
-                                </button>
-                            </div>
-                            <div class="mt-1.5">
-                                <span :class="statusClass((r as any).status)">
-                                    <span class="h-1.5 w-1.5 rounded-full shrink-0" :class="dotClass((r as any).status)"></span>
-                                    <span class="text-[10px] truncate">{{ pillText((r as any).status) }}</span>
-                                </span>
-                            </div>
+                                    <span
+                                        v-for="(p, i) in PASOS"
+                                        :key="p"
+                                        class="h-1.5 flex-1 rounded-full"
+                                        :class="pasoClass((r as any).status, i)"
+                                        :title="p"
+                                    />
+                                </div>
+                                <p class="mt-1.5 text-xs font-semibold text-slate-600 dark:text-zinc-300">{{ pasoTexto((r as any).status) }}</p>
+                            </template>
+
+                            <dl class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-zinc-400">
+                                <div class="flex gap-1">
+                                    <dt>Registro</dt>
+                                    <dd class="font-semibold tabular-nums text-slate-700 dark:text-zinc-200">{{ safeDateShort((r as any).fecha_registro_ymd ?? (r as any).created_at) }}</dd>
+                                </div>
+                                <div class="flex gap-1">
+                                    <dt>Solicitud</dt>
+                                    <dd class="font-semibold tabular-nums text-slate-700 dark:text-zinc-200">{{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}</dd>
+                                </div>
+                                <div v-if="(r as any).fecha_pago_ymd" class="flex gap-1">
+                                    <dt>Pago</dt>
+                                    <dd class="font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{{ safeDateShort((r as any).fecha_pago_ymd) }}</dd>
+                                </div>
+                                <div v-else-if="(r as any).fecha_pago_esperada" class="flex gap-1">
+                                    <dt>Pago esperado</dt>
+                                    <dd class="font-semibold tabular-nums text-slate-700 dark:text-zinc-200">{{ safeDateShort((r as any).fecha_pago_esperada) }}</dd>
+                                </div>
+                            </dl>
                         </div>
 
-                        <!-- Separador -->
-                        <div class="self-stretch w-px bg-slate-100 dark:bg-white/8 shrink-0 mr-4"></div>
-
-                        <!-- Centro: Concepto + 2 columnas info -->
-                        <div class="flex-1 min-w-0 mr-4">
-                            <div
-                                class="font-black text-sm text-slate-900 dark:text-zinc-100 truncate leading-tight"
-                                :title="displayName((r as any).concepto)"
-                            >{{ displayName((r as any).concepto) }}</div>
-                            <div class="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1">
-                                <div class="min-w-0">
-                                    <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Corporativo</div>
-                                    <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).comprador) }}</div>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Solicitante</div>
-                                    <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).solicitante) }}</div>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Sucursal</div>
-                                    <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).sucursal) }}</div>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Proveedor</div>
-                                    <div class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 truncate">{{ displayName((r as any).proveedor) }}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Separador -->
-                        <div class="self-stretch w-px bg-slate-100 dark:bg-white/8 shrink-0 mr-4"></div>
-
-                        <!-- Fechas — 3 filas -->
-                        <div class="shrink-0 w-[172px] space-y-1.5 mr-4">
-                            <div class="flex items-baseline gap-2">
-                                <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 shrink-0 w-[66px]">Registro</span>
-                                <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
-                                    {{ safeDateShort((r as any).fecha_registro_ymd ?? (r as any).created_at) }}
-                                </span>
-                            </div>
-                            <div class="flex items-baseline gap-2">
-                                <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 shrink-0 w-[66px]">Solicitud</span>
-                                <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
-                                    {{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}
-                                </span>
-                            </div>
-                            <div v-if="(r as any).fecha_pago_esperada" class="flex items-baseline gap-2">
-                                <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 shrink-0 w-[66px]">Esperada</span>
-                                <span class="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 tabular-nums">
-                                    {{ safeDateShort((r as any).fecha_pago_esperada) }}
-                                </span>
-                            </div>
-                            <div class="flex items-baseline gap-2">
-                                <span class="text-xs font-medium text-slate-400 dark:text-zinc-500 shrink-0 w-[66px]">Pago</span>
-                                <span
-                                    class="text-[11px] font-semibold tabular-nums"
-                                    :class="(r as any).fecha_pago_ymd ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-zinc-600'"
-                                >{{ safeDateShort((r as any).fecha_pago_ymd) }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Separador -->
-                        <div class="self-stretch w-px bg-slate-100 dark:bg-white/8 shrink-0 mr-3"></div>
-
-                        <!-- Monto -->
-                        <div class="shrink-0 w-[150px] text-right">
-                            <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Total</div>
-                            <div class="mt-0.5 text-lg font-black text-slate-900 dark:text-zinc-100 tabular-nums leading-none whitespace-nowrap">
+                        <!-- Cuánto -->
+                        <div class="lg:w-44 lg:shrink-0 lg:text-right">
+                            <div class="text-xl font-black tabular-nums leading-none text-slate-900 whitespace-nowrap dark:text-zinc-100">
                                 {{ money((r as any).monto_total) }}
                             </div>
-                            <div class="mt-1 text-[10px] text-slate-400 dark:text-zinc-500 tabular-nums">
+                            <div class="mt-1 text-xs tabular-nums text-slate-500 dark:text-zinc-400">
                                 Subtotal {{ money((r as any).monto_subtotal) }}
                             </div>
                         </div>
                     </div>
 
-                    <!-- Segunda fila: observaciones a lo ancho + acciones visibles -->
+                    <!-- Observaciones + acciones -->
                     <div
-                        class="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-2.5 transition-colors duration-200
-                               group-hover:bg-slate-50 dark:border-white/5 dark:bg-white/[0.02] dark:group-hover:bg-white/[0.04]
-                               2xl:flex-row 2xl:items-start 2xl:justify-between"
+                        class="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.02]
+                               xl:flex-row xl:items-center xl:justify-between"
                     >
-                        <div class="min-w-0 flex-1 space-y-1.5">
-                            <span
-                                v-if="(r as any).eliminacion_pendiente"
-                                class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200"
-                            >
-                                Eliminación solicitada · pendiente de revisión
-                            </span>
-                            <p v-if="(r as any).observaciones" class="flex min-w-0 items-start gap-2">
-                                <span class="mt-0.5 shrink-0 text-xs font-medium text-slate-400 dark:text-zinc-500">Observaciones</span>
-                                <span class="min-w-0 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600 dark:text-zinc-300">{{ (r as any).observaciones }}</span>
-                            </p>
-                            <p v-else-if="!(r as any).eliminacion_pendiente" class="text-[11px] italic text-slate-400 dark:text-zinc-500">Sin observaciones</p>
-                        </div>
+                        <p
+                            v-if="(r as any).observaciones"
+                            class="min-w-0 flex-1 text-xs leading-relaxed text-slate-600 line-clamp-2 break-words dark:text-zinc-300"
+                            :title="(r as any).observaciones"
+                        >
+                            <span class="font-semibold text-slate-500 dark:text-zinc-400">Observaciones:</span>
+                            {{ (r as any).observaciones }}
+                        </p>
+                        <span v-else class="hidden flex-1 xl:block" />
 
                         <RequisicionActions
-                            class="2xl:max-w-[60%] 2xl:justify-end"
+                            class="xl:justify-end"
                             :row="r"
                             @capture="captureRow(r.id)"
                             @request-delete="requestDeletion(r)"
                             @delete="destroyRow(r)"
                         />
                     </div>
-                </div>
+                </article>
 
+                <!-- Sin resultados -->
                 <div
                     v-if="rows.length === 0"
-                    class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 p-10 text-center"
+                    class="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center dark:border-white/15 dark:bg-neutral-900/60"
                 >
-                    <div class="text-sm font-semibold text-slate-400 dark:text-zinc-500">
-                        No hay requisiciones con los filtros actuales.
-                    </div>
-                </div>
-
-                <div
-                    class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/90 dark:bg-neutral-900/60 backdrop-blur px-4 sm:px-6 py-4 flex items-center justify-between gap-3"
-                >
-                    <div
-                        class="text-sm font-semibold text-slate-600 dark:text-zinc-300"
-                    >
-                        {{ pageSummary }}
-                    </div>
-
-                    <div class="flex items-center gap-2 flex-wrap justify-end">
+                    <FileText class="mx-auto h-10 w-10 text-slate-300 dark:text-zinc-600" aria-hidden="true" />
+                    <p class="mt-3 text-base font-black text-slate-900 dark:text-zinc-100">
+                        {{ hasActiveFilters ? 'Ninguna requisición coincide con estos filtros' : 'Todavía no hay requisiciones' }}
+                    </p>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-zinc-400">
+                        {{ hasActiveFilters ? 'Prueba con otra búsqueda o quita algún filtro.' : 'Cuando registres una, aparecerá aquí con su avance.' }}
+                    </p>
+                    <div class="mt-4 flex flex-wrap justify-center gap-2">
+                        <button v-if="hasActiveFilters" type="button" :class="toolBtn" @click="clearFilters">Limpiar filtros</button>
                         <button
-                            v-for="l in safePagerLinks"
-                            :key="l.label + String(l.url)"
+                            v-else-if="can('requisiciones.registrar')"
                             type="button"
-                            @click="goTo(l.url)"
-                            :disabled="!l.url"
-                            class="inline-flex items-center justify-center h-9 min-w-9 px-3 rounded-2xl text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none transition dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                            :class="
-                                l.active
-                                    ? 'bg-brand-primary text-brand-primary-fg border-brand-primary'
-                                    : ''
-                            "
+                            class="inline-flex h-11 items-center gap-2 rounded-xl bg-brand-button px-4 text-sm font-black text-brand-button-fg hover:bg-brand-button/90"
+                            @click="goCreate"
                         >
-                            {{ (l as any).uiLabel }}
+                            <Plus class="h-4 w-4" aria-hidden="true" />
+                            Nueva requisición
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- MOBILE / TABLET -->
-            <div data-tour="requisiciones-lista" class="xl:hidden space-y-2.5">
-                <div
-                    v-for="r in rows"
-                    :key="r.id"
-                    class="border border-l-4 border-slate-200/80 dark:border-white/10 rounded-2xl
-                           bg-white dark:bg-neutral-900/90 p-4 shadow-sm"
-                    :style="{ borderLeftColor: statusAccentColor((r as any).status) }"
-                    :class="rowDisabled(r) ? 'opacity-70' : ''"
-                >
-                    <!-- Header: folio + checkbox -->
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <Link
-                                    :href="route('requisiciones.show', r.id)"
-                                    class="font-black text-[14px] tracking-tight text-slate-900 dark:text-zinc-100 truncate underline-offset-4 hover:underline"
-                                >{{ (r as any).folio }}</Link>
-                                <button
-                                    type="button"
-                                    class="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-lg border border-slate-200 bg-transparent hover:bg-slate-100 active:scale-95 transition-all dark:border-white/10 dark:hover:bg-white/10"
-                                    title="Copiar folio"
-                                    @click.stop="copyText((r as any).folio)"
-                                >
-                                    <Copy class="h-3 w-3 text-slate-400 dark:text-zinc-400" />
-                                </button>
-                            </div>
+            <!-- Paginación -->
+            <nav
+                v-if="pager && rows.length"
+                aria-label="Paginación"
+                class="flex flex-wrap items-center justify-between gap-3 pt-1"
+            >
+                <span class="text-sm text-slate-600 dark:text-zinc-300">{{ pageSummary }}</span>
 
-                            <div class="mt-2">
-                                <span :class="statusClass((r as any).status)">
-                                    <span class="h-2 w-2 rounded-full shrink-0" :class="dotClass((r as any).status)"></span>
-                                    <span class="text-[11px]">{{ pillText((r as any).status) }}</span>
-                                </span>
-                            </div>
+                <div class="flex flex-wrap items-center gap-1.5">
+                    <button type="button" :class="[pageBtn, pageBtnIdle]" :disabled="!pager.prev.url" aria-label="Página anterior" @click="goTo(pager.prev.url)">
+                        <ChevronLeft class="h-4 w-4" aria-hidden="true" />
+                        <span class="hidden sm:inline">Anterior</span>
+                    </button>
 
-                            <div class="mt-1.5 text-[11px] text-slate-500 dark:text-zinc-400 truncate font-semibold">
-                                {{ displayName((r as any).concepto) }}
-                            </div>
-                        </div>
-
-                        <div class="flex items-start gap-2 shrink-0">
-                            <!-- Monto prominente en mobile -->
-                            <div class="text-right">
-                                <div class="text-base font-black text-slate-900 dark:text-zinc-100 tabular-nums">{{ money((r as any).monto_total) }}</div>
-                                <div class="text-[10px] text-slate-400 tabular-nums">Subtotal {{ money((r as any).monto_subtotal) }}</div>
-                            </div>
-                            <input
-                                type="checkbox"
-                                :disabled="rowDisabled(r)"
-                                @change="toggleRow(r.id, ($event.target as HTMLInputElement).checked)"
-                                class="h-4 w-4 rounded border-slate-300 dark:border-white/20 mt-0.5"
-                            />
-                        </div>
-                    </div>
-
-                    <!-- Info grid mobile -->
-                    <div class="mt-3 space-y-2">
-                        <!-- Fechas en 3 filas -->
-                        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Registro</div>
-                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
-                                    {{ safeDateShort((r as any).fecha_registro_ymd ?? (r as any).created_at) }}
-                                </div>
-                            </div>
-                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Solicitud</div>
-                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
-                                    {{ safeDateShort((r as any).fecha_solicitud_ymd ?? (r as any).fecha_solicitud) }}
-                                </div>
-                            </div>
-                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Pago esperado</div>
-                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 tabular-nums">
-                                    {{ (r as any).fecha_pago_esperada ? safeDateShort((r as any).fecha_pago_esperada) : 'Sin definir' }}
-                                </div>
-                            </div>
-                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Pago</div>
-                                <div class="mt-0.5 text-[11px] font-semibold tabular-nums"
-                                    :class="(r as any).fecha_pago_ymd ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-300 dark:text-zinc-600'">
-                                    {{ safeDateShort((r as any).fecha_pago_ymd) }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Proveedor + Solicitante -->
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Proveedor</div>
-                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
-                                    {{ displayName((r as any).proveedor) }}
-                                </div>
-                            </div>
-                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Solicitante</div>
-                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
-                                    {{ displayName((r as any).solicitante) }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Corp + Suc -->
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Corporativo</div>
-                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
-                                    {{ displayName((r as any).comprador) }}
-                                </div>
-                            </div>
-                            <div class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                                <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Sucursal</div>
-                                <div class="mt-0.5 text-[11px] font-semibold text-slate-700 dark:text-zinc-200 break-words">
-                                    {{ displayName((r as any).sucursal) }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Observaciones (solo si existen) -->
-                        <div v-if="(r as any).observaciones" class="rounded-xl border border-slate-100/80 dark:border-white/8 bg-slate-50/60 dark:bg-white/5 px-2.5 py-2">
-                            <div class="text-xs font-medium text-slate-400 dark:text-zinc-500">Observaciones</div>
-                            <div class="mt-0.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-600 dark:text-zinc-300">
-                                {{ (r as any).observaciones }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="(r as any).eliminacion_pendiente" class="mt-3">
-                        <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                            Eliminación solicitada · pendiente
-                        </span>
-                    </div>
-
-                    <div class="mt-4 border-t border-slate-100 pt-3 dark:border-white/5">
-                        <RequisicionActions
-                            :row="r"
-                            size="md"
-                            @capture="captureRow(r.id)"
-                            @request-delete="requestDeletion(r)"
-                            @delete="destroyRow(r)"
-                        />
-                    </div>
-                </div>
-
-                <div
-                    v-if="rows.length === 0"
-                    class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 backdrop-blur p-6 text-center"
-                >
-                    <div
-                        class="text-sm font-semibold text-slate-500 dark:text-zinc-400"
-                    >
-                        No hay requisiciones con los filtros actuales.
-                    </div>
-                </div>
-
-                <div
-                    v-if="safePagerLinks.length"
-                    class="flex items-center justify-center gap-2 flex-wrap py-2"
-                >
                     <button
-                        v-for="l in safePagerLinks"
-                        :key="l.label + String(l.url)"
+                        v-for="(l, i) in pager.pages"
+                        :key="`${l.text}-${i}`"
                         type="button"
-                        @click="goTo(l.url)"
+                        :class="[pageBtn, l.active ? 'border-brand-primary bg-brand-primary text-brand-primary-fg' : pageBtnIdle]"
                         :disabled="!l.url"
-                        class="inline-flex items-center justify-center h-9 min-w-9 px-3 rounded-2xl text-xs font-black border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15"
-                        :class="
-                            l.active
-                                ? 'bg-brand-primary text-brand-primary-fg border-brand-primary'
-                                : ''
-                        "
+                        :aria-current="l.active ? 'page' : undefined"
+                        :aria-label="l.text === '…' ? undefined : `Página ${l.text}`"
+                        @click="goTo(l.url)"
                     >
-                        {{ (l as any).uiLabel }}
+                        {{ l.text }}
+                    </button>
+
+                    <button type="button" :class="[pageBtn, pageBtnIdle]" :disabled="!pager.next.url" aria-label="Página siguiente" @click="goTo(pager.next.url)">
+                        <span class="hidden sm:inline">Siguiente</span>
+                        <ChevronRight class="h-4 w-4" aria-hidden="true" />
                     </button>
                 </div>
-            </div>
+            </nav>
         </div>
     </AuthenticatedLayout>
 </template>

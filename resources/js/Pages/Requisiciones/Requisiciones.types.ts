@@ -136,6 +136,8 @@ export type RequisicionesPageProps = {
   requisiciones: Paginated<RequisicionRow>
   filters: RequisicionesFilters
   catalogos: Catalogos
+  /** Requisiciones visibles por estatus. */
+  conteos?: Record<string, number>
   pagination?: { default_per_page: number; options: number[] }
 }
 

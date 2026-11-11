@@ -327,7 +327,7 @@ const searchInputCls = computed(() => {
           @mousedown.stop
           @wheel.passive
         >
-          <div class="p-3 border-b border-slate-200/70 dark:border-white/10 bg-white dark:bg-neutral-900">
+          <div v-if="options.length > 7" class="p-3 border-b border-slate-200/70 dark:border-white/10 bg-white dark:bg-neutral-900">
             <input
               ref="searchRef"
               v-model="query"
@@ -364,12 +364,15 @@ const searchInputCls = computed(() => {
                 {{ o[labelKey] }}
                 <span v-if="o[secondaryKey]" class="opacity-70"> ({{ o[secondaryKey] }})</span>
               </span>
-              <span
+              <svg
                 v-if="String(modelValue) === String(o[valueKey])"
-                class="text-[12px] font-semibold text-brand-primary dark:text-indigo-200"
+                class="h-4 w-4 shrink-0 text-brand-primary dark:text-indigo-200"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
               >
-                ✓
-              </span>
+                <path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd" />
+              </svg>
             </button>
 
             <div v-if="filtered.length === 0" class="px-3 py-3 text-sm text-slate-500 dark:text-neutral-400">

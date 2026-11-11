@@ -210,6 +210,16 @@ class RequisicionController extends Controller
                 'sort' => $sort,
                 'dir' => $dir,
             ],
+            // Cuántas requisiciones visibles hay en cada estatus (accesos rápidos del listado).
+            'conteos' => Requisicion::query()
+                ->visibleTo($user)
+                ->when($verTodos, fn ($w) => $w->where(fn ($x) => $x
+                    ->where('status', '!=', 'BORRADOR')
+                    ->orWhere('creada_por_user_id', $user->id)))
+                ->toBase()
+                ->selectRaw('status, COUNT(*) as n')
+                ->groupBy('status')
+                ->pluck('n', 'status'),
             'pagination' => [
                 'default_per_page' => self::DEFAULT_PER_PAGE,
                 'options' => self::PER_PAGE_OPTIONS,
