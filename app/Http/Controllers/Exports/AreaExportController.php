@@ -45,7 +45,10 @@ class AreaExportController extends Controller
             'generated_by' => optional($request->user())->name,
         ];
 
-        $filters = $this->filtersLabel($request);
+        // Filtros en texto (nombre del corporativo, «Solo activas», orden legible).
+        $filters = \App\Exports\Core\Workbook\FilterLabels::catalog($request, [
+            'nombre' => 'Nombre', 'activo' => 'Estatus', 'corporativo_id' => 'Corporativo',
+        ], ['Activas', 'De baja'], withCorporativo: true);
 
         return Excel::download(new AreasExport($rows, $filters, $meta), 'areas.xlsx');
     }

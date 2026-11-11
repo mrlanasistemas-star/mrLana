@@ -45,7 +45,10 @@ class ConceptoExportController extends Controller
             'generated_by' => optional($request->user())->name,
         ];
 
-        $filters = $this->filtersLabel($request);
+        // Filtros en texto («Solo activos», orden legible).
+        $filters = \App\Exports\Core\Workbook\FilterLabels::catalog($request, [
+            'nombre' => 'Nombre', 'activo' => 'Estatus', 'id' => 'Fecha de alta',
+        ]);
 
         return Excel::download(new ConceptosExport($rows, $filters, $meta), 'conceptos.xlsx');
     }

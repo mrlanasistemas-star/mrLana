@@ -45,7 +45,10 @@ class SucursalExportController extends Controller
             'generated_by' => optional($request->user())->name,
         ];
 
-        $filters = $this->filtersLabel($request);
+        // Filtros en texto (nombre del corporativo, «Solo activas», orden legible).
+        $filters = \App\Exports\Core\Workbook\FilterLabels::catalog($request, [
+            'nombre' => 'Nombre', 'codigo' => 'Código', 'ciudad' => 'Ciudad', 'estado' => 'Estado', 'activo' => 'Estatus',
+        ], ['Activas', 'De baja'], withCorporativo: true);
 
         return Excel::download(new SucursalesExport($rows, $filters, $meta), 'sucursales.xlsx');
     }

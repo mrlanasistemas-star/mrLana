@@ -45,7 +45,10 @@ class CorporativoExportController extends Controller
             'generated_by' => optional($request->user())->name,
         ];
 
-        $filters = $this->filtersLabel($request);
+        // Filtros en texto («Solo activos», orden legible; «Por página» no aplica al exportar todo).
+        $filters = \App\Exports\Core\Workbook\FilterLabels::catalog($request, [
+            'nombre' => 'Nombre', 'id' => 'Fecha de alta',
+        ]);
 
         return Excel::download(new CorporativosExport($rows, $filters, $meta), 'corporativos.xlsx');
     }

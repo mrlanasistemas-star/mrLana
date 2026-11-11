@@ -41,7 +41,13 @@ class ProveedorExportController extends Controller
             'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
             'generated_by' => optional($request->user())->name,
         ];
-        $filters = $this->filtersLabel($request);
+        // Filtros en texto (estatus, dueño por nombre, orden legible).
+        $filters = \App\Exports\Core\Workbook\FilterLabels::catalog($request, [
+            'created_at' => 'Fecha de alta', 'razon_social' => 'Razón social', 'status' => 'Estatus',
+        ], ['Activos', 'Inactivos'], 'status');
+        if ($owner = $request->integer('user_duenio_id')) {
+            $filters['Dueño'] = \App\Models\User::whereKey($owner)->value('name') ?? "#{$owner}";
+        }
 
         return Excel::download(new ProveedoresExport($rows, $filters, $meta), 'proveedores.xlsx');
     }
