@@ -7,14 +7,18 @@ use App\Http\Requests\Colaborador\UpdateColaboradorRequest;
 use App\Models\Area;
 use App\Models\Corporativo;
 use App\Models\Empleado;
+use App\Models\Role;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Colaboradores\ColaboradorQuery;
 use App\Services\Users\AdministratorGuard;
+use App\Services\Users\CuentasDeAcceso;
 use App\Support\Permissions\AccessScope;
+use App\Support\Permissions\PermissionCatalog;
 use App\Support\Permissions\Scope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -22,17 +26,31 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Colaboradores: personas de la organización (tabla interna `empleados`).
- * Un colaborador puede existir sin cuenta de acceso; las cuentas se
- * administran en el módulo Usuarios (relación uno a uno).
+ * Colaboradores: personas de la organización (tabla interna `empleados`) y
+ * su acceso al sistema, en un solo módulo. Al registrar o editar a una
+ * persona se le puede dar (o administrar) su cuenta en la misma pantalla;
+ * un colaborador tiene como máximo una cuenta. La pestaña «Cuentas de
+ * acceso» (UsuarioController) cubre las cuentas sin colaborador.
  */
 class ColaboradorController extends Controller
 {
-    public function __construct(private AdministratorGuard $guard) {}
+    private const CAMPOS_PERSONA = ['sucursal_id', 'area_id', 'nombre', 'apellido_paterno', 'apellido_materno', 'email', 'telefono', 'puesto'];
 
-    public function index(Request $request): Response
+    /** Nombres de campo del bloque de acceso para los mensajes de error. */
+    private const CAMPOS_ACCESO = ['role_id' => 'acceso_role_id', 'activo' => 'acceso_activo', 'sucursal_id' => 'sucursal_id'];
+
+    public function __construct(
+        private AdministratorGuard $guard,
+        private CuentasDeAcceso $cuentas,
+    ) {}
+
+    public function index(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
+        // Quien solo administra cuentas entra directo a «Cuentas de acceso».
+        if (! AccessScope::for($user, 'colaboradores')->allows()) {
+            return redirect()->route('usuarios.index');
+        }
         $f = ColaboradorQuery::filters($request);
 
         $perPage = (int) $request->input('per_page', $request->input('perPage', 20));
@@ -106,39 +124,231 @@ class ColaboradorController extends Controller
                 'crear_usuario' => $user->can('usuarios.registrar'),
                 'ver_usuario' => $vinculo && AccessScope::for($user, 'usuarios')->allows(),
                 'ver_vinculo' => $vinculo,
+                'administrar_cuentas' => $vinculo && $user->canAny(['usuarios.editar', 'usuarios.cambiar_rol', 'usuarios.desactivar', 'usuarios.reactivar', 'usuarios.restablecer_contrasena']),
             ],
         ]);
     }
 
-    public function store(StoreColaboradorRequest $request): RedirectResponse
+    /** Alta unificada: datos de la persona y, opcionalmente, su acceso al sistema. */
+    public function create(Request $request): Response
     {
-        $data = $request->validated();
-        $this->assertSucursalPermitida($request, (int) $data['sucursal_id']);
-        $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] ?? null);
-
-        Empleado::create([
-            ...$data,
-            'activo' => $data['activo'] ?? true,
-        ]);
-
-        return back()->with('success', 'Colaborador registrado.');
+        return Inertia::render('Colaboradores/Form', $this->formProps($request, null));
     }
 
+    /** Edición unificada: datos de la persona y su cuenta de acceso. */
+    public function edit(Request $request, Empleado $empleado): Response
+    {
+        $this->authorize('view', $empleado);
+
+        return Inertia::render('Colaboradores/Form', $this->formProps($request, $empleado));
+    }
+
+    /**
+     * Registra a la persona y, si se pidió, su cuenta en la misma transacción.
+     * El correo con la contraseña temporal se envía después: si falla, ambos
+     * registros quedan creados y se puede reenviar el acceso.
+     */
+    public function store(StoreColaboradorRequest $request): RedirectResponse
+    {
+        $actor = $request->user();
+        $data = $request->validated();
+        $acceso = (bool) ($data['acceso'] ?? false);
+        $puedePersona = $actor->can('colaboradores.registrar');
+        abort_unless($puedePersona || $acceso, 403, 'Tu rol solo puede registrar personas junto con su acceso al sistema.');
+
+        $sucursalId = (int) $data['sucursal_id'];
+        if ($puedePersona) {
+            $this->assertSucursalPermitida($request, $sucursalId);
+        }
+        $this->assertOrgActivaOrFail($sucursalId, $data['area_id'] ?? null);
+        $role = $acceso ? $this->cuentas->prepararAlta($actor, (int) $data['acceso_role_id'], $sucursalId, self::CAMPOS_ACCESO) : null;
+
+        $persona = Arr::only($data, self::CAMPOS_PERSONA);
+        if ($acceso && empty($persona['email'])) {
+            $persona['email'] = $data['acceso_email'];
+        }
+        $plainPassword = $role ? $this->cuentas->temporaryPassword() : null;
+
+        $user = DB::transaction(function () use ($persona, $data, $role, $plainPassword) {
+            $empleado = Empleado::create([...$persona, 'activo' => $data['activo'] ?? true]);
+
+            return $role ? $this->cuentas->crear([
+                'name' => CuentasDeAcceso::nombreDe($empleado),
+                'email' => $data['acceso_email'],
+                'empleado_id' => $empleado->id,
+                'activo' => $data['acceso_activo'] ?? true,
+            ], $role, $plainPassword) : null;
+        });
+
+        if (! $user) {
+            return redirect()->route('colaboradores.index')->with('success', 'Colaborador registrado.');
+        }
+
+        return $this->accesoCreado($actor, $user, $role, $plainPassword, 'Colaborador registrado');
+    }
+
+    /**
+     * Guarda los datos de la persona (con «Editar colaboradores») y, si se
+     * envía el bloque de acceso, crea su cuenta o actualiza correo, rol y
+     * estado con los mismos permisos que el módulo Usuarios.
+     */
     public function update(UpdateColaboradorRequest $request, Empleado $empleado): RedirectResponse
     {
-        $this->authorize('update', $empleado);
+        $actor = $request->user();
+        abort_unless($actor->can('view', $empleado), 403);
         $data = $request->validated();
-        if ((int) $data['sucursal_id'] !== (int) $empleado->sucursal_id) {
-            $this->assertSucursalPermitida($request, (int) $data['sucursal_id']);
+        $puedePersona = $actor->can('update', $empleado);
+        $acceso = (bool) ($data['acceso'] ?? false);
+        abort_unless($puedePersona || $acceso, 403, 'No tienes permiso para editar colaboradores.');
+
+        if ($puedePersona) {
+            if ((int) $data['sucursal_id'] !== (int) $empleado->sucursal_id) {
+                $this->assertSucursalPermitida($request, (int) $data['sucursal_id']);
+            }
+            $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] ?? null);
         }
-        $this->assertOrgActivaOrFail((int) $data['sucursal_id'], $data['area_id'] ?? null);
+        $sucursalId = $puedePersona ? (int) $data['sucursal_id'] : (int) $empleado->sucursal_id;
 
-        $empleado->update([
-            ...$data,
-            'activo' => $data['activo'] ?? $empleado->activo,
-        ]);
+        $cuenta = $empleado->user;
+        $role = null;
+        $roleChanges = false;
+        $activoAntes = $cuenta?->activo;
+        if ($acceso && $cuenta) {
+            abort_unless($actor->can('usuarios.ver_vinculo') && $actor->can('view', $cuenta), 403, 'No puedes administrar la cuenta de esta persona.');
+            $role = Role::with('permissions:id,name')->findOrFail($data['acceso_role_id']);
+            $roleChanges = $this->cuentas->validarCambios($actor, $cuenta, $role, (bool) ($data['acceso_activo'] ?? $cuenta->activo), $data['acceso_email'], self::CAMPOS_ACCESO);
+        } elseif ($acceso) {
+            $role = $this->cuentas->prepararAlta($actor, (int) $data['acceso_role_id'], $sucursalId, self::CAMPOS_ACCESO);
+        }
+        $nueva = $acceso && ! $cuenta;
+        $plainPassword = $nueva ? $this->cuentas->temporaryPassword() : null;
 
-        return back()->with('success', 'Colaborador actualizado.');
+        $user = DB::transaction(function () use ($empleado, $data, $puedePersona, $acceso, $cuenta, $role, $roleChanges, $nueva, $plainPassword, $actor) {
+            $nombreAnterior = CuentasDeAcceso::nombreDe($empleado);
+            if ($puedePersona) {
+                $empleado->update([...Arr::only($data, self::CAMPOS_PERSONA), 'activo' => $data['activo'] ?? $empleado->activo]);
+            }
+
+            if ($nueva) {
+                if (! $empleado->email) {
+                    $empleado->update(['email' => $data['acceso_email']]);
+                }
+
+                return $this->cuentas->crear([
+                    'name' => CuentasDeAcceso::nombreDe($empleado),
+                    'email' => $data['acceso_email'],
+                    'empleado_id' => $empleado->id,
+                    'activo' => $data['acceso_activo'] ?? true,
+                ], $role, $plainPassword);
+            }
+
+            if ($acceso && $cuenta) {
+                $cuenta->fill(['email' => $data['acceso_email'], 'activo' => (bool) ($data['acceso_activo'] ?? $cuenta->activo)]);
+                // El nombre de la cuenta sigue al de la persona, salvo que se haya personalizado.
+                if ($cuenta->name === $nombreAnterior && $actor->can('update', $cuenta)) {
+                    $cuenta->name = CuentasDeAcceso::nombreDe($empleado);
+                }
+                $roleChanges ? $this->cuentas->asignarRol($cuenta, $role) : $cuenta->save();
+            }
+
+            return $cuenta;
+        });
+
+        if ($nueva) {
+            return $this->accesoCreado($actor, $user, $role, $plainPassword, 'Colaborador actualizado');
+        }
+
+        if ($acceso && $user) {
+            if ($roleChanges) {
+                $this->cuentas->notificar($actor, "El rol de {$user->name} cambió a «{$role->name}».", [$user], $user);
+            }
+            if ($activoAntes !== (bool) $user->activo) {
+                $this->cuentas->notificar($actor, $user->activo ? "Se reactivó la cuenta de {$user->name}." : "Se desactivó la cuenta de {$user->name}.", [], $user);
+            }
+        }
+
+        return redirect()->route('colaboradores.index')->with('success', 'Colaborador actualizado.');
+    }
+
+    /** Aviso de seguridad, correo con la contraseña temporal y mensaje final. */
+    private function accesoCreado(User $actor, User $user, Role $role, string $plainPassword, string $prefijo): RedirectResponse
+    {
+        $this->cuentas->notificar($actor, "Se creó la cuenta de {$user->name} con el rol «{$role->name}».", [], $user);
+        $mailed = $this->cuentas->enviarAcceso($user, $plainPassword);
+
+        return redirect()->route('colaboradores.index')->with(
+            $mailed ? 'success' : 'warning',
+            $mailed
+                ? "{$prefijo}. Se enviaron los datos de acceso a {$user->email}."
+                : "{$prefijo} y su cuenta quedó creada, pero no se pudo enviar el correo con el acceso. Usa «Reenviar acceso» cuando el correo funcione."
+        );
+    }
+
+    private function formProps(Request $request, ?Empleado $empleado): array
+    {
+        $actor = $request->user();
+        $empleado?->load(['sucursal:id,corporativo_id,nombre,codigo,activo', 'user.roles:id,name', 'user.empleado.sucursal']);
+        $cuenta = $empleado?->user;
+        $verCuenta = $cuenta && $actor->can('usuarios.ver_vinculo') && $actor->can('view', $cuenta);
+        $registrarPersona = $actor->can('colaboradores.registrar');
+        $editarPersona = $empleado ? $actor->can('update', $empleado) : $registrarPersona;
+        $crearCuenta = ! $cuenta && $actor->can('usuarios.registrar');
+
+        // Sucursales para la persona (alcance de Colaboradores) y, marcadas,
+        // las que además permiten darle acceso (alcance de Usuarios).
+        $conAcceso = $actor->can('usuarios.registrar') ? $this->cuentas->sucursalesPermitidas($actor)->pluck('id')->all() : [];
+        $base = $registrarPersona || $editarPersona
+            ? $this->sucursalesPermitidas($actor)->where('activo', true)->whereHas('corporativo', fn ($c) => $c->where('activo', true))
+            : Sucursal::query()->whereKey($conAcceso);
+        $sucursales = $base->orWhere('id', $empleado?->sucursal_id ?? 0)
+            ->orderBy('nombre')->get(['id', 'corporativo_id', 'nombre', 'codigo', 'activo'])
+            ->map(fn (Sucursal $s) => $s->only(['id', 'corporativo_id', 'nombre', 'codigo', 'activo']) + ['permite_acceso' => in_array($s->id, $conAcceso, true)]);
+        $corporativoIds = $sucursales->pluck('corporativo_id')->unique()->values();
+
+        return [
+            'colaborador' => $empleado ? [
+                'id' => $empleado->id,
+                'nombre' => $empleado->nombre,
+                'apellido_paterno' => $empleado->apellido_paterno,
+                'apellido_materno' => $empleado->apellido_materno,
+                'nombre_completo' => trim("{$empleado->nombre} {$empleado->apellido_paterno} ".($empleado->apellido_materno ?? '')),
+                'email' => $empleado->email,
+                'telefono' => $empleado->telefono,
+                'puesto' => $empleado->puesto,
+                'activo' => (bool) $empleado->activo,
+                'sucursal_id' => $empleado->sucursal_id,
+                'corporativo_id' => $empleado->sucursal?->corporativo_id,
+                'area_id' => $empleado->area_id,
+            ] : null,
+            'cuenta' => $verCuenta ? [
+                'id' => $cuenta->id,
+                'name' => $cuenta->name,
+                'email' => $cuenta->email,
+                'activo' => (bool) $cuenta->activo,
+                'roles' => $cuenta->roles->pluck('name')->values(),
+                'role_id' => $cuenta->roles->first()?->id,
+            ] : null,
+            // La persona ya tiene una cuenta que quien edita no puede administrar.
+            'cuentaOculta' => $cuenta !== null && ! $verCuenta,
+            'roles' => $crearCuenta || $verCuenta ? $this->cuentas->rolesPara($actor, $verCuenta ? $cuenta : null) : [],
+            'rolSugerido' => Role::where('name', PermissionCatalog::ROLE_COLABORADOR)->value('id'),
+            'effectivePermissions' => $verCuenta ? $this->cuentas->permisosEfectivos($cuenta) : [],
+            'corporativos' => Corporativo::query()->whereIn('id', $corporativoIds)->orderBy('nombre')->get(['id', 'nombre', 'codigo', 'activo']),
+            'sucursales' => $sucursales->values(),
+            'areas' => Area::query()->whereIn('corporativo_id', $corporativoIds)->orderBy('nombre')->get(['id', 'corporativo_id', 'nombre', 'activo']),
+            'accesoInicial' => $request->boolean('acceso'),
+            'isSelf' => $cuenta !== null && $cuenta->is($actor),
+            'can' => [
+                'registrar_persona' => $registrarPersona,
+                'editar_persona' => $editarPersona,
+                'crear_cuenta' => $crearCuenta,
+                'editar_cuenta' => $verCuenta && $actor->can('update', $cuenta),
+                'cambiar_rol' => $verCuenta && $actor->can('changeRole', $cuenta),
+                'desactivar_cuenta' => $verCuenta && $actor->can('delete', $cuenta) && ! $cuenta->is($actor),
+                'reactivar_cuenta' => $verCuenta && $actor->can('restore', $cuenta),
+                'restablecer' => $verCuenta && $actor->can('resetPassword', $cuenta),
+            ],
+        ];
     }
 
     /**

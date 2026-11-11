@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import {
+    Eye,
     FileDown,
     FileSpreadsheet,
-    KeyRound,
-    Loader2,
     Pencil,
     Plus,
     RotateCcw,
@@ -17,9 +16,11 @@ import {
 } from 'lucide-vue-next'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
-import { ConfirmDialog, Dialog, DialogContent, DialogDescription, DialogTitle } from '@/Components/ui/dialog'
+import { ConfirmDialog } from '@/Components/ui/dialog'
 import { downloadFile, toQS } from '@/Utils/exports'
 import { swalNotify } from '@/lib/swal'
+import { useFlashSuccess } from '@/Composables/useFlashSuccess'
+import ModuloTabs from './partials/ModuloTabs.vue'
 import type { Paginated } from '@/types/shared'
 
 type Colaborador = {
@@ -64,8 +65,17 @@ const props = defineProps<{
         exportar: boolean
         crear_usuario: boolean
         ver_usuario: boolean
+        ver_vinculo: boolean
+        administrar_cuentas: boolean
     }
 }>()
+
+useFlashSuccess()
+
+// La edición es un solo lugar para la persona y su acceso: se abre si puede
+// cambiar cualquiera de los dos; si no, queda como consulta.
+const puedeEditar = (c: Colaborador) =>
+    props.can.editar || (c.user ? props.can.administrar_cuentas : props.can.crear_usuario && c.activo)
 
 /* ---------- Filtros ---------- */
 const f = reactive({ ...props.filters })
@@ -113,85 +123,6 @@ function limpiar() {
 const exportPdf = () => downloadFile(route('colaboradores.export.pdf') + toQS(params()))
 const exportExcel = () => downloadFile(route('colaboradores.export.excel') + toQS(params()))
 
-/* ---------- Alta / edición ---------- */
-const formOpen = ref(false)
-const editing = ref<Colaborador | null>(null)
-const saving = ref(false)
-const errors = ref<Record<string, string>>({})
-const form = reactive({
-    corporativo_id: null as number | null,
-    sucursal_id: null as number | null,
-    area_id: null as number | null,
-    nombre: '',
-    apellido_paterno: '',
-    apellido_materno: '',
-    email: '',
-    telefono: '',
-    puesto: '',
-    activo: true,
-})
-
-const corporativosActivos = computed(() => props.corporativos.filter((c) => c.activo !== false))
-const sucursalesForm = computed(() =>
-    props.sucursales.filter((s) => s.activo !== false && (!form.corporativo_id || Number(s.corporativo_id) === Number(form.corporativo_id))),
-)
-const areasForm = computed(() =>
-    props.areas.filter((a) => a.activo !== false && (!form.corporativo_id || Number(a.corporativo_id) === Number(form.corporativo_id))),
-)
-
-function openCreate() {
-    editing.value = null
-    errors.value = {}
-    Object.assign(form, {
-        corporativo_id: null, sucursal_id: null, area_id: null, nombre: '', apellido_paterno: '', apellido_materno: '',
-        email: '', telefono: '', puesto: '', activo: true,
-    })
-    formOpen.value = true
-}
-
-function openEdit(c: Colaborador) {
-    editing.value = c
-    errors.value = {}
-    Object.assign(form, {
-        corporativo_id: c.sucursal?.corporativo_id ?? null,
-        sucursal_id: c.sucursal_id,
-        area_id: c.area_id,
-        nombre: c.nombre,
-        apellido_paterno: c.apellido_paterno,
-        apellido_materno: c.apellido_materno ?? '',
-        email: c.email ?? '',
-        telefono: c.telefono ?? '',
-        puesto: c.puesto ?? '',
-        activo: c.activo,
-    })
-    formOpen.value = true
-}
-
-watch(() => form.corporativo_id, (corp, prev) => {
-    if (prev === undefined || corp === prev) return
-    const suc = props.sucursales.find((s) => s.id === form.sucursal_id)
-    if (suc && Number(suc.corporativo_id) !== Number(corp)) form.sucursal_id = null
-    const area = props.areas.find((a) => a.id === form.area_id)
-    if (area && Number(area.corporativo_id) !== Number(corp)) form.area_id = null
-})
-
-function save() {
-    saving.value = true
-    errors.value = {}
-    const payload = { ...form, corporativo_id: undefined }
-    const opts = {
-        preserveScroll: true,
-        onSuccess: () => {
-            formOpen.value = false
-            swalNotify(editing.value ? 'Colaborador actualizado.' : 'Colaborador registrado.', 'ok')
-        },
-        onError: (e: Record<string, string>) => (errors.value = e),
-        onFinish: () => (saving.value = false),
-    }
-    if (editing.value) router.put(route('colaboradores.update', editing.value.id), payload, opts)
-    else router.post(route('colaboradores.store'), payload, opts)
-}
-
 /* ---------- Baja / reactivación ---------- */
 const confirm = reactive({ open: false, target: null as Colaborador | null, loading: false })
 function askToggle(c: Colaborador) {
@@ -233,14 +164,16 @@ const inputClass =
             <section class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div class="min-w-0">
                     <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">Colaboradores</h2>
-                    <p class="text-sm text-slate-500 dark:text-zinc-400">Personas de la organización. Una persona puede existir sin cuenta de acceso.</p>
+                    <p class="text-sm text-slate-500 dark:text-zinc-400">Las personas de la organización y su acceso al sistema. Regístralas y, si lo necesitan, dales acceso en el mismo paso.</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <button v-if="can.exportar" type="button" class="btn-secondary" @click="exportPdf"><FileDown class="h-4 w-4" aria-hidden="true" /> PDF</button>
                     <button v-if="can.exportar" type="button" class="btn-secondary" @click="exportExcel"><FileSpreadsheet class="h-4 w-4" aria-hidden="true" /> Excel</button>
-                    <button v-if="can.registrar" type="button" class="btn-primary" @click="openCreate"><Plus class="h-4 w-4" aria-hidden="true" /> Registrar colaborador</button>
+                    <Link v-if="can.registrar || can.crear_usuario" :href="route('colaboradores.create')" class="btn-primary"><Plus class="h-4 w-4" aria-hidden="true" /> Registrar colaborador</Link>
                 </div>
             </section>
+
+            <ModuloTabs active="personas" />
 
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <button
@@ -304,7 +237,7 @@ const inputClass =
                     </button>
                     <span class="ml-2 text-xs font-semibold text-slate-500 dark:text-zinc-400">Acceso:</span>
                     <button
-                        v-for="opt in ([['all', 'Todos'], ['con', 'Con usuario'], ['sin', 'Sin usuario']] as const)"
+                        v-for="opt in ([['all', 'Todos'], ['con', 'Con acceso'], ['sin', 'Sin acceso']] as const)"
                         :key="opt[0]"
                         type="button"
                         class="chip"
@@ -361,9 +294,8 @@ const inputClass =
                                 </td>
                                 <td class="px-5 py-3.5">
                                     <div class="flex flex-wrap justify-end gap-1.5">
-                                        <Link v-if="c.user && can.ver_usuario" :href="route('usuarios.edit', c.user.id)" class="btn-sm"><KeyRound class="h-4 w-4" aria-hidden="true" /> Administrar acceso</Link>
-                                        <Link v-else-if="!c.user && can.crear_usuario && c.activo" :href="route('usuarios.create', { colaborador: c.id })" class="btn-sm"><UserPlus class="h-4 w-4" aria-hidden="true" /> Crear usuario</Link>
-                                        <button v-if="can.editar" type="button" class="btn-sm" @click="openEdit(c)"><Pencil class="h-4 w-4" aria-hidden="true" /> Editar</button>
+                                        <Link v-if="!c.user && can.crear_usuario && c.activo" :href="route('colaboradores.edit', { empleado: c.id, acceso: 1 })" class="btn-sm"><UserPlus class="h-4 w-4" aria-hidden="true" /> Dar acceso</Link>
+                                        <Link :href="route('colaboradores.edit', c.id)" class="btn-sm"><component :is="puedeEditar(c) ? Pencil : Eye" class="h-4 w-4" aria-hidden="true" /> {{ puedeEditar(c) ? 'Editar' : 'Ver' }}</Link>
                                         <button v-if="c.activo && can.desactivar" type="button" class="btn-sm btn-sm-danger" @click="askToggle(c)">Dar de baja</button>
                                         <button v-else-if="!c.activo && can.reactivar" type="button" class="btn-sm" @click="askToggle(c)">Reactivar</button>
                                     </div>
@@ -389,9 +321,8 @@ const inputClass =
                             <p v-if="c.user" class="mt-1 break-words text-xs text-slate-500 [overflow-wrap:anywhere]">{{ c.user.email }}</p>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            <Link v-if="c.user && can.ver_usuario" :href="route('usuarios.edit', c.user.id)" class="btn-sm"><KeyRound class="h-4 w-4" aria-hidden="true" /> Administrar acceso</Link>
-                            <Link v-else-if="!c.user && can.crear_usuario && c.activo" :href="route('usuarios.create', { colaborador: c.id })" class="btn-sm"><UserPlus class="h-4 w-4" aria-hidden="true" /> Crear usuario</Link>
-                            <button v-if="can.editar" type="button" class="btn-sm" @click="openEdit(c)"><Pencil class="h-4 w-4" aria-hidden="true" /> Editar</button>
+                            <Link v-if="!c.user && can.crear_usuario && c.activo" :href="route('colaboradores.edit', { empleado: c.id, acceso: 1 })" class="btn-sm"><UserPlus class="h-4 w-4" aria-hidden="true" /> Dar acceso</Link>
+                            <Link :href="route('colaboradores.edit', c.id)" class="btn-sm"><component :is="puedeEditar(c) ? Pencil : Eye" class="h-4 w-4" aria-hidden="true" /> {{ puedeEditar(c) ? 'Editar' : 'Ver' }}</Link>
                             <button v-if="c.activo && can.desactivar" type="button" class="btn-sm btn-sm-danger" @click="askToggle(c)">Dar de baja</button>
                             <button v-else-if="!c.activo && can.reactivar" type="button" class="btn-sm" @click="askToggle(c)">Reactivar</button>
                         </div>
@@ -417,70 +348,6 @@ const inputClass =
                 </nav>
             </section>
         </div>
-
-        <!-- Modal alta / edición -->
-        <Dialog v-model:open="formOpen">
-            <DialogContent class="max-w-2xl">
-                <div class="pr-8">
-                    <DialogTitle class="text-lg font-bold text-slate-900 dark:text-zinc-100">{{ editing ? 'Editar colaborador' : 'Registrar colaborador' }}</DialogTitle>
-                    <DialogDescription class="text-sm text-slate-500 dark:text-zinc-400">
-                        Datos laborales. La cuenta de acceso se administra por separado en Usuarios.
-                    </DialogDescription>
-                </div>
-                <form class="grid grid-cols-1 gap-4 sm:grid-cols-2" novalidate @submit.prevent="save">
-                    <div>
-                        <label for="col-nombre" class="field-label">Nombre *</label>
-                        <input id="col-nombre" v-model="form.nombre" maxlength="120" :class="inputClass" />
-                        <p v-if="errors.nombre" class="field-error" role="alert">{{ errors.nombre }}</p>
-                    </div>
-                    <div>
-                        <label for="col-ap" class="field-label">Apellido paterno *</label>
-                        <input id="col-ap" v-model="form.apellido_paterno" maxlength="120" :class="inputClass" />
-                        <p v-if="errors.apellido_paterno" class="field-error" role="alert">{{ errors.apellido_paterno }}</p>
-                    </div>
-                    <div>
-                        <label for="col-am" class="field-label">Apellido materno</label>
-                        <input id="col-am" v-model="form.apellido_materno" maxlength="120" :class="inputClass" />
-                    </div>
-                    <div>
-                        <label for="col-puesto" class="field-label">Puesto</label>
-                        <input id="col-puesto" v-model="form.puesto" maxlength="120" :class="inputClass" />
-                    </div>
-                    <div>
-                        <label for="col-email" class="field-label">Correo</label>
-                        <input id="col-email" v-model="form.email" type="email" maxlength="150" autocomplete="off" :class="inputClass" />
-                        <p v-if="errors.email" class="field-error" role="alert">{{ errors.email }}</p>
-                    </div>
-                    <div>
-                        <label for="col-tel" class="field-label">Teléfono</label>
-                        <input id="col-tel" v-model="form.telefono" type="tel" maxlength="30" :class="inputClass" />
-                    </div>
-                    <div>
-                        <SearchableSelect v-model="form.corporativo_id" :options="corporativosActivos" label="Corporativo" placeholder="Seleccione…" rounded="xl" />
-                        <p v-if="errors.corporativo_id" class="field-error" role="alert">{{ errors.corporativo_id }}</p>
-                    </div>
-                    <div>
-                        <SearchableSelect v-model="form.sucursal_id" :options="sucursalesForm" label="Sucursal *" placeholder="Seleccione…" rounded="xl" />
-                        <p v-if="errors.sucursal_id" class="field-error" role="alert">{{ errors.sucursal_id }}</p>
-                    </div>
-                    <div>
-                        <SearchableSelect v-model="form.area_id" :options="areasForm" label="Área" placeholder="Sin área" :allow-null="true" null-label="Sin área" rounded="xl" />
-                        <p v-if="errors.area_id" class="field-error" role="alert">{{ errors.area_id }}</p>
-                    </div>
-                    <label class="flex min-h-[42px] items-center gap-2 self-end text-sm font-semibold text-slate-700 dark:text-zinc-200">
-                        <input v-model="form.activo" type="checkbox" class="h-5 w-5 rounded border-slate-300" /> Colaborador activo
-                    </label>
-
-                    <div class="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
-                        <button type="button" class="btn-secondary justify-center" :disabled="saving" @click="formOpen = false">Cancelar</button>
-                        <button type="submit" class="btn-primary justify-center" :disabled="saving">
-                            <Loader2 v-if="saving" class="h-4 w-4 animate-spin" aria-hidden="true" />
-                            {{ editing ? 'Guardar cambios' : 'Registrar' }}
-                        </button>
-                    </div>
-                </form>
-            </DialogContent>
-        </Dialog>
 
         <ConfirmDialog
             v-model:open="confirm.open"

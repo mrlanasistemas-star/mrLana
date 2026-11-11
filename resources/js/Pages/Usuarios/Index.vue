@@ -6,6 +6,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import { ConfirmDialog } from '@/Components/ui/dialog'
 import { usePermissions } from '@/Composables/usePermissions'
 import { useFlashSuccess } from '@/Composables/useFlashSuccess'
+import ModuloTabs from '@/Pages/Colaboradores/partials/ModuloTabs.vue'
 import type { Paginated } from '@/types/shared'
 
 type Usuario = {
@@ -21,20 +22,21 @@ type Usuario = {
 }
 
 type Estado = 'todos' | 'activos' | 'inactivos'
+type Vinculo = 'todos' | 'con' | 'sin'
 
 const props = defineProps<{
     users: Paginated<Usuario>
     roles: { id: number; name: string }[]
-    filters: { q: string; estado: Estado; role_id: number | null }
-    counts: { total: number; activos: number; inactivos: number }
-    can: { registrar: boolean; editar: boolean; desactivar: boolean; reactivar: boolean }
+    filters: { q: string; estado: Estado; role_id: number | null; vinculo?: Vinculo }
+    counts: { total: number; activos: number; inactivos: number; sin_colaborador?: number | null }
+    can: { registrar: boolean; editar: boolean; desactivar: boolean; reactivar: boolean; ver_vinculo?: boolean }
 }>()
 
 useFlashSuccess()
 const { user: authUser } = usePermissions()
 
 /* ---------- Filtros ---------- */
-const f = reactive({ q: props.filters.q ?? '', estado: props.filters.estado ?? 'todos', role_id: props.filters.role_id ?? null })
+const f = reactive({ q: props.filters.q ?? '', estado: props.filters.estado ?? 'todos', role_id: props.filters.role_id ?? null, vinculo: (props.filters.vinculo ?? 'todos') as Vinculo })
 const loading = ref(false)
 let timer: number | undefined
 
@@ -42,6 +44,7 @@ const params = () => ({
     q: f.q.trim() || undefined,
     estado: f.estado !== 'todos' ? f.estado : undefined,
     role_id: f.role_id || undefined,
+    vinculo: f.vinculo !== 'todos' ? f.vinculo : undefined,
 })
 
 function reload() {
@@ -59,11 +62,11 @@ watch(() => f.q, () => {
     window.clearTimeout(timer)
     timer = window.setTimeout(reload, 350)
 })
-watch(() => [f.estado, f.role_id], reload)
+watch(() => [f.estado, f.role_id, f.vinculo], reload)
 
-const hayFiltros = computed(() => Boolean(f.q || f.estado !== 'todos' || f.role_id))
+const hayFiltros = computed(() => Boolean(f.q || f.estado !== 'todos' || f.role_id || f.vinculo !== 'todos'))
 function limpiar() {
-    Object.assign(f, { q: '', estado: 'todos', role_id: null })
+    Object.assign(f, { q: '', estado: 'todos', role_id: null, vinculo: 'todos' })
 }
 
 const stats = computed(() => [
@@ -105,23 +108,25 @@ const initials = (name: string) =>
 </script>
 
 <template>
-    <Head title="Usuarios" />
+    <Head title="Cuentas de acceso" />
 
     <AuthenticatedLayout>
-        <template #header>Usuarios</template>
+        <template #header>Cuentas de acceso</template>
 
         <div class="w-full min-w-0 space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
             <section class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div class="min-w-0">
-                    <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">Usuarios</h2>
+                    <h2 class="text-xl font-black tracking-tight text-slate-900 dark:text-zinc-100">Cuentas de acceso</h2>
                     <p class="text-sm text-slate-500 dark:text-zinc-400">
-                        Cuentas que pueden iniciar sesión. Cada cuenta tiene un rol y puede vincularse con un colaborador.
+                        Cuentas que pueden iniciar sesión, con su rol. Las cuentas con colaborador se editan junto con la persona; las que no tienen se pueden ligar o completar aquí.
                     </p>
                 </div>
-                <Link v-if="can.registrar" :href="route('usuarios.create')" class="ui-btn-primary self-start lg:self-auto">
-                    <Plus class="h-4 w-4" aria-hidden="true" /> Registrar usuario
+                <Link v-if="can.registrar" :href="route('colaboradores.create', { acceso: 1 })" class="ui-btn-primary self-start lg:self-auto">
+                    <Plus class="h-4 w-4" aria-hidden="true" /> Registrar colaborador
                 </Link>
             </section>
+
+            <ModuloTabs active="cuentas" />
 
             <!-- Indicadores (también filtran por estado) -->
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -177,6 +182,20 @@ const initials = (name: string) =>
                     >
                         {{ opt[1] }}
                     </button>
+                    <template v-if="can.ver_vinculo">
+                        <span class="ml-2 text-xs font-semibold text-slate-500 dark:text-zinc-400">Colaborador:</span>
+                        <button
+                            v-for="opt in ([['todos', 'Todas'], ['con', 'Con colaborador'], ['sin', `Sin colaborador${counts.sin_colaborador ? ` (${counts.sin_colaborador})` : ''}`]] as const)"
+                            :key="opt[0]"
+                            type="button"
+                            class="ui-chip"
+                            :class="f.vinculo === opt[0] ? 'ui-chip-on' : ''"
+                            :aria-pressed="f.vinculo === opt[0]"
+                            @click="f.vinculo = opt[0]"
+                        >
+                            {{ opt[1] }}
+                        </button>
+                    </template>
                     <span v-if="loading" class="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400" role="status">
                         <Loader2 class="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Cargando…
                     </span>
@@ -198,21 +217,21 @@ const initials = (name: string) =>
                         <UserCog class="h-6 w-6" aria-hidden="true" />
                     </span>
                     <p class="text-sm font-semibold text-slate-700 dark:text-zinc-200">
-                        {{ hayFiltros ? 'Ningún usuario coincide con los filtros.' : 'Aún no hay usuarios registrados.' }}
+                        {{ hayFiltros ? 'Ninguna cuenta coincide con los filtros.' : 'Aún no hay cuentas registradas.' }}
                     </p>
                     <button v-if="hayFiltros" type="button" class="ui-btn-secondary" @click="limpiar">Limpiar filtros</button>
-                    <Link v-else-if="can.registrar" :href="route('usuarios.create')" class="ui-btn-primary">
-                        <Plus class="h-4 w-4" aria-hidden="true" /> Registrar usuario
+                    <Link v-else-if="can.registrar" :href="route('colaboradores.create', { acceso: 1 })" class="ui-btn-primary">
+                        <Plus class="h-4 w-4" aria-hidden="true" /> Registrar colaborador
                     </Link>
                 </div>
 
                 <!-- Escritorio -->
                 <div v-else class="hidden lg:block">
                     <table class="w-full table-fixed text-sm">
-                        <caption class="sr-only">Listado de usuarios</caption>
+                        <caption class="sr-only">Cuentas de acceso</caption>
                         <thead>
                             <tr class="border-b border-slate-100 text-left text-xs text-slate-500 dark:border-white/5 dark:text-zinc-400">
-                                <th scope="col" class="w-[32%] px-5 py-3 font-semibold">Usuario</th>
+                                <th scope="col" class="w-[32%] px-5 py-3 font-semibold">Cuenta</th>
                                 <th scope="col" class="w-[16%] px-3 py-3 font-semibold">Rol</th>
                                 <th scope="col" class="w-[22%] px-3 py-3 font-semibold">Colaborador</th>
                                 <th scope="col" class="w-[10%] px-3 py-3 font-semibold">Estado</th>
@@ -244,7 +263,8 @@ const initials = (name: string) =>
                                         <p class="break-words font-semibold">{{ u.colaborador.nombre }}</p>
                                         <p class="break-words text-slate-500 dark:text-zinc-400">{{ u.colaborador.puesto || 'Sin puesto' }}</p>
                                     </template>
-                                    <span v-else class="text-slate-400 dark:text-zinc-500">Sin vincular</span>
+                                    <span v-else-if="can.ver_vinculo" class="ui-badge ui-badge-warn">Sin colaborador</span>
+                                    <span v-else class="text-slate-400 dark:text-zinc-500">—</span>
                                 </td>
                                 <td class="px-3 py-3.5">
                                     <span class="ui-badge" :class="u.activo ? 'ui-badge-ok' : 'ui-badge-muted'">{{ u.activo ? 'Activo' : 'Inactivo' }}</span>
@@ -253,7 +273,7 @@ const initials = (name: string) =>
                                     <div class="flex flex-wrap justify-end gap-1.5">
                                         <Link :href="route('usuarios.edit', u.id)" class="ui-btn-sm">
                                             <component :is="can.editar ? Pencil : Eye" class="h-4 w-4" aria-hidden="true" />
-                                            {{ can.editar ? 'Editar' : 'Ver' }}
+                                            {{ !can.editar ? 'Ver' : (can.ver_vinculo && !u.colaborador ? 'Completar' : 'Editar') }}
                                         </Link>
                                         <button
                                             v-if="canToggle(u)"
@@ -295,13 +315,13 @@ const initials = (name: string) =>
                             </div>
                             <div class="min-w-0">
                                 <dt class="font-semibold text-slate-500 dark:text-zinc-400">Colaborador</dt>
-                                <dd class="break-words text-slate-800 dark:text-zinc-200">{{ u.colaborador?.nombre || 'Sin vincular' }}</dd>
+                                <dd class="break-words text-slate-800 dark:text-zinc-200">{{ u.colaborador?.nombre || (can.ver_vinculo ? 'Sin colaborador' : '—') }}</dd>
                             </div>
                         </dl>
                         <div class="flex flex-wrap gap-2">
                             <Link :href="route('usuarios.edit', u.id)" class="ui-btn-sm">
                                 <component :is="can.editar ? Pencil : Eye" class="h-4 w-4" aria-hidden="true" />
-                                {{ can.editar ? 'Editar' : 'Ver' }}
+                                {{ !can.editar ? 'Ver' : (can.ver_vinculo && !u.colaborador ? 'Completar' : 'Editar') }}
                             </Link>
                             <button v-if="canToggle(u)" type="button" class="ui-btn-sm" :class="u.activo ? 'ui-btn-sm-danger' : ''" @click="askToggle(u)">
                                 {{ u.activo ? 'Desactivar' : 'Reactivar' }}

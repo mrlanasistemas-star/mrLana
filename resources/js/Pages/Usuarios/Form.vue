@@ -110,7 +110,7 @@ function doReset() {
     })
 }
 
-const title = computed(() => (isEdit.value ? (readOnly.value ? 'Detalle de usuario' : 'Editar usuario') : 'Registrar usuario'))
+const title = computed(() => (isEdit.value ? (readOnly.value ? 'Detalle de la cuenta' : 'Editar cuenta de acceso') : 'Registrar cuenta de acceso'))
 const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) => n + m.permissions.length, 0))
 </script>
 
@@ -118,12 +118,12 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
     <Head :title="title" />
 
     <AuthenticatedLayout>
-        <template #header>Usuarios</template>
+        <template #header>{{ title }}</template>
 
         <div class="w-full min-w-0 space-y-5 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
             <section class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex min-w-0 items-center gap-3">
-                    <Link :href="route('usuarios.index')" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5" aria-label="Volver a usuarios">
+                    <Link :href="route('usuarios.index')" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent/50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5" aria-label="Volver a cuentas de acceso">
                         <ArrowLeft class="h-4 w-4" aria-hidden="true" />
                     </Link>
                     <div class="min-w-0">
@@ -138,7 +138,7 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
             </section>
 
             <p v-if="readOnly" class="flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300" role="note">
-                <Lock class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> Solo lectura: no tienes permiso para editar usuarios.
+                <Lock class="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> Solo lectura: no tienes permiso para editar cuentas de acceso.
             </p>
 
             <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
@@ -163,7 +163,7 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
                             <p v-if="form.errors.empleado_id" class="ui-error" role="alert">{{ form.errors.empleado_id }}</p>
                             <p v-else class="ui-help flex items-start gap-1.5">
                                 <Link2 class="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                Solo aparecen colaboradores sin cuenta. Cada colaborador puede tener una sola cuenta.
+                                Liga la cuenta con la persona que la usa. Solo aparecen colaboradores sin cuenta; cada uno puede tener una sola. Si aún no está registrado, elige abajo su sucursal y se registra al guardar.
                             </p>
                         </div>
 
@@ -181,7 +181,7 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
                             />
                             <p v-if="form.errors.sucursal_id" class="ui-error" role="alert">{{ form.errors.sucursal_id }}</p>
                             <p v-else class="ui-help">
-                                Al guardar se registra su colaborador en esta sucursal, para que la persona quede como solicitante y pueda crear requisiciones.
+                                Al guardar se registra su colaborador en esta sucursal, para que la persona quede como solicitante y pueda crear requisiciones. Después puedes completar sus datos (puesto, área, teléfono) en Colaboradores.
                             </p>
                         </div>
 

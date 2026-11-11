@@ -2,20 +2,33 @@
 
 namespace App\Http\Requests\Colaborador;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
- * Alta de un colaborador (persona de la organización). No crea cuenta de
- * acceso: eso se hace desde el módulo Usuarios.
+ * Alta de una persona (colaborador) y, opcionalmente, de su acceso al
+ * sistema en el mismo registro (`acceso` = true con correo, rol y estado).
+ *
+ * Registrar personas exige «Registrar colaboradores»; darles acceso exige
+ * además «Registrar usuarios». Quien solo tiene «Registrar usuarios» puede
+ * registrar personas únicamente junto con su acceso (como antes al crear una
+ * cuenta). El controlador vuelve a validar alcance y roles asignables.
  */
 class StoreColaboradorRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('colaboradores.registrar');
+        return (bool) $this->user()?->canAny(['colaboradores.registrar', 'usuarios.registrar']);
     }
 
     public function rules(): array
+    {
+        return $this->personaRules() + $this->accesoRules(null);
+    }
+
+    /** Datos de la persona. */
+    protected function personaRules(): array
     {
         return [
             'sucursal_id' => ['required', 'integer', 'exists:sucursals,id'],
@@ -30,6 +43,22 @@ class StoreColaboradorRequest extends FormRequest
         ];
     }
 
+    /** Acceso al sistema: solo se valida cuando se pide (`acceso` = true). */
+    protected function accesoRules(?User $cuenta): array
+    {
+        $rules = ['acceso' => ['sometimes', 'boolean']];
+
+        if ($this->boolean('acceso')) {
+            $rules += [
+                'acceso_email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($cuenta?->id)],
+                'acceso_role_id' => ['required', 'integer', Rule::exists(config('permission.table_names.roles'), 'id')->where('guard_name', 'web')],
+                'acceso_activo' => ['nullable', 'boolean'],
+            ];
+        }
+
+        return $rules;
+    }
+
     public function messages(): array
     {
         return [
@@ -40,6 +69,11 @@ class StoreColaboradorRequest extends FormRequest
             'apellido_paterno.required' => 'El apellido paterno es obligatorio.',
             'email.email' => 'El correo no tiene un formato válido.',
             'telefono.max' => 'El teléfono no debe exceder 30 caracteres.',
+            'acceso_email.required' => 'Escribe el correo con el que iniciará sesión.',
+            'acceso_email.email' => 'El correo no tiene un formato válido.',
+            'acceso_email.unique' => 'Ya existe una cuenta con ese correo.',
+            'acceso_role_id.required' => 'Elige el rol de la cuenta.',
+            'acceso_role_id.exists' => 'El rol seleccionado no existe.',
         ];
     }
 
@@ -61,5 +95,14 @@ class StoreColaboradorRequest extends FormRequest
             'puesto' => $trim($this->input('puesto')),
             'area_id' => $this->input('area_id') === '' ? null : $this->input('area_id'),
         ]);
+
+        if ($this->has('acceso')) {
+            $email = $trim($this->input('acceso_email'));
+            $this->merge([
+                'acceso' => $this->boolean('acceso'),
+                'acceso_email' => is_string($email) ? mb_strtolower($email) : $email,
+                'acceso_activo' => $this->has('acceso_activo') ? $this->boolean('acceso_activo') : null,
+            ]);
+        }
     }
 }

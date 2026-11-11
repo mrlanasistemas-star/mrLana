@@ -15,7 +15,6 @@ import {
     Settings,
     Tags,
     Truck,
-    UserCog,
     Users,
 } from 'lucide-vue-next'
 import type { Visibility } from '@/Composables/usePermissions'
@@ -66,8 +65,10 @@ export const NAVIGATION: NavGroup[] = [
     {
         title: 'Personas y accesos',
         items: [
-            { key: 'colaboradores', label: 'Colaboradores', routeName: 'colaboradores.index', activePattern: 'colaboradores.*', icon: Users, views: ['colaboradores'] },
-            { key: 'usuarios', label: 'Usuarios', routeName: 'usuarios.index', activePattern: 'usuarios.*', icon: UserCog, views: ['usuarios'] },
+            // Un solo módulo para las personas y sus cuentas: «Personas» y «Cuentas de acceso» son pestañas.
+            // El patrón (a|b).* lo interpreta Ziggy como expresión regular: marca activo en ambas rutas.
+            // Quien solo ve Usuarios entra igual: colaboradores.index lo lleva a «Cuentas de acceso».
+            { key: 'colaboradores', label: 'Colaboradores', routeName: 'colaboradores.index', activePattern: '(colaboradores|usuarios).*', icon: Users, views: ['colaboradores', 'usuarios'] },
             { key: 'roles', label: 'Roles y permisos', routeName: 'roles.index', activePattern: 'roles.*', icon: KeyRound, anyOf: ['roles.ver'] },
         ],
     },

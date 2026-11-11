@@ -45,10 +45,16 @@ class PaginasInertiaTest extends TestCase
         $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN);
         $role = Role::where('name', PermissionCatalog::ROLE_CONTABILIDAD)->firstOrFail();
 
+        // Colaboradores y Usuarios son un solo módulo: el alta y la edición de
+        // cuentas con colaborador viven en Colaboradores/Form.
+        $sinColaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR, false);
+
         $pages = [
+            [route('colaboradores.index'), 'Colaboradores/Index'],
+            [route('colaboradores.create'), 'Colaboradores/Form'],
+            [route('colaboradores.edit', $admin->empleado_id), 'Colaboradores/Form'],
             [route('usuarios.index'), 'Usuarios/Index'],
-            [route('usuarios.create'), 'Usuarios/Form'],
-            [route('usuarios.edit', $admin), 'Usuarios/Form'],
+            [route('usuarios.edit', $sinColaborador), 'Usuarios/Form'],
             [route('roles.index'), 'Roles/Index'],
             [route('roles.create'), 'Roles/Form'],
             [route('roles.edit', $role), 'Roles/Form'],

@@ -138,14 +138,21 @@ Route::middleware('auth')->group(function () use ($scope, $any) {
     Route::patch('areas/{area}/activate', [AreaController::class, 'activate'])->middleware('permission:areas.reactivar')->name('areas.activate');
 
     // =========================
-    // Colaboradores (personas) — tabla interna `empleados`
+    // Colaboradores (personas y su acceso) — tabla interna `empleados`.
+    // Un solo módulo: el alta y la edición capturan a la persona y, en la
+    // misma pantalla, su cuenta. Las rutas usuarios.* siguen siendo la
+    // pestaña «Cuentas de acceso» y las acciones sobre cuentas.
     // =========================
+    Route::get('/colaboradores/registrar', [ColaboradorController::class, 'create'])
+        ->middleware($any('colaboradores.registrar', 'usuarios.registrar'))->name('colaboradores.create');
+    Route::get('/colaboradores/{empleado}/editar', [ColaboradorController::class, 'edit'])
+        ->middleware($scope('colaboradores'))->name('colaboradores.edit');
     Route::resource('colaboradores', ColaboradorController::class)
         ->parameters(['colaboradores' => 'empleado'])
         ->only(['index', 'store', 'update', 'destroy'])
-        ->middlewareFor('index', $scope('colaboradores'))
-        ->middlewareFor('store', 'permission:colaboradores.registrar')
-        ->middlewareFor('update', 'permission:colaboradores.editar')
+        ->middlewareFor('index', 'permission:'.PermissionCatalog::anyScope('colaboradores').'|'.PermissionCatalog::anyScope('usuarios'))
+        ->middlewareFor('store', $any('colaboradores.registrar', 'usuarios.registrar'))
+        ->middlewareFor('update', $any(...\App\Http\Requests\Colaborador\UpdateColaboradorRequest::PERMISOS))
         ->middlewareFor('destroy', 'permission:colaboradores.desactivar');
     Route::post('/colaboradores/bulk-destroy', [ColaboradorController::class, 'bulkDestroy'])->middleware('permission:colaboradores.desactivar')->name('colaboradores.bulkDestroy');
     Route::patch('colaboradores/{empleado}/activate', [ColaboradorController::class, 'activate'])->middleware('permission:colaboradores.reactivar')->name('colaboradores.activate');
