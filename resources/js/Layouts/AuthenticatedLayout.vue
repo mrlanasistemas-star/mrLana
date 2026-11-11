@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/vue3'
 import Navbar from '@/Layouts/partials/navbar.vue'
 import Sidebar from '@/Layouts/partials/sidebar.vue'
 import FlashToaster from '@/Components/layout/FlashToaster.vue'
+import NavigationFeedback from '@/Components/layout/NavigationFeedback.vue'
 import MobileBottomNav from '@/Components/layout/MobileBottomNav.vue'
 import HelpButton from '@/Components/tour/HelpButton.vue'
 import TourOverlay from '@/Components/tour/TourOverlay.vue'
@@ -54,6 +55,8 @@ onMounted(() => {
 
     <MobileBottomNav />
     <FlashToaster />
+    <!-- Aviso de carga y de errores del servidor o de conexión -->
+    <NavigationFeedback />
     <!-- Ayuda contextual y recorridos interactivos (estado global entre navegaciones) -->
     <HelpButton />
     <TourOverlay />

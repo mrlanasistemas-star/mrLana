@@ -32,14 +32,24 @@ const initials = computed(() => {
     return (parts.slice(0, 2).map((p) => p[0] ?? '').join('') || 'ML').toUpperCase()
 })
 
-// Sección del menú a la que pertenece la página actual (miga de pan).
-const section = computed(() => {
+/**
+ * Migas de pan: sección del menú y, en las páginas internas de un módulo
+ * (detalle, comprobar, editar…), un enlace de regreso a su listado.
+ */
+const crumbs = computed(() => {
     void page.url
     try {
-        return NAVIGATION.find((g) => g.items.some((i) => route().current(i.activePattern)))?.title ?? null
+        for (const g of NAVIGATION) {
+            const item = g.items.find((i) => route().current(i.activePattern))
+            if (!item) continue
+            // En el listado del módulo el título ya es el módulo; el dashboard cambia de ruta según el rol.
+            const onIndex = route().current(item.routeName) || item.key === 'dashboard'
+            return { section: g.title, module: onIndex ? null : { label: item.label, href: route(item.routeName) } }
+        }
     } catch {
-        return null
+        /* ruta fuera del menú */
     }
+    return { section: null, module: null }
 })
 
 const menuItemClass =
@@ -66,10 +76,22 @@ const menuItemClass =
                 <Menu class="h-5 w-5" aria-hidden="true" />
             </button>
             <div class="flex min-w-0 items-center gap-2">
-                <span v-if="section" class="hidden shrink-0 items-center gap-2 text-sm font-medium text-slate-500 dark:text-zinc-400 md:inline-flex">
-                    {{ section }}
-                    <ChevronRight class="h-4 w-4 text-slate-300 dark:text-zinc-600" aria-hidden="true" />
-                </span>
+                <nav v-if="crumbs.section || crumbs.module" aria-label="Ruta de navegación" class="contents">
+                    <span v-if="crumbs.section" class="hidden shrink-0 items-center gap-2 text-sm font-medium text-slate-500 dark:text-zinc-400 lg:inline-flex">
+                        {{ crumbs.section }}
+                        <ChevronRight class="h-4 w-4 text-slate-300 dark:text-zinc-600" aria-hidden="true" />
+                    </span>
+                    <span v-if="crumbs.module" class="hidden shrink-0 items-center gap-2 sm:inline-flex">
+                        <Link
+                            :href="crumbs.module.href"
+                            class="rounded-md px-1 text-sm font-semibold text-slate-600 underline-offset-4 transition hover:text-brand-primary hover:underline
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:text-zinc-300 dark:hover:text-zinc-50"
+                        >
+                            {{ crumbs.module.label }}
+                        </Link>
+                        <ChevronRight class="h-4 w-4 text-slate-300 dark:text-zinc-600" aria-hidden="true" />
+                    </span>
+                </nav>
                 <h1 class="min-w-0 truncate text-[15px] font-semibold tracking-tight text-slate-900 dark:text-zinc-50 sm:text-lg">
                     <slot name="title">Dashboard</slot>
                 </h1>
