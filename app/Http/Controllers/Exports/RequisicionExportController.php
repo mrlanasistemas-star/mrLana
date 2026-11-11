@@ -13,6 +13,7 @@ use App\Models\Sucursal;
 use App\Services\Dashboard\DashboardDataService;
 use App\Services\Pdf\PdfService;
 use App\Support\BusinessDate;
+use App\Support\Reports\RequisicionesPdfLayout;
 use App\Support\Reports\RequisicionesSummary;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -49,8 +50,20 @@ class RequisicionExportController
             'summary' => $summary,
             'filters' => $this->presentFilters($request),
             'meta' => $this->meta($request, $summary),
-        ], 'requisiciones.pdf', ['paper' => 'letter', 'landscape' => true]);
+        ], 'requisiciones.pdf', self::PDF_OPTIONS);
     }
+
+    /**
+     * Carta horizontal. Con DomPDF (respaldo sin Chrome) el alto de línea
+     * se ajusta para que respete el line-height del CSS: con el valor por
+     * defecto (1.1) cada renglón en DejaVu mide ~1.86 veces la letra y el
+     * acomodo en hojas que calcula RequisicionesPdfLayout no coincidiría.
+     */
+    public const PDF_OPTIONS = [
+        'paper' => 'letter',
+        'landscape' => true,
+        'dompdf' => ['font_height_ratio' => RequisicionesPdfLayout::DOMPDF_FONT_HEIGHT_RATIO],
+    ];
 
     private function meta(Request $request, RequisicionesSummary $summary): array
     {

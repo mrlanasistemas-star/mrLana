@@ -48,7 +48,7 @@ class PdfService
      * Devuelve el binario del PDF.
      *
      * @param  array<string, mixed>  $data
-     * @param  array{paper?: string, landscape?: bool}  $options
+     * @param  array{paper?: string, landscape?: bool, dompdf?: array<string, mixed>}  $options
      */
     public function render(string $view, array $data, array $options = []): string
     {
@@ -63,9 +63,15 @@ class PdfService
             }
         }
 
-        return DomPdf::loadView($view, $data + ['pdfEngine' => 'dompdf'])
-            ->setPaper($paper, $landscape ? 'landscape' : 'portrait')
-            ->output();
+        $dompdf = DomPdf::loadView($view, $data + ['pdfEngine' => 'dompdf'])
+            ->setPaper($paper, $landscape ? 'landscape' : 'portrait');
+
+        // Opciones de DomPDF por reporte (p. ej. font_height_ratio), sin tocar a los demás.
+        foreach ((array) ($options['dompdf'] ?? []) as $key => $value) {
+            $dompdf->setOption($key, $value);
+        }
+
+        return $dompdf->output();
     }
 
     /**
@@ -81,7 +87,7 @@ class PdfService
             .'<span>'.$footerLabel.'</span>'
             .'<span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span></div>';
 
-        $shot = Browsershot::html($html)
+        return $this->browsershot($html, (int) config('erp.pdf.timeout', 60))
             ->format(ucfirst($paper))
             ->landscape($landscape)
             ->margins(self::MARGINS['top'], self::MARGINS['right'], self::MARGINS['bottom'], self::MARGINS['left'])
@@ -90,7 +96,54 @@ class PdfService
             ->footerHtml($footer)
             ->showBackground()
             ->emulateMedia('print')
-            ->timeout((int) config('erp.pdf.timeout', 60));
+            ->pdf();
+    }
+
+    /**
+     * Intenta generar un PDF mínimo con Chrome (Browsershot) para saber si en
+     * este servidor los reportes salen con Chrome o con el respaldo DomPDF.
+     * No lanza excepciones.
+     *
+     * @return array{ok: bool, seconds: float, bytes: int, error: ?string}
+     */
+    public function probeChrome(int $timeout = 20): array
+    {
+        $start = microtime(true);
+        try {
+            $pdf = $this->browsershot('<!doctype html><meta charset="utf-8"><p>Prueba de PDF</p>', $timeout)
+                ->format('Letter')
+                ->pdf();
+            $ok = str_starts_with($pdf, '%PDF');
+
+            return ['ok' => $ok, 'seconds' => microtime(true) - $start, 'bytes' => strlen($pdf), 'error' => $ok ? null : 'Chrome no devolvió un PDF válido.'];
+        } catch (Throwable $e) {
+            return ['ok' => false, 'seconds' => microtime(true) - $start, 'bytes' => 0, 'error' => self::chromeError($e->getMessage())];
+        }
+    }
+
+    /**
+     * De la excepción de Browsershot (que incluye el comando completo) deja
+     * lo útil: la salida de error de Node/Chrome sin la pila de llamadas y,
+     * si no la hay, el código de salida.
+     */
+    private static function chromeError(string $message): string
+    {
+        if (preg_match('/Error Output:\s*=+\s*(.+)$/s', $message, $m) && trim($m[1]) !== '') {
+            $lines = array_filter(array_map('trim', explode("\n", $m[1])), fn ($l) => $l !== '' && ! str_starts_with($l, 'at '));
+
+            return implode(' ', array_slice($lines, 0, 4));
+        }
+        if (preg_match('/Exit Code:\s*([^\n]+)/', $message, $m)) {
+            return 'Exit Code: '.trim($m[1]);
+        }
+
+        return trim($message);
+    }
+
+    /** Browsershot con las rutas y opciones del servidor (config/erp.php → pdf). */
+    private function browsershot(string $html, int $timeout): Browsershot
+    {
+        $shot = Browsershot::html($html)->timeout($timeout);
 
         if ($chrome = config('erp.pdf.chrome_path')) {
             $shot->setChromePath($chrome);
@@ -105,7 +158,7 @@ class PdfService
             $shot->noSandbox();
         }
 
-        return $shot->pdf();
+        return $shot;
     }
 
     /**

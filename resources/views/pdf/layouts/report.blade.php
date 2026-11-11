@@ -36,7 +36,7 @@
         .subtitle { margin: 2px 0 0; color: #71717A; font-size: 10.5px; }
         .meta { text-align: right; color: #52525B; font-size: 9.5px; line-height: 1.6; }
         .meta strong { color: #18181B; }
-        .stats-wrap { margin: 0 -8px 12px; }
+        .stats-wrap { margin: 0 -7px 12px; }
         .stats { width: 100%; border-collapse: separate; border-spacing: 8px 0; table-layout: fixed; }
         .stat { border: 1px solid #E4E4E7; border-radius: 10px; padding: 9px 12px; background: #FAFAFA; vertical-align: top; }
         .stat .label { font-size: 8.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #71717A; font-weight: 700; }
@@ -72,7 +72,7 @@
         .section-title { font-size: 11px; font-weight: 700; color: #09090B; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; page-break-after: avoid; break-after: avoid; }
 
         /* Paneles de gráficas reutilizables (resúmenes de listados) */
-        .panels-wrap { margin: 0 -8px 10px; page-break-inside: avoid; break-inside: avoid; }
+        .panels-wrap { margin: 0 -7px 10px; page-break-inside: avoid; break-inside: avoid; }
         table.panels { width: 100%; border-collapse: separate; border-spacing: 8px 0; table-layout: fixed; }
         table.panels td.panel { border: 1px solid #E4E4E7; border-radius: 10px; padding: 10px 12px 9px; vertical-align: top; background: #FFFFFF; }
         .panel h3 { font-size: 10.5px; font-weight: 700; color: #18181B; margin: 0; }

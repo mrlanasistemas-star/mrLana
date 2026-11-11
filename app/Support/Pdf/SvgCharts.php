@@ -23,19 +23,22 @@ final class SvgCharts
      */
     public static function bars(array $points, string $color, string $unit = '', int $width = 520, int $height = 220, bool $money = false): string
     {
-        [$plotX, $plotY, $plotW, $plotH] = [$money ? 48 : 40, 16, $width - ($money ? 60 : 52), $height - 48];
         $max = self::niceMax(max(array_column($points, 'value') ?: [0]));
         if (! $money && $max <= 12) {
             // Conteos chicos: múltiplo de 4 para que las 4 líneas del eje sean enteras.
             $max = max(4, ceil($max / 4) * 4);
         }
+        $axis = fn ($v) => ($money ? '$' : '').self::short($v);
+        // El eje Y se reserva según la etiqueta más ancha (p. ej. «$2.5M»).
+        $plotX = self::axisWidth($max, $axis);
+        [$plotY, $plotW, $plotH] = [16, $width - $plotX - 8, $height - 40];
         $n = max(1, count($points));
         $slot = $plotW / $n;
         $barW = min(26, $slot * 0.62);
         $labelStep = self::labelStep($points, $plotW);
 
         $svg = self::open($width, $height);
-        $svg .= self::grid($plotX, $plotY, $plotW, $plotH, $max, fn ($v) => ($money ? '$' : '').self::short($v));
+        $svg .= self::grid($plotX, $plotY, $plotW, $plotH, $max, $axis);
 
         foreach ($points as $i => $p) {
             $h = $max > 0 ? ($p['value'] / $max) * $plotH : 0;
@@ -50,7 +53,7 @@ final class SvgCharts
                 );
             }
             if ($i % $labelStep === 0) {
-                $svg .= self::text($x + $barW / 2, $plotY + $plotH + 16, $p['name'], 'middle', 9);
+                $svg .= self::xLabel($x + $barW / 2, $plotY + $plotH + 15, TextMetrics::fit((string) $p['name'], max(24, $slot * $labelStep - 4), 9), $width);
             }
         }
 
@@ -62,8 +65,10 @@ final class SvgCharts
      */
     public static function area(array $points, string $color, bool $money = false, int $width = 520, int $height = 220): string
     {
-        [$plotX, $plotY, $plotW, $plotH] = [56, 16, $width - 68, $height - 48];
         $max = self::niceMax(max(array_column($points, 'value') ?: [0]));
+        $axis = fn ($v) => ($money ? '$' : '').self::short($v);
+        $plotX = max(40, self::axisWidth($max, $axis));
+        [$plotY, $plotW, $plotH] = [16, $width - $plotX - 14, $height - 40];
         $n = count($points);
         $step = $n > 1 ? $plotW / ($n - 1) : 0;
         $labelStep = self::labelStep($points, $plotW);
@@ -77,7 +82,7 @@ final class SvgCharts
         }
 
         $svg = self::open($width, $height);
-        $svg .= self::grid($plotX, $plotY, $plotW, $plotH, $max, fn ($v) => ($money ? '$' : '').self::short($v));
+        $svg .= self::grid($plotX, $plotY, $plotW, $plotH, $max, $axis);
 
         if ($coords !== []) {
             $line = self::smoothPath($coords);
@@ -94,7 +99,7 @@ final class SvgCharts
 
         foreach ($points as $i => $p) {
             if ($i % $labelStep === 0) {
-                $svg .= self::text($plotX + $step * $i, $plotY + $plotH + 16, $p['name'], 'middle', 9);
+                $svg .= self::xLabel($plotX + $step * $i, $plotY + $plotH + 15, TextMetrics::fit((string) $p['name'], max(24, $step * $labelStep - 4), 9), $width);
             }
         }
 
@@ -113,12 +118,16 @@ final class SvgCharts
     {
         $total = array_sum(array_column($slices, 'value'));
         $n = count($slices);
-        $font = ($width >= 400 && ($height - 8) / max(1, $n) >= 18) ? 11 : 10;
-        $charW = $font * 0.53;
-        // Ancho que pide la leyenda (cuadro + nombre más largo + «123 · 45%»).
-        $longest = max(array_map(fn ($s) => mb_strlen((string) $s['name']), $slices) ?: [0]);
-        $legendW = 15 + $longest * $charW + 8 + 9 * $charW;
-        $r = (int) min(78, floor($height / 2) - 4, max(40, floor(($width - $legendW - 24) / 2)));
+        $rowH = (int) max(13, min(20, floor(($height - 8) / max(1, $n))));
+        $font = ($width >= 400 && $rowH >= 18) ? 11 : ($rowH >= 15 ? 10 : 9);
+        // Texto de valor de cada fila («123 · 45%») y ancho que pide la leyenda
+        // (cuadro + nombre más largo + valor), medidos con la fuente real.
+        $valueText = fn ($s) => number_format($s['value']).' · '.($total > 0 ? round(($s['value'] / $total) * 100) : 0).'%';
+        $valueW = max(array_map(fn ($s) => TextMetrics::width($valueText($s), $font), $slices) ?: [0]);
+        $nameW = max(array_map(fn ($s) => TextMetrics::width((string) $s['name'], $font), $slices) ?: [0]);
+        $legendW = 15 + $nameW + 10 + $valueW;
+        // Donut a la izquierda (cx = r + 4) y leyenda a 14 px de su borde: r es lo que deja libre la leyenda.
+        $r = (int) min(78, floor($height / 2) - 4, max(40, floor(($width - $legendW - 20) / 2)));
         $inner = (int) round($r * 0.64);
         $cx = $r + 4;
         $cy = $height / 2;
@@ -146,27 +155,22 @@ final class SvgCharts
         }
 
         // La etiqueta central solo se pone si cabe en el hueco de la dona.
-        $labelFits = $centerLabel !== '' && mb_strlen($centerLabel) * ($r >= 60 ? 9 : 8) * 0.55 <= $inner * 2 - 10;
+        $labelFits = $centerLabel !== '' && TextMetrics::width($centerLabel, $r >= 60 ? 9 : 8) <= $inner * 2 - 8;
         $svg .= self::text($cx, $cy + ($labelFits ? ($r >= 60 ? 2 : 3) : 5), number_format($total), 'middle', $r >= 60 ? 18 : 15, '#18181B', 700);
         if ($labelFits) {
             $svg .= self::text($cx, $cy + ($r >= 60 ? 16 : 14), $centerLabel, 'middle', $r >= 60 ? 9 : 8, self::AXIS);
         }
 
-        $lx = $cx + $r + 16;
-        $rowH = (int) max(14, min(20, floor(($height - 8) / max(1, $n))));
+        $lx = $cx + $r + 14;
         $startY = $cy - ($n * $rowH) / 2 + $rowH / 2 + 4;
-        $maxChars = max(8, (int) floor(($width - $lx - 15 - 8 - 9 * $charW) / $charW));
+        // El nombre se recorta para dejar siempre aire antes del valor.
+        $nameMax = $width - 2 - $valueW - 10 - ($lx + 15);
         foreach ($slices as $i => $s) {
             $color = $palette[$i % max(1, count($palette))] ?? '#2563EB';
             $y = $startY + $i * $rowH;
-            $pct = round(($s['value'] / $total) * 100);
-            $name = (string) $s['name'];
-            if (mb_strlen($name) > $maxChars) {
-                $name = rtrim(mb_substr($name, 0, $maxChars - 1)).'…';
-            }
             $svg .= sprintf('<rect x="%d" y="%.1f" width="9" height="9" rx="2.5" fill="%s"/>', $lx, $y - 8, self::e($color));
-            $svg .= self::text($lx + 15, $y, $name, 'start', $font, '#27272A');
-            $svg .= self::text($width - 2, $y, number_format($s['value'])." · {$pct}%", 'end', $font, self::AXIS);
+            $svg .= self::text($lx + 15, $y, TextMetrics::fit((string) $s['name'], $nameMax, $font), 'start', $font, '#27272A');
+            $svg .= self::text($width - 2, $y, $valueText($s), 'end', $font, self::AXIS);
         }
 
         return self::uri($svg.'</svg>');
@@ -177,9 +181,15 @@ final class SvgCharts
      * riel tenue y el valor a la derecha. La altura se ajusta al número de
      * filas. Cada punto puede traer su propio `color` (p. ej. «Otros» en gris).
      *
+     * Los anchos de etiqueta y valor se calculan con el texto real (medido en
+     * DejaVu Sans, la fuente más ancha que puede tocar): $labelWidth es el
+     * máximo para las etiquetas (se recortan con «…» si no caben) y la
+     * columna de valores crece lo necesario para que el monto nunca choque con
+     * la barra. Con $compact los montos se abrevian ($1.2M, $616k).
+     *
      * @param  list<array{name: string, value: int|float, color?: string, note?: string}>  $items
      */
-    public static function hbars(array $items, string $color, bool $money = true, int $width = 460, int $labelWidth = 150, int $rowH = 24, int $valueW = 92): string
+    public static function hbars(array $items, string $color, bool $money = true, int $width = 460, int $labelWidth = 150, int $rowH = 24, int $valueW = 92, bool $compact = false, int $fontSize = 10): string
     {
         $padT = 4;
         $n = count($items);
@@ -192,20 +202,30 @@ final class SvgCharts
             return self::uri($svg.'</svg>');
         }
 
+        $font = $fontSize;
+        $gap = 8;
+        $values = array_map(fn ($it) => match (true) {
+            $money && $compact => self::compactMoney((float) $it['value']),
+            $money => self::money((float) $it['value']),
+            default => number_format((float) $it['value']),
+        }, $items);
+        // Columna de valores: el más ancho (en negrita, por si la fuente la respeta) y aire con la barra.
+        $valueCol = max(array_map(fn ($v) => TextMetrics::width($v, $font, true), $values)) + 2 + $gap;
+        // Columna de etiquetas: lo que pida la más larga, sin pasar del máximo ni dejar la barra sin espacio.
+        $longest = max(array_map(fn ($it) => TextMetrics::width((string) $it['name'], $font), $items));
+        $labelCol = min($labelWidth, $longest, $width - $valueCol - $gap - max(36, $width * 0.28));
+        $labelCol = max(24, $labelCol);
+
         $max = max(array_map(fn ($i) => (float) $i['value'], $items)) ?: 1;
-        $trackX = $labelWidth + 8;
-        $trackW = $width - $trackX - $valueW;
-        $barH = min(12, $rowH - 10);
-        $maxChars = max(8, (int) floor($labelWidth / 5.3));
+        $trackX = $labelCol + $gap;
+        $trackW = max(10, $width - $trackX - $valueCol);
+        $barH = max(6, min(12, $rowH - 10));
 
         foreach ($items as $i => $it) {
             $y = $padT + $i * $rowH;
             $mid = $y + $rowH / 2;
-            $name = (string) $it['name'];
-            if (mb_strlen($name) > $maxChars) {
-                $name = rtrim(mb_substr($name, 0, $maxChars - 1)).'…';
-            }
-            $svg .= self::text($labelWidth, $mid + 3.5, $name, 'end', 10, '#27272A');
+            $base = $mid + $font * 0.35;
+            $svg .= self::text($labelCol, $base, TextMetrics::fit((string) $it['name'], $labelCol, $font), 'end', $font, '#27272A');
             $svg .= sprintf('<rect x="%.2f" y="%.2f" width="%.2f" height="%.2f" rx="%.2f" fill="#F4F4F5"/>', $trackX, $mid - $barH / 2, $trackW, $barH, $barH / 2);
             $w = max(0, ((float) $it['value'] / $max) * $trackW);
             if ($w > 0) {
@@ -214,8 +234,7 @@ final class SvgCharts
                     $trackX, $mid - $barH / 2, max($w, $barH), $barH, $barH / 2, self::e($it['color'] ?? $color)
                 );
             }
-            $value = $money ? self::money((float) $it['value']) : number_format((float) $it['value']);
-            $svg .= self::text($width - 2, $mid + 3.5, $value, 'end', 10, '#18181B', 600);
+            $svg .= self::text($width - 2, $base, $values[$i], 'end', $font, '#18181B', 600);
             if (! empty($it['note'])) {
                 $svg .= self::text($width - 2, $mid + 13, (string) $it['note'], 'end', 8, self::AXIS);
             }
@@ -228,6 +247,41 @@ final class SvgCharts
     private static function money(float $v): string
     {
         return ($v < 0 ? '-$' : '$').number_format(abs($v), 0);
+    }
+
+    /** Montos abreviados para gráficas: $950, $9.5k, $616k, $1.25M, $15.4M. */
+    public static function compactMoney(float $v): string
+    {
+        $abs = abs($v);
+        $sign = $v < 0 ? '-$' : '$';
+        $trim = fn (string $s) => str_contains($s, '.') ? rtrim(rtrim($s, '0'), '.') : $s;
+
+        return $sign.match (true) {
+            $abs >= 999_500 => $trim(number_format($abs / 1_000_000, $abs >= 9_995_000 ? 1 : 2)).'M',
+            $abs >= 9_995 => number_format($abs / 1_000, 0).'k',
+            $abs >= 1_000 => $trim(number_format($abs / 1_000, 1)).'k',
+            default => number_format($abs, 0),
+        };
+    }
+
+    /** Etiqueta del eje X centrada en $x sin salirse del lienzo. */
+    private static function xLabel(float $x, float $y, string $label, int $width): string
+    {
+        $half = TextMetrics::width($label, 9) / 2 + 1;
+        $x = max($half, min($width - $half, $x));
+
+        return self::text($x, $y, $label, 'middle', 9);
+    }
+
+    /** Ancho del eje Y según su etiqueta más ancha más el espacio a la cuadrícula. */
+    private static function axisWidth(float $max, callable $format): int
+    {
+        $w = 0;
+        for ($i = 0; $i <= 4; $i++) {
+            $w = max($w, TextMetrics::width($format($max / 4 * $i), 9));
+        }
+
+        return (int) ceil($w + 12);
     }
 
     private static function open(int $w, int $h): string
@@ -303,7 +357,7 @@ final class SvgCharts
 
     /**
      * Cada cuántas etiquetas del eje X se dibuja una para que no se encimen
-     * (≈5.4 px por carácter a 9 px más un margen).
+     * (ancho real de la más larga a 9 px más un margen).
      *
      * @param  list<array{name: string, value: int|float}>  $points
      */
@@ -313,8 +367,8 @@ final class SvgCharts
         if ($n === 0) {
             return 1;
         }
-        $longest = max(array_map(fn ($p) => mb_strlen((string) $p['name']), $points));
-        $fit = max(1, (int) floor($plotW / ($longest * 5.0 + 6)));
+        $longest = max(array_map(fn ($p) => TextMetrics::width((string) $p['name'], 9), $points));
+        $fit = max(1, (int) floor($plotW / ($longest + 3)));
 
         return max(1, (int) ceil($n / $fit));
     }
@@ -325,7 +379,8 @@ final class SvgCharts
             return 4;
         }
         $exp = 10 ** floor(log10($value));
-        foreach ([1, 2, 2.5, 5, 10] as $m) {
+        // Máximos cuya cuarta parte es redonda: las 4 líneas del eje quedan en cifras limpias.
+        foreach ([1, 2, 4, 6, 8, 10] as $m) {
             if ($m * $exp >= $value) {
                 return $m * $exp;
             }
@@ -337,8 +392,8 @@ final class SvgCharts
     private static function short(float $v): string
     {
         return match (true) {
-            $v >= 1_000_000 => rtrim(rtrim(number_format($v / 1_000_000, 1), '0'), '.').'M',
-            $v >= 1_000 => rtrim(rtrim(number_format($v / 1_000, 1), '0'), '.').'k',
+            $v >= 1_000_000 => rtrim(rtrim(number_format($v / 1_000_000, 2), '0'), '.').'M',
+            $v >= 1_000 => rtrim(rtrim(number_format($v / 1_000, 2), '0'), '.').'k',
             default => (string) round($v, 1),
         };
     }

@@ -192,10 +192,86 @@ class CheckDeploy extends Command
         }
 
         $this->components->twoColumnDetail('Difusión (BROADCAST_CONNECTION)', (string) config('broadcasting.default'));
-        $driver = config('erp.pdf.driver');
+        $this->pdfEngine();
+    }
+
+    /**
+     * Genera un PDF mínimo con Chrome (Browsershot) para saber con qué motor
+     * salen los reportes. Si Chrome no funciona no bloquea el despliegue (los
+     * PDF salen con DomPDF), pero se avisa con el error y cómo corregirlo.
+     */
+    private function pdfEngine(): void
+    {
+        $driver = (string) config('erp.pdf.driver');
         $chrome = config('erp.pdf.chrome_path');
-        $this->components->twoColumnDetail('PDF', $driver.($driver === 'browsershot'
-            ? ' · Chrome: '.($chrome ? ($chrome.(is_file($chrome) ? '' : ' <fg=yellow>(no encontrado; se usará DomPDF)</>')) : 'autodetección')
-            : ''));
+        $node = config('erp.pdf.node_binary');
+
+        if ($driver !== 'browsershot') {
+            $this->components->twoColumnDetail('PDF', "<fg=yellow>DomPDF</> (ERP_PDF_DRIVER={$driver}; Chrome desactivado)");
+
+            return;
+        }
+
+        $this->components->twoColumnDetail('PDF · Chrome', $chrome ? $chrome.(is_file($chrome) ? '' : ' <fg=yellow>(no existe ese archivo)</>') : 'el que instaló Puppeteer (autodetección)');
+        if ($node) {
+            $this->components->twoColumnDetail('PDF · Node', $node.(is_file($node) ? '' : ' <fg=yellow>(no existe ese archivo)</>'));
+        }
+
+        // Chrome de Puppeteer se busca en el HOME de quien ejecuta: la prueba
+        // solo refleja al sitio si se corre con el mismo usuario que PHP-FPM.
+        $user = function_exists('posix_geteuid') && function_exists('posix_getpwuid')
+            ? (posix_getpwuid(posix_geteuid())['name'] ?? get_current_user())
+            : get_current_user();
+        $this->components->twoColumnDetail('PDF · prueba hecha como', $user.($user === 'www-data' ? '' : ' <fg=gray>(si PHP-FPM usa otro usuario: sudo -u www-data php artisan erp:check-deploy)</>'));
+
+        $probe = app(\App\Services\Pdf\PdfService::class)->probeChrome(20);
+        $seconds = number_format($probe['seconds'], 1).' s';
+
+        if ($probe['ok']) {
+            $this->components->twoColumnDetail('PDF · motor en uso', "<fg=green>Chrome (Browsershot) funciona</> · prueba en {$seconds}");
+
+            return;
+        }
+
+        $this->components->twoColumnDetail('PDF · motor en uso', "<fg=yellow>DomPDF (respaldo)</> · Chrome falló en {$seconds}");
+        $error = (string) $probe['error'];
+        $this->components->warn('Chrome no pudo generar el PDF de prueba. Los reportes se generan con DomPDF (más simples). Error:');
+        $this->line('  '.mb_strimwidth(preg_replace('/\s+/', ' ', $error) ?? $error, 0, 600, '…'));
+
+        $this->newLine();
+        $this->line('  <options=bold>Cómo activar Chrome</> (ejecuta en la carpeta del proyecto y como el usuario que corre PHP, p. ej. www-data):');
+        $lower = mb_strtolower($error);
+        $hints = [];
+        if (str_contains($lower, 'configured executablepath')) {
+            $hints[] = 'BROWSERSHOT_CHROME_PATH apunta a un archivo que no existe: corrígelo con la salida de `which chromium google-chrome` o déjalo vacío para usar el Chrome de Puppeteer.';
+        } elseif (str_contains($lower, 'could not find chrome') || str_contains($lower, 'could not find expected browser') || str_contains($lower, 'browser was not found')) {
+            // Browsershot usa el «chrome-headless-shell» de Puppeteer; el mensaje trae el nombre exacto.
+            $browser = preg_match('/puppeteer browsers install ([a-z-]+)/', $error, $m) ? $m[1] : 'chrome-headless-shell';
+            $hints[] = 'Puppeteer no descargó Chrome (npm bloqueó su postinstall). Descárgalo para el usuario del sitio:';
+            $hints[] = "  sudo -u www-data -H npx puppeteer browsers install {$browser}";
+        }
+        if (str_contains($lower, 'error while loading shared libraries') || str_contains($lower, 'libnss3') || str_contains($lower, 'libgbm')) {
+            $hints[] = 'Faltan librerías del sistema para Chrome (en Ubuntu 22.04 usa libasound2 en lugar de libasound2t64):';
+            $hints[] = '  sudo apt install -y libnss3 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libasound2t64 libcups2 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libpango-1.0-0';
+        }
+        if (str_contains($lower, 'cannot find module')) {
+            $hints[] = 'Falta la dependencia de Node: en la carpeta del proyecto, npm ci (y luego el paso de Chrome).';
+        }
+        if (str_contains($lower, 'node: not found') || str_contains($lower, 'exit code: 127') || str_contains($lower, 'no such file or directory')) {
+            $hints[] = 'PHP no encuentra node/npm: fija BROWSERSHOT_NODE_BINARY y BROWSERSHOT_NPM_BINARY con la salida de `which node npm`.';
+        }
+        if (str_contains($lower, 'eacces') || str_contains($lower, 'permission denied')) {
+            $hints[] = 'Permisos: www-data necesita un HOME escribible (sudo mkdir -p /var/www/.cache && sudo chown -R www-data:www-data /var/www/.cache).';
+        }
+        if (str_contains($lower, 'timed out') || str_contains($lower, 'timeout')) {
+            $hints[] = 'Chrome tardó demasiado: revisa memoria del servidor y que BROWSERSHOT_NO_SANDBOX=true.';
+        }
+        $hints[] = 'Alternativa: instala Google Chrome del sistema (paquete .deb, ver docs/despliegue.md §10; el chromium de Ubuntu es snap y suele fallar con www-data)';
+        $hints[] = '  y fija su ruta en .env: BROWSERSHOT_CHROME_PATH=/usr/bin/google-chrome (ver `which google-chrome`).';
+        $hints[] = 'Después: php artisan config:cache y vuelve a correr php artisan erp:check-deploy.';
+        foreach (array_unique($hints) as $h) {
+            // Las líneas con sangría son comandos o continuación del punto anterior.
+            $this->line(str_starts_with($h, '  ') ? '      '.ltrim($h) : '  · '.$h);
+        }
     }
 }
