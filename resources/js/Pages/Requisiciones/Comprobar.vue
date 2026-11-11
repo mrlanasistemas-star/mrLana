@@ -2,6 +2,8 @@
 import { Head, Link } from '@inertiajs/vue3'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 import SearchableSelect from '@/Components/ui/SearchableSelect.vue'
+import DatePickerShadcn from '@/Components/ui/DatePickerShadcn.vue'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu'
 import { computed } from 'vue'
 
 import {
@@ -21,6 +23,7 @@ import {
   BellRing,
   Clock,
   Eye,
+  ChevronDown,
 } from 'lucide-vue-next'
 
 import type { RequisicionComprobarPageProps } from './Comprobar.types'
@@ -153,11 +156,11 @@ const iconBtnNeutral =
   'border-slate-200/70 bg-white hover:bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15 dark:text-neutral-100'
 // Todos los campos de la cola miden lo mismo para que queden alineados.
 const field =
-  'block h-11 w-full rounded-2xl border border-slate-200/70 bg-white/90 px-3 text-sm font-semibold text-slate-900 ' +
+  'block h-[42px] w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 ' +
   'placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/40 ' +
   'disabled:opacity-60 disabled:cursor-not-allowed ' +
   'dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:placeholder:text-neutral-500 dark:[color-scheme:dark]'
-const fieldLabel = 'mb-1 block truncate text-xs font-bold text-slate-600 dark:text-neutral-300'
+const fieldLabel = 'block truncate text-xs font-bold text-slate-600 dark:text-neutral-300'
 const notifyBtn =
   'inline-flex h-10 items-center gap-2 rounded-2xl border px-3 text-sm font-black transition active:scale-[0.98] ' +
   'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 motion-reduce:transform-none ' +
@@ -675,7 +678,7 @@ const notifyBtn =
                     <div class="flex items-center gap-3">
                       <button
                         type="button"
-                        class="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200/70 bg-slate-100
+                        class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200/70 bg-slate-100
                                focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40
                                dark:border-white/10 dark:bg-white/10"
                         :title="item.kind === 'other' ? 'Este archivo no tiene vista previa' : 'Ver en vista previa'"
@@ -694,19 +697,22 @@ const notifyBtn =
                         <div class="truncate text-sm font-black text-slate-900 dark:text-neutral-100" :title="item.file.name">
                           {{ item.file.name }}
                         </div>
-                        <div class="flex items-center gap-3 text-xs text-slate-500 dark:text-neutral-400">
-                          <span>{{ fmtSize(item.file.size) }}</span>
-                          <button
-                            v-if="item.kind !== 'other'"
-                            type="button"
-                            class="inline-flex items-center gap-1 font-bold text-indigo-700 hover:underline dark:text-indigo-300"
-                            @click="openQueuePreview(item)"
-                          >
-                            <Eye class="h-3.5 w-3.5" aria-hidden="true" />
-                            Ver
-                          </button>
-                        </div>
+                        <div class="text-xs text-slate-500 dark:text-neutral-400">{{ fmtSize(item.file.size) }}</div>
                       </div>
+
+                      <button
+                        v-if="item.kind !== 'other'"
+                        type="button"
+                        class="inline-flex h-10 shrink-0 items-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 text-sm font-black text-indigo-800
+                               hover:bg-indigo-100 transition active:scale-[0.98]
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40
+                               dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-200 dark:hover:bg-indigo-500/15"
+                        :aria-label="`Ver ${item.file.name}`"
+                        @click="openQueuePreview(item)"
+                      >
+                        <Eye class="h-4 w-4" aria-hidden="true" />
+                        Ver
+                      </button>
 
                       <button
                         type="button"
@@ -724,7 +730,7 @@ const notifyBtn =
                     <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div class="min-w-0">
                         <label :for="`monto-${item.uid}`" :class="fieldLabel">Monto que ampara</label>
-                        <div class="relative">
+                        <div class="relative mt-1">
                           <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400 dark:text-neutral-500" aria-hidden="true">$</span>
                           <input
                             :id="`monto-${item.uid}`"
@@ -743,15 +749,49 @@ const notifyBtn =
                       </div>
 
                       <div class="min-w-0">
-                        <label :for="`tipo-${item.uid}`" :class="fieldLabel">Tipo</label>
-                        <select :id="`tipo-${item.uid}`" v-model="item.tipo_doc" :disabled="uploading" :class="field">
-                          <option v-for="t in props.tipoDocOptions" :key="t.id" :value="t.id">{{ t.nombre }}</option>
-                        </select>
+                        <label :for="`tipo-${item.uid}`" :class="fieldLabel">Tipo de comprobante</label>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger as-child>
+                            <button
+                              :id="`tipo-${item.uid}`"
+                              type="button"
+                              :disabled="uploading"
+                              :class="field"
+                              class="mt-1 flex items-center justify-between gap-2 text-left hover:border-slate-300 dark:hover:bg-white/5"
+                            >
+                              <span class="truncate">{{ tipoDocLabel(item.tipo_doc) }}</span>
+                              <ChevronDown class="h-4 w-4 shrink-0 opacity-70" aria-hidden="true" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="start"
+                            class="w-[var(--reka-dropdown-menu-trigger-width)] min-w-44 border-slate-200/80 bg-white dark:border-white/10 dark:bg-neutral-950"
+                          >
+                            <DropdownMenuItem
+                              v-for="t in props.tipoDocOptions"
+                              :key="t.id"
+                              class="flex min-h-10 cursor-pointer items-center justify-between gap-2 rounded-xl px-3 text-sm font-semibold"
+                              :class="item.tipo_doc === t.id
+                                ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-500/10 dark:text-indigo-200'
+                                : 'text-slate-900 dark:text-neutral-100'"
+                              @select="item.tipo_doc = t.id"
+                            >
+                              {{ t.nombre }}
+                              <Check v-if="item.tipo_doc === t.id" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
 
                       <div class="min-w-0">
                         <label :for="`fecha-${item.uid}`" :class="fieldLabel">Fecha del comprobante</label>
-                        <input :id="`fecha-${item.uid}`" v-model="item.fecha_emision" type="date" :disabled="uploading" :class="field" />
+                        <DatePickerShadcn
+                          :id="`fecha-${item.uid}`"
+                          v-model="item.fecha_emision"
+                          placeholder="Selecciona fecha"
+                          :disabled="uploading"
+                          :invalid="!item.fecha_emision"
+                        />
                       </div>
                     </div>
 
