@@ -70,13 +70,14 @@ const steps = computed(() => {
 const base = computed(() => ({
     full: 'inline-flex h-10 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold',
     compact: 'inline-flex h-10 w-10 items-center justify-center rounded-full border',
-    menu: 'flex min-h-[42px] w-full items-center gap-3 rounded-xl px-3 text-[13.5px] font-medium',
+    // Misma cuadrícula que el sidebar: celda de ícono de 48 px (15 + 18 + 15) y etiqueta a la derecha.
+    menu: 'flex h-10 w-full items-center gap-[15px] overflow-hidden rounded-[10px] px-[15px] text-[13.5px] font-medium',
 }[props.variant]))
 
 const cls = computed(() => [
     base.value,
     props.variant === 'menu'
-        ? 'text-zinc-400 hover:bg-white/[0.07] hover:text-white'
+        ? 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-50 focus-visible:!ring-inset focus-visible:!ring-white/80'
         : 'border-slate-200 bg-white text-slate-700 hover:border-brand-primary/30 hover:bg-brand-tint/60 hover:text-brand-primary dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-100 dark:hover:bg-white/10',
     'transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/50',
 ])
