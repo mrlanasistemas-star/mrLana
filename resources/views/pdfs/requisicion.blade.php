@@ -5,7 +5,7 @@
     $engine = $pdfEngine ?? 'dompdf';
     $brand = PdfAssets::colors();
     $logo = PdfAssets::corporativoLogo($requisicion->comprador?->logo_path) ?? PdfAssets::logo();
-    $money = fn ($v) => '$'.number_format((float) ($v ?? 0), 2);
+    $money = fn ($v) => \App\Support\Pdf\PdfFormat::money($v);
     $tz = \App\Support\BusinessDate::timezone();
     $fecha = fn ($d, $withTime = false) => $d ? \Carbon\Carbon::parse($d)->timezone($tz)->locale('es')->isoFormat($withTime ? 'D MMM YYYY, HH:mm' : 'D MMM YYYY') : null;
     $ajustes = collect($requisicion->ajustes ?? [])->sortByDesc('id')->values();
@@ -23,6 +23,13 @@
     $pagadoTotal = (float) collect($requisicion->pagos ?? [])->sum('monto');
     $tipoLabel = fn ($t) => ['INCREMENTO_AUTORIZADO' => 'Incremento autorizado', 'FALTANTE' => 'Faltante', 'DEVOLUCION' => 'Devolución'][$t] ?? $t;
     $ajusteClass = fn ($e) => ['APLICADO' => 'badge-info', 'APROBADO' => 'badge-ok', 'RECHAZADO' => 'badge-bad', 'CANCELADO' => 'badge-off'][$e] ?? 'badge-warn';
+    $pagos = collect($requisicion->pagos ?? [])->sortBy('fecha_pago')->values();
+    $comprobantes = collect($requisicion->comprobantes ?? [])->sortBy('fecha_emision')->values();
+    $comprobadoAprobado = (float) $comprobantes->where('estatus', 'APROBADO')->sum('monto');
+    $tipoPago = fn ($t) => \App\Services\Reportes\PagoReport::TIPOS[$t] ?? ucfirst(strtolower((string) $t));
+    $tipoDoc = fn ($t) => DashboardDataService::DOC_LABELS[$t] ?? ucfirst(strtolower((string) $t));
+    $compClass = fn ($e) => ['APROBADO' => 'badge-ok', 'RECHAZADO' => 'badge-bad'][$e] ?? 'badge-warn';
+    $m = \App\Services\Pdf\PdfService::MARGINS;
 @endphp
 <!doctype html>
 <html lang="es">
@@ -30,7 +37,7 @@
     <meta charset="utf-8">
     <title>Requisición {{ $requisicion->folio }}</title>
     <style>
-        @if ($engine === 'dompdf') @page { margin: 14mm 12mm 16mm 12mm; } @endif
+        @if ($engine === 'dompdf') @page { margin: {{ $m['top'] }}mm {{ $m['right'] }}mm {{ $m['bottom'] }}mm {{ $m['left'] }}mm; } @endif
         * { box-sizing: border-box; }
         body {
             margin: 0; color: #18181B; line-height: 1.45;
@@ -55,17 +62,22 @@
         .v { font-size: 11px; font-weight: 600; margin-top: 2px; color: #09090B; word-wrap: break-word; overflow-wrap: anywhere; }
         .grid td { width: 33.33%; vertical-align: top; padding: 6px 8px 6px 0; }
         .dates td { width: 25%; vertical-align: top; padding: 9px 10px; border: 1px solid #E4E4E7; background: #FAFAFA; }
-        .dates { border-collapse: separate; border-spacing: 6px 0; margin: 0 -6px; }
+        .dates-wrap { margin: 0 -6px 12px; }
+        .dates { border-collapse: separate; border-spacing: 6px 0; table-layout: fixed; }
+        .split { table-layout: fixed; }
+        .split > tbody > tr > td { vertical-align: top; padding: 0; }
         .dates .v { font-size: 12px; }
-        .section { font-size: 10.5px; font-weight: 700; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .05em; }
+        .section { font-size: 10.5px; font-weight: 700; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .05em; page-break-after: avoid; break-after: avoid; }
         .items th { background: #F4F4F5; color: #52525B; font-size: 8.5px; text-transform: uppercase; letter-spacing: .05em; text-align: left; padding: 7px 8px; }
-        .items td { padding: 7px 8px; border-bottom: 1px solid #F1F1F3; vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
+        .items tr { page-break-inside: avoid; break-inside: avoid; }
+        .card.breakable { page-break-inside: auto; break-inside: auto; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+        .items td { padding: 6px 8px; border-bottom: 1px solid #F1F1F3; vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
         .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
         .totals td { padding: 4px 8px; }
         .totals .grand td { font-size: 14px; font-weight: 700; border-top: 2px solid #18181B; padding-top: 8px; }
         .pre { white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; }
         @if ($engine === 'dompdf')
-            .footer { position: fixed; bottom: -10mm; left: 0; right: 0; font-size: 8px; color: #71717A; }
+            .footer { position: fixed; bottom: -11mm; left: 0; right: 0; font-size: 8px; color: #71717A; border-top: 1px solid #E4E4E7; padding-top: 4px; }
             .footer .page:after { content: counter(page); }
         @endif
     </style>
@@ -91,7 +103,8 @@
         </tr>
     </table>
 
-    <table class="dates" style="margin-bottom: 12px;">
+    <div class="dates-wrap">
+    <table class="dates">
         <tr>
             <td style="border-radius: 10px;">
                 <div class="k">Fecha de solicitud</div>
@@ -111,6 +124,7 @@
             </td>
         </tr>
     </table>
+    </div>
 
     <div class="card">
         <table class="grid">
@@ -179,7 +193,60 @@
         </table>
     </div>
 
-    <div class="card">
+    @if ($pagos->isNotEmpty() || $comprobantes->isNotEmpty())
+        <div class="card">
+            <p class="section">Pagos y comprobantes</p>
+            <table class="split">
+                <tr>
+                    <td style="width: 42%; padding-right: 14px;">
+                        <table class="items">
+                            <thead>
+                                <tr><th>Fecha de pago</th><th>Tipo</th><th class="num">Monto</th></tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($pagos as $p)
+                                    <tr>
+                                        <td>{{ $fecha($p->fecha_pago) ?? '—' }}</td>
+                                        <td>{{ $tipoPago($p->tipo_pago) }}</td>
+                                        <td class="num">{{ $money($p->monto) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="3" class="muted">Sin pagos registrados.</td></tr>
+                                @endforelse
+                                @if ($pagos->count() > 1)
+                                    <tr><td colspan="2"><strong>Total pagado</strong></td><td class="num"><strong>{{ $money($pagadoTotal) }}</strong></td></tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </td>
+                    <td>
+                        <table class="items">
+                            <thead>
+                                <tr><th>Comprobante</th><th style="width: 22%;">Emisión</th><th style="width: 20%;">Estatus</th><th class="num" style="width: 20%;">Monto</th></tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($comprobantes as $c)
+                                    <tr>
+                                        <td>{{ $tipoDoc($c->tipo_doc) }}@if ($c->archivo_original)<div class="muted" style="font-size: 8.5px;">{{ $c->archivo_original }}</div>@endif</td>
+                                        <td>{{ $fecha($c->fecha_emision) ?? '—' }}</td>
+                                        <td><span class="badge {{ $compClass($c->estatus) }}">{{ ucfirst(strtolower((string) $c->estatus)) }}</span></td>
+                                        <td class="num">{{ $money($c->monto) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="muted">Sin comprobantes cargados.</td></tr>
+                                @endforelse
+                                @if ($comprobantes->isNotEmpty())
+                                    <tr><td colspan="3"><strong>Comprobado (aprobado)</strong></td><td class="num"><strong>{{ $money($comprobadoAprobado) }}</strong></td></tr>
+                                @endif
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    @endif
+
+    <div class="card breakable">
         <p class="section">Ajustes de monto</p>
         @if ($ajustes->isEmpty())
             <div class="muted">No hay ajustes registrados.</div>
@@ -191,7 +258,7 @@
                         <th style="width: 11%;">Estatus</th>
                         <th class="num" style="width: 11%;">Impacto</th>
                         <th>Motivo y revisión</th>
-                        <th style="width: 23%;">Auditoría</th>
+                        <th style="width: 30%;">Auditoría</th>
                     </tr>
                 </thead>
                 <tbody>

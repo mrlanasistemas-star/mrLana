@@ -13,8 +13,10 @@
     // DejaVu (DomPDF) solo tiene regular y negrita: un 600 caería en otra fuente.
     $semibold = (($pdfEngine ?? 'dompdf') === 'browsershot') ? 600 : 700;
 
+    // Montos: siempre con centavos en indicadores y tablas (en las gráficas, pesos enteros).
     $money = fn ($v) => ($v === null || $v === '') ? '' : (((float) $v < 0) ? '-$' : '$').number_format(abs((float) $v), 2);
-    $bigMoney = fn ($v) => (((float) $v < 0) ? '-$' : '$').number_format(abs((float) $v), abs((float) $v) >= 1_000_000 ? 0 : 2);
+    // Cifras largas de indicador en letra un poco menor para que no se corten.
+    $kpiClass = fn (string $s) => mb_strlen($s) > 13 ? 'kpi-value sm' : 'kpi-value';
     $qty = fn ($v) => rtrim(rtrim(number_format((float) $v, 2), '0'), '.');
     $pct = fn ($v) => rtrim(rtrim(number_format((float) $v, 1), '0'), '.').'%';
     $date = function ($v, $format = 'd/m/Y') {
@@ -38,39 +40,36 @@
     ] + (! empty($g['otros']) ? ['color' => $otros] : []), RequisicionesSummary::top($groups, $n));
 
     $hasData = $t['count'] > 0;
+    // Medidas de las gráficas: con DomPDF (respaldo) la letra ocupa más, así que se compactan para que el resumen siga cabiendo en una hoja.
+    $chrome = ($pdfEngine ?? 'dompdf') === 'browsershot';
+    $chartH = max($chrome ? 170 : 150, 8 + count($summary->estatus) * ($chrome ? 19 : 17));
+    $rowB = $chrome ? 25 : 20;
     $solicitantesTabla = RequisicionesSummary::top($summary->solicitantes, 15);
     $meta = ($meta ?? []) + ['title' => 'Reporte de requisiciones'];
 @endphp
 @extends('pdf.layouts.report')
 
 @push('styles')
-    .chips { margin-bottom: 14px; }
-
-    /* Encabezados de sección */
-    .sec { margin: 0 0 10px; }
-    .sec h2 { font-size: 14px; font-weight: 700; color: #09090B; margin: 0; letter-spacing: -0.01em; }
-    .sec p { margin: 2px 0 0; font-size: 9.5px; color: #71717A; }
-    .new-page { page-break-before: always; break-before: page; }
+    /* Encabezados de sección: nunca quedan solos al pie de una hoja. */
+    .sec { margin: 0 0 8px; page-break-after: avoid; break-after: avoid; }
+    .sec h2 { font-size: 13px; font-weight: 700; color: #09090B; margin: 0; letter-spacing: -0.01em; }
+    .sec p { margin: 2px 0 0; font-size: 9px; color: #71717A; }
+    .block { margin-top: 18px; }
 
     /* Indicadores */
     .kpis-wrap { margin: 0 -8px 8px; }
     table.kpis { width: 100%; border-collapse: separate; border-spacing: 8px 0; table-layout: fixed; }
-    table.kpis td { border: 1px solid #E4E4E7; border-radius: 10px; padding: 10px 12px 11px; vertical-align: top; background: #FFFFFF; }
+    table.kpis td { border: 1px solid #E4E4E7; border-radius: 10px; padding: 9px 12px 10px; vertical-align: top; background: #FFFFFF; }
     table.kpis td.lead { background: #FAFAFA; }
     .kpi-label { font-size: 9px; color: #71717A; font-weight: {{ $semibold }}; }
-    .kpi-value { font-size: 17px; font-weight: 700; color: #09090B; margin-top: 3px; letter-spacing: -0.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .kpi-hint { font-size: 8.5px; color: #71717A; margin-top: 3px; }
-    .meter { height: 5px; background: #F4F4F5; border-radius: 99px; margin-top: 7px; overflow: hidden; }
-    .meter div { height: 5px; border-radius: 99px; }
+    .kpi-value { font-size: 16px; font-weight: 700; color: #09090B; margin-top: 2px; letter-spacing: -0.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .kpi-value.sm { font-size: 13.5px; padding-top: 2px; }
+    .kpi-hint { font-size: 8.5px; color: #71717A; margin-top: 2px; line-height: 1.35; }
+    .meter { height: 4px; background: #F4F4F5; border-radius: 99px; margin-top: 6px; overflow: hidden; }
+    .meter div { height: 4px; border-radius: 99px; }
 
-    /* Paneles de gráficas */
-    .panels-wrap { page-break-inside: avoid; break-inside: avoid; margin: 0 -8px 6px; }
-    table.panels { width: 100%; border-collapse: separate; border-spacing: 8px 8px; table-layout: fixed; }
-    table.panels td.panel { border: 1px solid #E4E4E7; border-radius: 10px; padding: 12px 14px 10px; vertical-align: top; background: #FFFFFF; }
-    .panel h3 { font-size: 11px; font-weight: 700; color: #18181B; margin: 0; }
-    .panel .hint { font-size: 8.5px; color: #71717A; margin: 1px 0 8px; }
-    .panel img { width: 100%; height: auto; display: block; }
-    .panel .none { color: #A1A1AA; font-size: 9px; padding: 18px 0; text-align: center; }
+    /* Paneles de gráficas: dos filas de tres (estilos base en el layout). */
+    table.panels { border-spacing: 8px 8px; }
 
     /* Tablas */
     table.t { width: 100%; border-collapse: collapse; }
@@ -111,7 +110,7 @@
 @endpush
 
 @section('content')
-    {{-- ===================== Resumen ===================== --}}
+    {{-- ===================== Resumen (primera hoja) ===================== --}}
     <div class="kpis-wrap">
     <table class="kpis">
         <tr>
@@ -122,29 +121,29 @@
             </td>
             <td class="lead">
                 <div class="kpi-label">Monto solicitado</div>
-                <div class="kpi-value">{{ $bigMoney($t['monto']) }}</div>
-                <div class="kpi-hint">Promedio de {{ $money($t['promedio']) }} por requisición</div>
+                <div class="{{ $kpiClass($money($t['monto'])) }}">{{ $money($t['monto']) }}</div>
+                <div class="kpi-hint">Promedio de {{ $money($t['promedio']) }}</div>
             </td>
             <td>
                 <div class="kpi-label">Pagado</div>
-                <div class="kpi-value">{{ $bigMoney($t['pagado']) }}</div>
+                <div class="{{ $kpiClass($money($t['pagado'])) }}">{{ $money($t['pagado']) }}</div>
                 <div class="kpi-hint">{{ $pct($t['pct_pagado']) }} del monto solicitado</div>
                 <div class="meter"><div style="width: {{ min(100, $t['pct_pagado']) }}%; background: #10B981;"></div></div>
             </td>
             <td>
                 <div class="kpi-label">Comprobado</div>
-                <div class="kpi-value">{{ $bigMoney($t['comprobado']) }}</div>
+                <div class="{{ $kpiClass($money($t['comprobado'])) }}">{{ $money($t['comprobado']) }}</div>
                 <div class="kpi-hint">{{ $pct($t['pct_comprobado']) }} de lo pagado</div>
                 <div class="meter"><div style="width: {{ min(100, $t['pct_comprobado']) }}%; background: #14B8A6;"></div></div>
             </td>
             <td>
                 <div class="kpi-label">Pendiente de pago</div>
-                <div class="kpi-value">{{ $bigMoney($t['pendiente_pago']) }}</div>
+                <div class="{{ $kpiClass($money($t['pendiente_pago'])) }}">{{ $money($t['pendiente_pago']) }}</div>
                 <div class="kpi-hint">Por pagar en requisiciones vigentes</div>
             </td>
             <td>
                 <div class="kpi-label">Pendiente de comprobar</div>
-                <div class="kpi-value">{{ $bigMoney($t['pendiente_comprobar']) }}</div>
+                <div class="{{ $kpiClass($money($t['pendiente_comprobar'])) }}">{{ $money($t['pendiente_comprobar']) }}</div>
                 <div class="kpi-hint">Pagado sin comprobante aprobado</div>
             </td>
         </tr>
@@ -154,71 +153,65 @@
     @if (! $hasData)
         <table class="t"><tr><td class="empty">No hay requisiciones con los filtros actuales.</td></tr></table>
     @else
+        {{-- Seis gráficas en dos filas que caben en la primera hoja. Cada SVG se
+             dibuja al ancho real de su panel para que el texto no se encoja. --}}
         <div class="panels-wrap">
             <table class="panels">
                 <tr>
-                    <td class="panel" style="width: 50%;">
+                    <td class="panel" style="width: 40%;">
                         <h3>Requisiciones por estatus</h3>
-                        <div class="hint">Cantidad y porcentaje del total de requisiciones</div>
+                        <div class="hint">Cantidad y porcentaje del total</div>
                         <img src="{{ SvgCharts::donut(
                             array_map(fn ($g) => ['name' => $g['name'], 'value' => $g['count']], $summary->estatus),
                             array_column($summary->estatus, 'color'),
-                            440, max(180, 24 + count($summary->estatus) * 20), 'requisiciones'
+                            336, $chartH, 'requisiciones'
                         ) }}" alt="">
                     </td>
-                    <td class="panel" style="width: 50%;">
-                        <h3>Solicitantes con mayor monto</h3>
-                        <div class="hint">Monto solicitado por persona</div>
-                        <img src="{{ SvgCharts::hbars($rank($summary->solicitantes, 7), $primary, true, 440, 150) }}" alt="">
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="panels-wrap">
-            <table class="panels">
-                <tr>
-                    <td class="panel" style="width: 50%;">
-                        <h3>Conceptos principales</h3>
-                        <div class="hint">En qué se está pidiendo dinero</div>
-                        <img src="{{ SvgCharts::hbars($rank($summary->conceptos, 6), $primary, true, 440, 150) }}" alt="">
-                    </td>
-                    <td class="panel" style="width: 50%;">
-                        <h3>Proveedores principales</h3>
-                        <div class="hint">A quién se le está pagando</div>
-                        <img src="{{ SvgCharts::hbars($rank($summary->proveedores, 6), $primary, true, 440, 150) }}" alt="">
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="panels-wrap">
-            <table class="panels">
-                <tr>
                     @if ($summary->spansMonths())
-                        <td class="panel" style="width: 50%;">
+                        <td class="panel" style="width: 34%;">
                             <h3>Monto por mes de registro</h3>
                             <div class="hint">{{ $summary->meses[0]['label'] }} a {{ end($summary->meses)['label'] }}</div>
-                            <img src="{{ SvgCharts::bars(array_map(fn ($m) => ['name' => $m['name'], 'value' => $m['total']], $summary->meses), $primary, '', 440, 190, true) }}" alt="">
+                            <img src="{{ SvgCharts::bars(array_map(fn ($m) => ['name' => $m['name'], 'value' => $m['total']], $summary->meses), $primary, '', 284, $chartH, true) }}" alt="">
                         </td>
                     @else
-                        <td class="panel" style="width: 50%;">
+                        <td class="panel" style="width: 34%;">
                             <h3>Monto por estatus</h3>
                             <div class="hint">Cuánto dinero hay en cada etapa</div>
-                            <img src="{{ SvgCharts::hbars(array_map(fn ($g) => ['name' => $g['name'], 'value' => $g['total'], 'color' => $g['color']], $summary->estatus), $primary, true, 440, 150) }}" alt="">
+                            <img src="{{ SvgCharts::hbars(array_map(fn ($g) => ['name' => $g['name'], 'value' => $g['total'], 'color' => $g['color']], $summary->estatus), $primary, true, 284, 112, 19, 64) }}" alt="">
                         </td>
                     @endif
-                    <td class="panel" style="width: 50%;">
+                    <td class="panel" style="width: 26%;">
                         <h3>Sucursales</h3>
                         <div class="hint">Monto solicitado por sucursal</div>
-                        <img src="{{ SvgCharts::hbars($rank($summary->sucursales, 6), $primary, true, 440, 150) }}" alt="">
+                        <img src="{{ SvgCharts::hbars($rank($summary->sucursales, 6), $primary, true, 212, 74, $rowB + 1, 60) }}" alt="">
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <div class="panels-wrap">
+            <table class="panels" style="border-spacing: 8px 0;">
+                <tr>
+                    <td class="panel">
+                        <h3>Solicitantes con mayor monto</h3>
+                        <div class="hint">Monto solicitado por persona</div>
+                        <img src="{{ SvgCharts::hbars($rank($summary->solicitantes, 6), $primary, true, 278, 128, $rowB, 60) }}" alt="">
+                    </td>
+                    <td class="panel">
+                        <h3>Conceptos principales</h3>
+                        <div class="hint">En qué se está pidiendo dinero</div>
+                        <img src="{{ SvgCharts::hbars($rank($summary->conceptos, 6), $primary, true, 278, 128, $rowB, 60) }}" alt="">
+                    </td>
+                    <td class="panel">
+                        <h3>Proveedores principales</h3>
+                        <div class="hint">A quién se le está pagando</div>
+                        <img src="{{ SvgCharts::hbars($rank($summary->proveedores, 6), $primary, true, 278, 128, $rowB, 60) }}" alt="">
                     </td>
                 </tr>
             </table>
         </div>
 
-        {{-- Tabla de solicitantes --}}
-        <div style="page-break-inside: avoid; break-inside: avoid; margin-top: 8px;">
+        {{-- Tabla de solicitantes: completa donde quepa (normalmente al inicio de la segunda hoja). --}}
+        <div class="block" @if ($chrome) style="page-break-inside: avoid; break-inside: avoid;" @endif>
             <div class="sec">
                 <h2>Solicitantes</h2>
                 <p>Requisiciones y montos por persona, de mayor a menor monto{{ count($summary->solicitantes) > 15 ? '; se muestran los 15 principales' : '' }}.</p>
@@ -266,7 +259,7 @@
         </div>
 
         {{-- ===================== Lista ===================== --}}
-        <div class="new-page">
+        <div class="block">
             <div class="sec">
                 <h2>Lista de requisiciones</h2>
                 <p>{{ $plural($t['count'], 'requisición', 'requisiciones') }} en el orden del listado. El detalle de items y ajustes está al final.</p>
@@ -312,7 +305,7 @@
         </div>
 
         {{-- ===================== Detalle ===================== --}}
-        <div class="new-page">
+        <div class="block">
             <div class="sec">
                 <h2>Detalle de items y ajustes</h2>
                 <p>Lo que se pidió en cada requisición, los ajustes que cambiaron su monto y el total efectuado.</p>

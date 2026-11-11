@@ -20,6 +20,13 @@ use Throwable;
 class PdfService
 {
     /**
+     * Márgenes de página en mm (arriba, derecha, abajo, izquierda), iguales
+     * para Browsershot y DomPDF. Abajo queda espacio para el pie con el
+     * número de página sin que choque con el contenido.
+     */
+    public const MARGINS = ['top' => 12, 'right' => 18, 'bottom' => 18, 'left' => 18];
+
+    /**
      * @param  array<string, mixed>  $data
      * @param  array{paper?: string, landscape?: bool}  $options
      */
@@ -70,14 +77,14 @@ class PdfService
 
         $footerLabel = e((string) ($data['meta']['footer_left'] ?? config('app.name', 'ERP MR-Lana')));
         $footer = '<div style="width:100%;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:8px;color:#71717A;'
-            .'padding:0 12mm;display:flex;justify-content:space-between;">'
+            .'padding:0 '.self::MARGINS['left'].'mm 6mm;display:flex;justify-content:space-between;">'
             .'<span>'.$footerLabel.'</span>'
             .'<span>Página <span class="pageNumber"></span> de <span class="totalPages"></span></span></div>';
 
         $shot = Browsershot::html($html)
             ->format(ucfirst($paper))
             ->landscape($landscape)
-            ->margins(14, 12, 16, 12)
+            ->margins(self::MARGINS['top'], self::MARGINS['right'], self::MARGINS['bottom'], self::MARGINS['left'])
             ->showBrowserHeaderAndFooter()
             ->headerHtml('<div></div>')
             ->footerHtml($footer)

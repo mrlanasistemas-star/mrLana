@@ -1,8 +1,13 @@
 @php
     $rows = $rows ?? [];
     $activos = collect($rows)->filter(fn ($r) => strtoupper((string) ($r['status'] ?? '')) === 'ACTIVO')->count();
-    $stats = ['Total' => count($rows), 'Activos' => $activos, 'Inactivos' => count($rows) - $activos];
-    $meta = ($meta ?? []) + ['title' => 'Reporte de proveedores'];
+    $stats = [
+        'Proveedores' => count($rows),
+        'Activos' => $activos,
+        'Inactivos' => count($rows) - $activos,
+        'Con CLABE' => collect($rows)->filter(fn ($r) => filled($r['clabe'] ?? null))->count(),
+    ];
+    $meta = ['title' => 'Reporte de proveedores'] + ($meta ?? []);
 @endphp
 @extends('pdf.layouts.report')
 
@@ -10,12 +15,12 @@
     <table class="data">
         <thead>
             <tr>
-                <th style="width:5%">#</th>
+                <th style="width: 5%">#</th>
                 <th>Razón social</th>
-                <th style="width:15%">RFC</th>
-                <th style="width:22%">CLABE</th>
-                <th style="width:15%">Banco</th>
-                <th style="width:10%">Estatus</th>
+                <th style="width: 15%">RFC</th>
+                <th style="width: 21%">CLABE</th>
+                <th style="width: 15%">Banco</th>
+                <th style="width: 10%">Estatus</th>
             </tr>
         </thead>
         <tbody>
@@ -24,8 +29,8 @@
                 <tr>
                     <td class="muted">{{ $i + 1 }}</td>
                     <td class="strong">{{ $r['razon_social'] ?? '—' }}</td>
-                    <td>{{ $r['rfc'] ?? '—' }}</td>
-                    <td style="font-family: monospace;">{{ $r['clabe'] ?? '—' }}</td>
+                    <td class="mono">{{ $r['rfc'] ?? '—' }}</td>
+                    <td class="mono">{{ $r['clabe'] ?? '—' }}</td>
                     <td>{{ $r['banco'] ?? '—' }}</td>
                     <td><span class="badge {{ $ok ? 'badge-ok' : 'badge-off' }}">{{ $ok ? 'Activo' : 'Inactivo' }}</span></td>
                 </tr>

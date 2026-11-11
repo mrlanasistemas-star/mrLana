@@ -25,9 +25,14 @@ final class SvgCharts
     {
         [$plotX, $plotY, $plotW, $plotH] = [$money ? 48 : 40, 16, $width - ($money ? 60 : 52), $height - 48];
         $max = self::niceMax(max(array_column($points, 'value') ?: [0]));
+        if (! $money && $max <= 12) {
+            // Conteos chicos: múltiplo de 4 para que las 4 líneas del eje sean enteras.
+            $max = max(4, ceil($max / 4) * 4);
+        }
         $n = max(1, count($points));
         $slot = $plotW / $n;
         $barW = min(26, $slot * 0.62);
+        $labelStep = self::labelStep($points, $plotW);
 
         $svg = self::open($width, $height);
         $svg .= self::grid($plotX, $plotY, $plotW, $plotH, $max, fn ($v) => ($money ? '$' : '').self::short($v));
@@ -44,7 +49,7 @@ final class SvgCharts
                     self::e($color)
                 );
             }
-            if ($n <= 16 || $i % 2 === 0) {
+            if ($i % $labelStep === 0) {
                 $svg .= self::text($x + $barW / 2, $plotY + $plotH + 16, $p['name'], 'middle', 9);
             }
         }
@@ -61,6 +66,7 @@ final class SvgCharts
         $max = self::niceMax(max(array_column($points, 'value') ?: [0]));
         $n = count($points);
         $step = $n > 1 ? $plotW / ($n - 1) : 0;
+        $labelStep = self::labelStep($points, $plotW);
 
         $coords = [];
         foreach ($points as $i => $p) {
@@ -71,10 +77,6 @@ final class SvgCharts
         }
 
         $svg = self::open($width, $height);
-        $svg .= '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
-            .'<stop offset="0%" stop-color="'.self::e($color).'" stop-opacity="0.35"/>'
-            .'<stop offset="100%" stop-color="'.self::e($color).'" stop-opacity="0.02"/>'
-            .'</linearGradient></defs>';
         $svg .= self::grid($plotX, $plotY, $plotW, $plotH, $max, fn ($v) => ($money ? '$' : '').self::short($v));
 
         if ($coords !== []) {
@@ -82,7 +84,8 @@ final class SvgCharts
             $last = end($coords);
             $first = $coords[0];
             $base = $plotY + $plotH;
-            $svg .= sprintf('<path d="%s L %.2f %.2f L %.2f %.2f Z" fill="url(#g)"/>', $line, $last[0], $base, $first[0], $base);
+            // Relleno liso translúcido: DomPDF no soporta degradados SVG (los pinta negros).
+            $svg .= sprintf('<path d="%s L %.2f %.2f L %.2f %.2f Z" fill="%s" fill-opacity="0.14"/>', $line, $last[0], $base, $first[0], $base, self::e($color));
             $svg .= sprintf('<path d="%s" fill="none" stroke="%s" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>', $line, self::e($color));
             foreach ($coords as [$x, $y]) {
                 $svg .= sprintf('<circle cx="%.2f" cy="%.2f" r="2.6" fill="#FFFFFF" stroke="%s" stroke-width="1.6"/>', $x, $y, self::e($color));
@@ -90,7 +93,7 @@ final class SvgCharts
         }
 
         foreach ($points as $i => $p) {
-            if ($n <= 16 || $i % 2 === 0) {
+            if ($i % $labelStep === 0) {
                 $svg .= self::text($plotX + $step * $i, $plotY + $plotH + 16, $p['name'], 'middle', 9);
             }
         }
@@ -99,7 +102,9 @@ final class SvgCharts
     }
 
     /**
-     * Dona con leyenda a la derecha.
+     * Dona con leyenda a la derecha. El radio se ajusta al alto disponible
+     * (máximo 78) y la leyenda al número de rebanadas, para poder usarla en
+     * paneles angostos sin que el texto se encime.
      *
      * @param  list<array{name: string, value: int|float}>  $slices
      * @param  list<string>  $palette
@@ -107,10 +112,16 @@ final class SvgCharts
     public static function donut(array $slices, array $palette, int $width = 520, int $height = 200, string $centerLabel = 'Total'): string
     {
         $total = array_sum(array_column($slices, 'value'));
-        $cx = 100;
+        $n = count($slices);
+        $font = ($width >= 400 && ($height - 8) / max(1, $n) >= 18) ? 11 : 10;
+        $charW = $font * 0.53;
+        // Ancho que pide la leyenda (cuadro + nombre más largo + «123 · 45%»).
+        $longest = max(array_map(fn ($s) => mb_strlen((string) $s['name']), $slices) ?: [0]);
+        $legendW = 15 + $longest * $charW + 8 + 9 * $charW;
+        $r = (int) min(78, floor($height / 2) - 4, max(40, floor(($width - $legendW - 24) / 2)));
+        $inner = (int) round($r * 0.64);
+        $cx = $r + 4;
         $cy = $height / 2;
-        $r = 78;
-        $inner = 50;
 
         $svg = self::open($width, $height);
 
@@ -134,19 +145,28 @@ final class SvgCharts
             $angle += $sweep;
         }
 
-        $svg .= self::text($cx, $cy - 2, number_format($total), 'middle', 18, '#18181B', 700);
-        $svg .= self::text($cx, $cy + 14, $centerLabel, 'middle', 9, self::AXIS);
+        // La etiqueta central solo se pone si cabe en el hueco de la dona.
+        $labelFits = $centerLabel !== '' && mb_strlen($centerLabel) * ($r >= 60 ? 9 : 8) * 0.55 <= $inner * 2 - 10;
+        $svg .= self::text($cx, $cy + ($labelFits ? ($r >= 60 ? 2 : 3) : 5), number_format($total), 'middle', $r >= 60 ? 18 : 15, '#18181B', 700);
+        if ($labelFits) {
+            $svg .= self::text($cx, $cy + ($r >= 60 ? 16 : 14), $centerLabel, 'middle', $r >= 60 ? 9 : 8, self::AXIS);
+        }
 
-        $lx = 210;
-        $rowH = 20;
-        $startY = $cy - (count($slices) * $rowH) / 2 + 10;
+        $lx = $cx + $r + 16;
+        $rowH = (int) max(14, min(20, floor(($height - 8) / max(1, $n))));
+        $startY = $cy - ($n * $rowH) / 2 + $rowH / 2 + 4;
+        $maxChars = max(8, (int) floor(($width - $lx - 15 - 8 - 9 * $charW) / $charW));
         foreach ($slices as $i => $s) {
             $color = $palette[$i % max(1, count($palette))] ?? '#2563EB';
             $y = $startY + $i * $rowH;
             $pct = round(($s['value'] / $total) * 100);
-            $svg .= sprintf('<rect x="%d" y="%.1f" width="10" height="10" rx="3" fill="%s"/>', $lx, $y - 9, self::e($color));
-            $svg .= self::text($lx + 18, $y, $s['name'], 'start', 11, '#27272A');
-            $svg .= self::text($width - 12, $y, number_format($s['value'])." · {$pct}%", 'end', 11, self::AXIS);
+            $name = (string) $s['name'];
+            if (mb_strlen($name) > $maxChars) {
+                $name = rtrim(mb_substr($name, 0, $maxChars - 1)).'…';
+            }
+            $svg .= sprintf('<rect x="%d" y="%.1f" width="9" height="9" rx="2.5" fill="%s"/>', $lx, $y - 8, self::e($color));
+            $svg .= self::text($lx + 15, $y, $name, 'start', $font, '#27272A');
+            $svg .= self::text($width - 2, $y, number_format($s['value'])." · {$pct}%", 'end', $font, self::AXIS);
         }
 
         return self::uri($svg.'</svg>');
@@ -159,9 +179,8 @@ final class SvgCharts
      *
      * @param  list<array{name: string, value: int|float, color?: string, note?: string}>  $items
      */
-    public static function hbars(array $items, string $color, bool $money = true, int $width = 460, int $labelWidth = 150, int $rowH = 24): string
+    public static function hbars(array $items, string $color, bool $money = true, int $width = 460, int $labelWidth = 150, int $rowH = 24, int $valueW = 92): string
     {
-        $valueW = 92;
         $padT = 4;
         $n = count($items);
         $height = max(40, $padT * 2 + $n * $rowH);
@@ -177,7 +196,7 @@ final class SvgCharts
         $trackX = $labelWidth + 8;
         $trackW = $width - $trackX - $valueW;
         $barH = min(12, $rowH - 10);
-        $maxChars = max(8, (int) floor($labelWidth / 5.6));
+        $maxChars = max(8, (int) floor($labelWidth / 5.3));
 
         foreach ($items as $i => $it) {
             $y = $padT + $i * $rowH;
@@ -205,9 +224,10 @@ final class SvgCharts
         return self::uri($svg.'</svg>');
     }
 
+    /** Montos en gráficas: siempre en pesos enteros (las tablas llevan centavos). */
     private static function money(float $v): string
     {
-        return ($v < 0 ? '-$' : '$').number_format(abs($v), abs($v) >= 100_000 ? 0 : 2);
+        return ($v < 0 ? '-$' : '$').number_format(abs($v), 0);
     }
 
     private static function open(int $w, int $h): string
@@ -279,6 +299,24 @@ final class SvgCharts
             'M %.2f %.2f A %.2f %.2f 0 %d 1 %.2f %.2f L %.2f %.2f A %.2f %.2f 0 %d 0 %.2f %.2f Z',
             $x0, $y0, $r, $r, $large, $x1, $y1, $x2, $y2, $ri, $ri, $large, $x3, $y3
         );
+    }
+
+    /**
+     * Cada cuántas etiquetas del eje X se dibuja una para que no se encimen
+     * (≈5.4 px por carácter a 9 px más un margen).
+     *
+     * @param  list<array{name: string, value: int|float}>  $points
+     */
+    private static function labelStep(array $points, float $plotW): int
+    {
+        $n = count($points);
+        if ($n === 0) {
+            return 1;
+        }
+        $longest = max(array_map(fn ($p) => mb_strlen((string) $p['name']), $points));
+        $fit = max(1, (int) floor($plotW / ($longest * 5.0 + 6)));
+
+        return max(1, (int) ceil($n / $fit));
     }
 
     private static function niceMax(float $value): float
