@@ -781,8 +781,23 @@ class RequisicionController extends Controller
             $sucursales->whereIn('id', (clone $visible)->select('sucursal_id'));
         }
 
+        // Solicitantes: quienes ya aparecen en requisiciones visibles y, además,
+        // los colaboradores activos del alcance aunque aún no tengan ninguna
+        // (un colaborador recién registrado debe salir en el filtro).
         $empleados = Empleado::query()
-            ->whereIn('id', (clone $visible)->select('solicitante_id'))
+            ->where(function ($w) use ($visible, $scope, $user) {
+                $w->whereIn('id', (clone $visible)->select('solicitante_id'));
+                match ($scope) {
+                    Scope::Global => $w->orWhere('activo', true),
+                    Scope::Corporativo => $w->orWhere(fn ($a) => $a->where('activo', true)->whereIn(
+                        'sucursal_id',
+                        Sucursal::query()->where('corporativo_id', AccessScope::corporativoId($user) ?? 0)->select('id')
+                    )),
+                    Scope::Sucursal => $w->orWhere(fn ($a) => $a->where('activo', true)
+                        ->where('sucursal_id', AccessScope::sucursalId($user) ?? 0)),
+                    default => null,
+                };
+            })
             ->orderBy('nombre')
             ->get(['id', 'nombre', 'apellido_paterno', 'apellido_materno', 'sucursal_id', 'activo'])
             ->map(fn ($e) => [
