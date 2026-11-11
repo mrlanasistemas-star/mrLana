@@ -121,7 +121,7 @@ export function useRequisicionPago(props: RequisicionPagoPageProps) {
   })
 
   // Permisos calculados por el servidor (policy) para esta requisición
-  const canAuthorize = computed(() => props.can?.autorizar === true && req.value?.status === 'CAPTURADA')
+  const canAuthorize = computed(() => props.can?.autorizar === true && (req.value?.puede_autorizar ?? req.value?.status === 'CAPTURADA'))
   const canUploadPago = computed(() => props.can?.registrar === true)
 
   const canAttachFile = computed(() => {

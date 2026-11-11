@@ -72,6 +72,7 @@ class ColaboradoresUsuariosTest extends TestCase
             'name' => 'Sin correo',
             'email' => 'sincorreo@example.com',
             'role_id' => $this->roleNamed(PermissionCatalog::ROLE_COLABORADOR)->id,
+            'sucursal_id' => $this->sucursal->id,
             'activo' => true,
         ])->assertSessionHas('warning');
 
@@ -151,5 +152,108 @@ class ColaboradoresUsuariosTest extends TestCase
         $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN);
 
         $this->actingAs($admin)->get('/empleados')->assertRedirect('/colaboradores');
+    }
+
+    public function test_usuario_nuevo_sin_colaborador_queda_como_solicitante_y_puede_crear_requisiciones(): void
+    {
+        Mail::fake();
+        $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN, false);
+
+        $this->actingAs($admin)->post(route('usuarios.store'), [
+            'name' => 'Héctor Pérez García',
+            'email' => 'hector@example.com',
+            'role_id' => $this->roleNamed(PermissionCatalog::ROLE_COLABORADOR)->id,
+            'sucursal_id' => $this->sucursal->id,
+            'activo' => true,
+        ])->assertSessionHasNoErrors()->assertRedirect(route('usuarios.index'));
+
+        $user = User::where('email', 'hector@example.com')->firstOrFail();
+        $colaborador = $user->empleado;
+        $this->assertNotNull($colaborador, 'La cuenta nueva queda vinculada a su colaborador.');
+        $this->assertSame(['Héctor', 'Pérez', 'García'], [$colaborador->nombre, $colaborador->apellido_paterno, $colaborador->apellido_materno]);
+        $this->assertSame($this->sucursal->id, $colaborador->sucursal_id);
+        $this->assertTrue($colaborador->activo);
+
+        // Aparece en la lista de solicitantes de quien puede elegirlos…
+        $this->actingAs($admin)->get(route('requisiciones.create'))
+            ->assertInertia(fn ($page) => $page->where('catalogos.empleados', fn ($rows) => collect($rows)->contains('id', $colaborador->id)));
+
+        // …y puede crear requisiciones a su nombre de inmediato.
+        $payload = $this->requisicionPayload($user);
+        $this->actingAs($user)->post(route('requisiciones.storeDraft'), $payload)->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('requisicions', ['solicitante_id' => $colaborador->id, 'creada_por_user_id' => $user->id]);
+    }
+
+    public function test_usuario_nuevo_exige_colaborador_o_sucursal(): void
+    {
+        $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN, false);
+        $payload = [
+            'name' => 'Sin Vínculo',
+            'email' => 'sinvinculo@example.com',
+            'role_id' => $this->roleNamed(PermissionCatalog::ROLE_COLABORADOR)->id,
+        ];
+
+        $this->actingAs($admin)->post(route('usuarios.store'), $payload)->assertSessionHasErrors('sucursal_id');
+
+        $this->sucursal->update(['activo' => false]);
+        $this->actingAs($admin)->post(route('usuarios.store'), $payload + ['sucursal_id' => $this->sucursal->id])
+            ->assertSessionHasErrors('sucursal_id');
+
+        $this->assertDatabaseMissing('users', ['email' => 'sinvinculo@example.com']);
+        $this->assertSame(0, Empleado::count());
+    }
+
+    public function test_cuenta_existente_sin_colaborador_se_repara_al_elegir_sucursal(): void
+    {
+        $admin = $this->makeUser(PermissionCatalog::ROLE_ADMIN, false);
+        $user = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR, false, ['name' => 'Héctor Ruiz']);
+
+        $this->actingAs($admin)->put(route('usuarios.update', $user), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'role_id' => $user->roles->first()->id,
+            'sucursal_id' => $this->sucursal->id,
+            'activo' => true,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertSame('Ruiz', $user->fresh()->empleado?->apellido_paterno);
+    }
+
+    public function test_migracion_vincula_cuentas_sin_colaborador_sin_tocar_las_demas(): void
+    {
+        $migration = require database_path('migrations/2026_11_11_120000_link_colaborador_to_users_without_one.php');
+
+        $conColaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
+        $original = $conColaborador->empleado_id;
+        $porCorreo = $this->makeEmpleado(['nombre' => 'Lucía', 'email' => 'Lucia@Example.com']);
+        $lucia = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR, false, ['email' => 'lucia@example.com']);
+        $hector = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR, false, ['name' => 'Héctor Pérez', 'email' => 'hector@example.com']);
+        $inactiva = User::factory()->colaborador()->inactive()->create();
+
+        $migration->up();
+
+        $this->assertSame($original, $conColaborador->fresh()->empleado_id);
+        $this->assertSame($porCorreo->id, $lucia->fresh()->empleado_id);
+        $nuevo = $hector->fresh()->empleado;
+        $this->assertSame(['Héctor', 'Pérez', $this->sucursal->id], [$nuevo->nombre, $nuevo->apellido_paterno, $nuevo->sucursal_id]);
+        $this->assertNull($inactiva->fresh()->empleado_id);
+
+        // Idempotente: una segunda ejecución no crea ni cambia nada.
+        $total = Empleado::count();
+        $migration->up();
+        $this->assertSame($total, Empleado::count());
+        $this->assertSame($nuevo->id, $hector->fresh()->empleado_id);
+    }
+
+    public function test_migracion_no_adivina_la_sucursal_cuando_hay_varias(): void
+    {
+        $migration = require database_path('migrations/2026_11_11_120000_link_colaborador_to_users_without_one.php');
+        \App\Models\Sucursal::create(['corporativo_id' => $this->corporativo->id, 'nombre' => 'Norte', 'activo' => true]);
+        $hector = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR, false);
+
+        $migration->up();
+
+        $this->assertNull($hector->fresh()->empleado_id);
+        $this->assertSame(0, Empleado::count());
     }
 }

@@ -7,6 +7,7 @@ use App\Http\Requests\Usuarios\UsuarioRequest;
 use App\Mail\EmpleadoAccesoCreadoMail;
 use App\Models\Empleado;
 use App\Models\Role;
+use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Notifications\NotificationService;
 use App\Services\Users\AdministratorGuard;
@@ -99,14 +100,17 @@ class UsuarioController extends Controller
         $data = $request->validated();
         $role = Role::with('permissions:id,name')->findOrFail($data['role_id']);
         $this->assertRoleAssignable($request->user(), $role);
-        $this->assertEmpleadoPermitido($request->user(), $data['empleado_id'] ?? null);
+        $sucursal = $this->sucursalParaColaborador($request->user(), $data);
+        if (! $sucursal) {
+            $this->assertEmpleadoPermitido($request->user(), $data['empleado_id'] ?? null);
+        }
         $plainPassword = $this->temporaryPassword();
 
-        $user = DB::transaction(function () use ($data, $role, $plainPassword) {
+        $user = DB::transaction(function () use ($data, $role, $plainPassword, $sucursal) {
             $user = new User([
                 'name' => $data['name'],
                 'email' => $data['email'],
-                'empleado_id' => $data['empleado_id'] ?? null,
+                'empleado_id' => $sucursal ? $this->crearColaborador($data, $sucursal)->id : ($data['empleado_id'] ?? null),
                 'activo' => $data['activo'],
             ]);
             $user->password = Hash::make($plainPassword);
@@ -142,7 +146,8 @@ class UsuarioController extends Controller
             $this->assertRoleAssignable($request->user(), $role);
             $this->guard->assertCanChangeRole($user, $role);
         }
-        if ((int) ($data['empleado_id'] ?? 0) !== (int) $user->empleado_id) {
+        $sucursal = $this->sucursalParaColaborador($request->user(), $data);
+        if (! $sucursal && (int) ($data['empleado_id'] ?? 0) !== (int) $user->empleado_id) {
             $this->assertEmpleadoPermitido($request->user(), $data['empleado_id'] ?? null);
         }
         // Cambiar el estado desde el formulario exige el mismo permiso que el botón dedicado.
@@ -155,11 +160,11 @@ class UsuarioController extends Controller
             abort_unless($request->user()->can('restore', $user), 403, 'No tienes permiso para reactivar cuentas.');
         }
 
-        DB::transaction(function () use ($user, $data, $role) {
+        DB::transaction(function () use ($user, $data, $role, $sucursal) {
             $user->fill([
                 'name' => $data['name'],
                 'email' => $data['email'],
-                'empleado_id' => $data['empleado_id'] ?? null,
+                'empleado_id' => $sucursal ? $this->crearColaborador($data, $sucursal)->id : ($data['empleado_id'] ?? null),
                 'activo' => $data['activo'],
             ]);
             $user->syncLegacyRol($role);
@@ -258,6 +263,11 @@ class UsuarioController extends Controller
                 ->map(fn (Role $r) => ['id' => $r->id, 'name' => $r->name, 'descripcion' => $r->descripcion])
                 ->values(),
             'colaboradores' => $colaboradores,
+            // Sucursales donde se puede registrar el colaborador de una cuenta que no elige uno.
+            'sucursales' => $this->sucursalesPermitidas($actor)->with('corporativo:id,nombre')->orderBy('nombre')
+                ->get(['id', 'corporativo_id', 'nombre'])
+                ->map(fn (Sucursal $s) => ['id' => $s->id, 'nombre' => $s->nombre, 'corporativo' => $s->corporativo?->nombre])
+                ->values(),
             'prefill' => $user ? null : $this->prefill($request),
             'effectivePermissions' => $grouped,
             'isSelf' => $user && $user->is($request->user()),
@@ -339,6 +349,51 @@ class UsuarioController extends Controller
         if (! $this->empleadosPermitidos($actor)->whereKey((int) $empleadoId)->exists()) {
             throw ValidationException::withMessages(['empleado_id' => 'El colaborador está fuera de tu alcance de usuarios.']);
         }
+    }
+
+    /**
+     * Sucursales activas (de un corporativo activo) dentro del alcance de
+     * Usuarios, donde se puede registrar el colaborador de una cuenta.
+     */
+    private function sucursalesPermitidas(User $actor)
+    {
+        $q = Sucursal::query()->where('activo', true)->whereHas('corporativo', fn ($c) => $c->where('activo', true));
+
+        return match (AccessScope::for($actor, 'usuarios')) {
+            Scope::Global => $q,
+            Scope::Corporativo => $q->where('corporativo_id', AccessScope::corporativoId($actor) ?? 0),
+            Scope::Sucursal => $q->whereKey(AccessScope::sucursalId($actor) ?? 0),
+            default => $q->whereRaw('1 = 0'),
+        };
+    }
+
+    /**
+     * Sucursal donde se registrará el colaborador de la cuenta cuando no se
+     * eligió uno existente (null si se eligió colaborador o no se indicó sucursal).
+     */
+    private function sucursalParaColaborador(User $actor, array $data): ?Sucursal
+    {
+        if (($data['empleado_id'] ?? null) !== null || ($data['sucursal_id'] ?? null) === null) {
+            return null;
+        }
+
+        return $this->sucursalesPermitidas($actor)->find((int) $data['sucursal_id'])
+            ?? throw ValidationException::withMessages(['sucursal_id' => 'La sucursal no está activa o está fuera de tu alcance de usuarios.']);
+    }
+
+    /**
+     * Registra el colaborador de una cuenta que no eligió uno, para que la
+     * persona quede como solicitante y pueda crear requisiciones de inmediato.
+     * El nombre de la cuenta se reparte en nombre y apellidos; se puede
+     * corregir después en Colaboradores.
+     */
+    private function crearColaborador(array $data, Sucursal $sucursal): Empleado
+    {
+        return Empleado::create(Empleado::nombreDesde($data['name']) + [
+            'sucursal_id' => $sucursal->id,
+            'email' => $data['email'],
+            'activo' => true,
+        ]);
     }
 
     /** Solo se asignan roles cuyos permisos también tiene quien asigna. */

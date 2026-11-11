@@ -24,6 +24,7 @@ const props = defineProps<{
     user: Usuario | null
     roles: { id: number; name: string; descripcion: string | null }[]
     colaboradores: Colaborador[]
+    sucursales: { id: number; nombre: string; corporativo: string | null }[]
     prefill: { empleado_id: number; name: string; email: string | null; role_id: number | null } | null
     effectivePermissions: { label: string; permissions: string[] }[]
     isSelf: boolean
@@ -40,6 +41,8 @@ const form = useForm({
     email: props.user?.email ?? props.prefill?.email ?? '',
     role_id: (props.user?.role_id ?? props.prefill?.role_id ?? null) as number | null,
     empleado_id: (props.user?.empleado_id ?? props.prefill?.empleado_id ?? null) as number | null,
+    // Sin colaborador elegido: sucursal donde se registra el colaborador de la cuenta.
+    sucursal_id: null as number | null,
     activo: props.user?.activo ?? true,
 })
 
@@ -144,7 +147,7 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
                         <legend class="sr-only">Datos de la cuenta</legend>
 
                         <div class="sm:col-span-2">
-                            <p class="ui-label">Colaborador vinculado <span class="font-normal text-slate-400">(opcional)</span></p>
+                            <p class="ui-label">Colaborador vinculado</p>
                             <SearchableSelect
                                 v-if="!readOnly"
                                 v-model="form.empleado_id"
@@ -161,6 +164,24 @@ const totalEffective = computed(() => props.effectivePermissions.reduce((n, m) =
                             <p v-else class="ui-help flex items-start gap-1.5">
                                 <Link2 class="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                                 Solo aparecen colaboradores sin cuenta. Cada colaborador puede tener una sola cuenta.
+                            </p>
+                        </div>
+
+                        <div v-if="!readOnly && !form.empleado_id" class="sm:col-span-2">
+                            <p class="ui-label">Sucursal del colaborador{{ isEdit ? '' : ' *' }}</p>
+                            <SearchableSelect
+                                v-model="form.sucursal_id"
+                                :options="sucursales"
+                                secondary-key="corporativo"
+                                placeholder="Selecciona una sucursal…"
+                                search-placeholder="Buscar sucursal…"
+                                :allow-null="isEdit"
+                                null-label="Sin sucursal"
+                                rounded="xl"
+                            />
+                            <p v-if="form.errors.sucursal_id" class="ui-error" role="alert">{{ form.errors.sucursal_id }}</p>
+                            <p v-else class="ui-help">
+                                Al guardar se registra su colaborador en esta sucursal, para que la persona quede como solicitante y pueda crear requisiciones.
                             </p>
                         </div>
 

@@ -121,6 +121,44 @@ class Requisicion extends Model
     }
 
     /* ============================
+     * Pago y comprobación
+     * ============================ */
+
+    /** Mensaje para quien intenta comprobar antes de que exista el pago. */
+    public const MENSAJE_ESPERA_PAGO = 'Esta requisición aún no ha sido pagada. Debes esperar a que se registre el pago completo para poder comprobar.';
+
+    /** Estatus de la etapa de comprobación (posteriores al pago). */
+    public const COMPROBACION_STATUSES = ['POR_COMPROBAR', 'COMPROBACION_ACEPTADA', 'COMPROBACION_RECHAZADA'];
+
+    /** Suma de los pagos registrados. */
+    public function montoPagado(): float
+    {
+        return (float) $this->pagos()->sum('monto');
+    }
+
+    /**
+     * Una requisición está pagada cuando los pagos registrados cubren su
+     * monto total (misma regla con la que el registro de pagos la marca
+     * PAGADA). Se decide por los pagos y no por el estatus: solo una
+     * requisición pagada puede comprobarse.
+     */
+    public function estaPagada(): bool
+    {
+        return $this->montoPagado() + 0.00001 >= (float) $this->monto_total;
+    }
+
+    /**
+     * Requisición que avanzó a la etapa de comprobación sin que su pago se
+     * autorizara (comprobada antes de pagarse): aún debe poder autorizarse.
+     */
+    public function comprobadaSinAutorizarPago(): bool
+    {
+        return in_array($this->status, self::COMPROBACION_STATUSES, true)
+            && $this->fecha_autorizacion === null
+            && ! $this->estaPagada();
+    }
+
+    /* ============================
      * Alcance por usuario (AccessScope)
      * ============================ */
 

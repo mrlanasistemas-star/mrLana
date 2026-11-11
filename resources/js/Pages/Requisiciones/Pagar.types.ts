@@ -39,6 +39,8 @@ export type RequisicionPagoData = {
   fecha_pago_programada?: string | null
   cantidad_pagos?: number
   puede_definir_fecha_pago_general?: boolean
+  /** El servidor indica si el pago aún se puede autorizar (CAPTURADA o comprobada sin pago). */
+  puede_autorizar?: boolean
 }
 
 export type TipoPagoOption = {

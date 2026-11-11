@@ -55,7 +55,7 @@ canAttachFile,
 const tot = computed(() => (props as any).totales ?? { pagado: 0, pendiente: 0 })
 
 // Permisos calculados por el servidor (policy) para esta requisición
-const canAuthorize = computed(() => props.can?.autorizar === true && req.value?.status === 'CAPTURADA')
+const canAuthorize = computed(() => props.can?.autorizar === true && (req.value?.puede_autorizar ?? req.value?.status === 'CAPTURADA'))
 const canUploadPago = computed(() => props.can?.registrar === true)
 const canReject = computed(() => props.can?.rechazar === true && req.value?.status === 'CAPTURADA')
 

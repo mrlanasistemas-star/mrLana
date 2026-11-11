@@ -35,6 +35,7 @@ class RequisicionComprobanteController extends Controller
         $totalReq = (float) $requisicion->monto_total;
         $sumCargados = (float) $comprobantes->sum('monto');
         $sumAprobados = (float) $comprobantes->where('estatus', 'APROBADO')->sum('monto');
+        $pagado = $requisicion->montoPagado();
 
         return Inertia::render('Requisiciones/Comprobar', [
             'requisicion' => [
@@ -90,6 +91,13 @@ class RequisicionComprobanteController extends Controller
                 'pendiente_por_comprobar' => max(0, $totalReq - $sumAprobados),
                 'pendiente_por_cargar' => max(0, $totalReq - $sumCargados),
             ],
+            // Solo se comprueba una requisición pagada (regla validada en cada acción).
+            'pago' => [
+                'pagada' => $pagado + 0.00001 >= $totalReq,
+                'pagado' => $pagado,
+                'pendiente' => max(0, $totalReq - $pagado),
+                'mensaje' => Requisicion::MENSAJE_ESPERA_PAGO,
+            ],
             'tipoDocOptions' => [
                 ['id' => 'FACTURA', 'nombre' => 'Factura'],
                 ['id' => 'TICKET',  'nombre' => 'Ticket'],
@@ -113,6 +121,11 @@ class RequisicionComprobanteController extends Controller
     public function store(Request $request, Requisicion $requisicion)
     {
         $this->authorize('uploadComprobante', $requisicion);
+
+        // No se comprueba antes del pago: evita que la requisición se adelante de etapa.
+        if (! $requisicion->estaPagada()) {
+            return back()->withErrors(['archivo' => Requisicion::MENSAJE_ESPERA_PAGO]);
+        }
 
         $data = $request->validate([
             'archivo' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp,xlsx,xls,docx,doc'],
@@ -177,8 +190,9 @@ class RequisicionComprobanteController extends Controller
             $path = $comprobante->archivo_path;
             $comprobante->delete();
 
-            // Recalcula el estatus global
-            if ($requisicion->status !== 'ELIMINADA') {
+            // Recalcula el estatus global. Sin pago completo no se toca: una
+            // requisición no pagada no debe avanzar a la etapa de comprobación.
+            if ($requisicion->status !== 'ELIMINADA' && $requisicion->estaPagada()) {
                 $sumAprobados = (float) $requisicion->comprobantes()
                     ->where('estatus', 'APROBADO')
                     ->sum('monto');
@@ -213,6 +227,13 @@ class RequisicionComprobanteController extends Controller
 
         // La decisión concreta exige su permiso: aceptar o rechazar.
         abort_unless($request->user()->can('reviewComprobante', [$requisicion, $data['estatus']]), 403);
+
+        // La revisión cambia la etapa de la requisición: primero debe estar pagada.
+        if (! $requisicion->estaPagada()) {
+            return back()->withErrors([
+                'estatus' => 'Esta requisición aún no ha sido pagada. Registra primero el pago completo para poder revisar sus comprobantes.',
+            ]);
+        }
 
         [$req, $statusAnteriorReq] = DB::transaction(function () use ($data, $comprobante, $request) {
             $comprobante->forceFill([
@@ -297,6 +318,11 @@ class RequisicionComprobanteController extends Controller
             'canal.in' => 'El canal de notificación no es válido.',
         ]);
         $canal = $data['canal'] ?? 'correo';
+
+        // Avisar a Contabilidad pasa la requisición a POR_COMPROBAR: solo si ya está pagada.
+        if (! $requisicion->estaPagada()) {
+            return back()->withErrors(['notify' => Requisicion::MENSAJE_ESPERA_PAGO]);
+        }
 
         // Validar que ya subieron comprobantes por el total de la requisición
         $sumCargados = (float) $requisicion->comprobantes()->sum('monto');

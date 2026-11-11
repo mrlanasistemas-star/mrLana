@@ -40,6 +40,13 @@ export interface RequisicionComprobarPageProps {
     pendiente_por_comprobar: number
     pendiente_por_aprobar: number
   }
+  /** Estado del pago: solo se comprueba una requisición pagada. */
+  pago?: {
+    pagada: boolean
+    pagado: number
+    pendiente: number
+    mensaje: string
+  }
   tipoDocOptions: { id: string; nombre: string }[]
   canReview: boolean
   can?: {

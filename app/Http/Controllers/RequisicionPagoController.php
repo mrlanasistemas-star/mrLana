@@ -78,6 +78,8 @@ class RequisicionPagoController extends Controller
                     'fecha_pago_programada' => optional($requisicion->fecha_pago)->format('Y-m-d'),
                     'cantidad_pagos' => $cantidadPagos,
                     'puede_definir_fecha_pago_general' => $puedeDefinirFechaGeneral,
+                    // CAPTURADA, o comprobada antes de pagarse y aún sin autorización.
+                    'puede_autorizar' => $requisicion->status === 'CAPTURADA' || $requisicion->comprobadaSinAutorizarPago(),
                 ],
             ],
             'pagos' => [
@@ -114,10 +116,23 @@ class RequisicionPagoController extends Controller
             'fecha_pago.date_format' => 'La fecha de pago debe tener formato AAAA-MM-DD.',
         ]);
 
+        // Lo normal es autorizar una CAPTURADA. También se admite la requisición
+        // que se comprobó antes de pagarse (quedó en etapa de comprobación sin
+        // autorización ni pago): vuelve a PAGO_AUTORIZADO para poder pagarse.
+        $statusAnterior = (string) $requisicion->status;
+        $rezagada = $requisicion->comprobadaSinAutorizarPago();
+
         // fecha_autorizacion registra el momento REAL de la autorización (auditoría).
         $autorizada = DB::transaction(fn () => Requisicion::query()
             ->whereKey($requisicion->id)
-            ->where('status', 'CAPTURADA')
+            ->where(function ($q) use ($rezagada) {
+                $q->where('status', 'CAPTURADA');
+                if ($rezagada) {
+                    $q->orWhere(fn ($s) => $s
+                        ->whereIn('status', Requisicion::COMPROBACION_STATUSES)
+                        ->whereNull('fecha_autorizacion'));
+                }
+            })
             ->update([
                 'fecha_autorizacion' => now(),
                 'pago_autorizado_por_id' => $request->user()->id,
@@ -131,7 +146,7 @@ class RequisicionPagoController extends Controller
 
         // La actualización atómica no dispara eventos del modelo: se registra explícitamente.
         $requisicion->auditLog('CAMBIO_ESTATUS', "Pago autorizado: {$requisicion->folio}.", [
-            'status' => ['CAPTURADA', 'PAGO_AUTORIZADO'],
+            'status' => [$statusAnterior, 'PAGO_AUTORIZADO'],
             'fecha_pago' => [optional($requisicion->fecha_pago)->format('Y-m-d'), $data['fecha_pago']],
         ]);
 
@@ -196,7 +211,9 @@ class RequisicionPagoController extends Controller
                     'user_carga_id' => (int) auth()->id(),
                 ])->save();
                 $pendienteDespues = max(0, $pendiente - $monto);
-                $nuevoStatus = ($pendienteDespues <= 0.00001) ? 'PAGADA' : 'PAGO_AUTORIZADO';
+                $nuevoStatus = ($pendienteDespues <= 0.00001)
+                    ? $this->statusAlCompletarPago($requisicion)
+                    : 'PAGO_AUTORIZADO';
                 $requisicion->update([
                     'status' => $nuevoStatus,
                 ]);
@@ -215,7 +232,7 @@ class RequisicionPagoController extends Controller
         }
 
         // Notificaciones fuera de la transacción: un fallo SMTP no revierte el pago.
-        if ($resultado === 'PAGADA') {
+        if ($resultado !== 'PAGO_AUTORIZADO') {
             $this->notifications->notify(
                 topic: NotificationTopic::Pagos,
                 event: 'pago.completado',
@@ -304,6 +321,30 @@ class RequisicionPagoController extends Controller
         $requisicion->update(['fecha_pago' => $data['fecha_pago']]);
 
         return back()->with('success', 'Fecha de pago de la requisición guardada correctamente.');
+    }
+
+    /**
+     * Estatus al cubrirse el pago total. Lo normal es PAGADA. Si la
+     * requisición ya traía comprobantes (se comprobó antes de pagarse), se
+     * conserva ese avance: COMPROBACION_ACEPTADA si los aprobados cubren el
+     * total, o POR_COMPROBAR si lo cargado (no rechazado) ya cubre el total y
+     * solo falta la revisión de Contabilidad.
+     */
+    private function statusAlCompletarPago(Requisicion $requisicion): string
+    {
+        $total = (float) $requisicion->monto_total;
+
+        $aprobados = (float) $requisicion->comprobantes()->where('estatus', 'APROBADO')->sum('monto');
+        if ($aprobados > 0 && $aprobados + 0.00001 >= $total) {
+            return 'COMPROBACION_ACEPTADA';
+        }
+
+        $cargados = (float) $requisicion->comprobantes()->where('estatus', '!=', 'RECHAZADO')->sum('monto');
+        if ($cargados > 0 && $cargados + 0.00001 >= $total) {
+            return 'POR_COMPROBAR';
+        }
+
+        return 'PAGADA';
     }
 
     private function safeNombre($model): string

@@ -19,6 +19,7 @@ class UsuarioRequest extends FormRequest
             'name' => is_string($this->input('name')) ? trim($this->input('name')) : $this->input('name'),
             'email' => is_string($this->input('email')) ? strtolower(trim($this->input('email'))) : $this->input('email'),
             'empleado_id' => in_array($this->input('empleado_id'), ['', null], true) ? null : $this->input('empleado_id'),
+            'sucursal_id' => in_array($this->input('sucursal_id'), ['', null], true) ? null : $this->input('sucursal_id'),
             'activo' => $this->has('activo') ? $this->boolean('activo') : true,
         ]);
     }
@@ -37,6 +38,12 @@ class UsuarioRequest extends FormRequest
                 // Un colaborador solo puede tener una cuenta.
                 Rule::unique('users', 'empleado_id')->ignore($user?->id),
             ],
+            // Sin colaborador elegido, la cuenta nueva necesita la sucursal donde
+            // se registrará el suyo: toda cuenta nueva queda como solicitante.
+            'sucursal_id' => [
+                'nullable', 'integer', 'exists:sucursals,id',
+                Rule::requiredIf(fn () => $user === null && $this->input('empleado_id') === null),
+            ],
             'activo' => ['boolean'],
         ];
     }
@@ -52,6 +59,8 @@ class UsuarioRequest extends FormRequest
             'role_id.exists' => 'El rol seleccionado no existe.',
             'empleado_id.exists' => 'El colaborador seleccionado no existe.',
             'empleado_id.unique' => 'Ese colaborador ya tiene una cuenta vinculada.',
+            'sucursal_id.required' => 'Elige un colaborador o la sucursal donde se registrará el de esta cuenta.',
+            'sucursal_id.exists' => 'La sucursal seleccionada no existe.',
         ];
     }
 }

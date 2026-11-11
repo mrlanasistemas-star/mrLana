@@ -27,6 +27,7 @@ class CheckDeploy extends Command
         $this->database();
         $this->duplicatedEmpleados();
         $this->accountsOfInactiveColaboradores();
+        $this->accountsWithoutColaborador();
         $this->legacyRoles();
         $this->pendingMigrations();
         $this->environment();
@@ -121,6 +122,29 @@ class CheckDeploy extends Command
         }
 
         $this->components->warn("Cuentas activas vinculadas a colaboradores dados de baja ({$rows->count()}). Pueden seguir entrando; desactívalas en Usuarios si corresponde:");
+        $this->table(['user.id', 'Nombre', 'Correo'], $rows->map(fn ($u) => (array) $u)->all());
+    }
+
+    /**
+     * Una cuenta sin colaborador no es solicitante: no puede crear
+     * requisiciones a su nombre. La migración vincula las inequívocas; las
+     * que queden se corrigen en Usuarios eligiendo colaborador o sucursal.
+     */
+    private function accountsWithoutColaborador(): void
+    {
+        if (! Schema::hasColumn('users', 'empleado_id') || ! Schema::hasColumn('users', 'activo')) {
+            return;
+        }
+
+        $rows = DB::table('users')->whereNull('empleado_id')->where('activo', true)->orderBy('id')->get(['id', 'name', 'email']);
+
+        if ($rows->isEmpty()) {
+            $this->components->twoColumnDetail('Cuentas activas sin colaborador', '<fg=green>ninguna</>');
+
+            return;
+        }
+
+        $this->components->warn("Cuentas activas sin colaborador vinculado ({$rows->count()}). No pueden solicitar requisiciones a su nombre; edítalas en Usuarios y elige su colaborador o su sucursal:");
         $this->table(['user.id', 'Nombre', 'Correo'], $rows->map(fn ($u) => (array) $u)->all());
     }
 

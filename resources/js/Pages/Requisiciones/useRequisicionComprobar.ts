@@ -31,7 +31,14 @@ export function useRequisicionComprobar(props: RequisicionComprobarPageProps) {
   const canUseFoliosPanel = computed(() => serverCan.value.revisar || can('comprobaciones.administrar_folios'))
   const canEditFolio = computed(() => serverCan.value.administrar_folios)
   const canNotify = computed(() => serverCan.value.subir)
-    const canSendNotification = computed(() => canNotify.value && pendientePorCargarCents.value <= 0)
+  // Solo se comprueba una requisición pagada (el servidor lo valida en cada acción).
+  const estaPagada = computed(() => props.pago?.pagada !== false)
+  const esperaPagoMensaje = computed(() =>
+    serverCan.value.subir
+      ? (props.pago?.mensaje ?? 'Esta requisición aún no ha sido pagada. Debes esperar a que se registre el pago completo para poder comprobar.')
+      : 'Esta requisición aún no ha sido pagada. Los comprobantes se podrán cargar y revisar cuando se registre el pago completo.',
+  )
+    const canSendNotification = computed(() => canNotify.value && estaPagada.value && pendientePorCargarCents.value <= 0)
 
   /** =========================================================
    * Req + rows
@@ -197,7 +204,7 @@ const pendientePorCargarCents = computed(() =>
 const isFullyLoaded = computed(() => pendientePorCargarCents.value <= 0)
 
 const canUploadMore = computed(() => {
-  return serverCan.value.subir
+  return serverCan.value.subir && estaPagada.value
     && !isFullyLoaded.value
     && !isFinalizada.value
 })
@@ -272,7 +279,7 @@ const canUploadMore = computed(() => {
         Swal.fire({
           icon: 'error',
           title: 'No se pudo subir',
-          text: 'Revisa los campos y vuelve a intentar.',
+          text: Object.values(errors)[0] ?? 'Revisa los campos y vuelve a intentar.',
         })
       },
       onFinish: () => {
@@ -441,7 +448,7 @@ const canUploadMore = computed(() => {
             resolve()
           },
           onError: (errors: Record<string, string>) => {
-            Swal.fire({ icon: 'error', title: 'No se pudo aplicar', text: 'Revisa permisos/validación.' })
+            Swal.fire({ icon: 'error', title: 'No se pudo aplicar', text: Object.values(errors)[0] ?? 'Revisa permisos/validación.' })
             reject(errors)
           },
           onFinish: () => {
@@ -957,6 +964,8 @@ const canUploadMore = computed(() => {
     editFolio,
     reqStatus,
     isFinalizada,
+    estaPagada,
+    esperaPagoMensaje,
 
     // notifications
     canNotify,

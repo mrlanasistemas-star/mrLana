@@ -20,6 +20,7 @@ import {
   MessageCircle,
   Mail,
   BellRing,
+  Clock,
 } from 'lucide-vue-next'
 
 import type { RequisicionComprobarPageProps } from './Comprobar.types'
@@ -91,6 +92,8 @@ const {
   setTipo,
     isFullyApproved,
   canUploadMore,
+  estaPagada,
+  esperaPagoMensaje,
   // folios panel
   foliosOpen,
   toggleFoliosOpen,
@@ -141,6 +144,27 @@ const montoPendiente = computed({
 
     <div class="w-full min-w-0 flex-1 overflow-x-hidden">
       <div class="mx-auto w-full min-w-0 max-w-[1900px] px-3 sm:px-5 md:px-6 lg:px-8 xl:px-8 2xl:px-10 py-4 sm:py-6 space-y-4">
+        <!-- Aviso: no se comprueba hasta que la requisición esté pagada -->
+        <div
+          v-if="!estaPagada"
+          role="status"
+          class="flex items-start gap-3 rounded-3xl border border-amber-300/70 bg-amber-50 px-5 py-4
+                 dark:border-amber-500/30 dark:bg-amber-500/10"
+        >
+          <Clock class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden="true" />
+          <div class="min-w-0">
+            <div class="text-sm font-black text-amber-900 dark:text-amber-100">
+              Requisición pendiente de pago
+            </div>
+            <div class="mt-0.5 text-sm text-amber-800 dark:text-amber-200">
+              {{ esperaPagoMensaje }}
+            </div>
+            <div class="mt-1 text-xs font-bold text-amber-700 dark:text-amber-300">
+              Pagado: {{ money(props.pago?.pagado ?? 0) }} · Pendiente de pago: {{ money(props.pago?.pendiente ?? 0) }}
+            </div>
+          </div>
+        </div>
+
         <!-- TOP BANNER -->
         <div
           class="rounded-3xl overflow-hidden border border-slate-200/70 dark:border-white/10 shadow-sm
@@ -264,7 +288,9 @@ const montoPendiente = computed({
 
                     <div v-if="!canSendNotification"
                     class="mt-1 text-xs font-bold text-amber-600 dark:text-amber-400" >
-                        Estos botones se habilitan cuando la suma de los comprobantes subidos cubra el total de la requisición.
+                        {{ estaPagada
+                          ? 'Estos botones se habilitan cuando la suma de los comprobantes subidos cubra el total de la requisición.'
+                          : 'Estos botones se habilitan cuando la requisición haya sido pagada.' }}
                     </div>
                     </div>
                 </div>
@@ -777,7 +803,10 @@ const montoPendiente = computed({
                             {{ dragActive ? 'Suelta aquí para adjuntar.' : (hasPicked ? 'Listo para subir.' : 'Adjunta el comprobante correspondiente.') }}
                           </div>
 
-                            <div v-if="!canUploadMore" class="mt-2 text-xs font-bold text-rose-600">
+                            <div v-if="!estaPagada" class="mt-2 text-xs font-bold text-amber-700 dark:text-amber-300">
+                                {{ esperaPagoMensaje }}
+                            </div>
+                            <div v-else-if="!canUploadMore" class="mt-2 text-xs font-bold text-rose-600">
                                 Esta requisición ya fue comprobada completamente. Ya no puedes subir más comprobantes.
                             </div>
                         </div>

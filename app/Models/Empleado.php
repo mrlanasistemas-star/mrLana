@@ -72,6 +72,25 @@ class Empleado extends Model
         return $this->hasMany(Requisicion::class, 'solicitante_id');
     }
 
+    /**
+     * Reparte un nombre completo ("Héctor Pérez García") en los campos del
+     * colaborador. Con tres palabras o más, las dos últimas son los apellidos.
+     * Se usa al registrar el colaborador de una cuenta que no tenía uno.
+     *
+     * @return array{nombre: string, apellido_paterno: string, apellido_materno: ?string}
+     */
+    public static function nombreDesde(string $nombreCompleto): array
+    {
+        $partes = preg_split('/\s+/u', trim($nombreCompleto), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $apellidos = count($partes) >= 3 ? array_splice($partes, -2) : array_splice($partes, 1);
+
+        return [
+            'nombre' => mb_substr(implode(' ', $partes), 0, 120),
+            'apellido_paterno' => mb_substr($apellidos[0] ?? '', 0, 120),
+            'apellido_materno' => isset($apellidos[1]) ? mb_substr($apellidos[1], 0, 120) : null,
+        ];
+    }
+
     /* ============================
      * Alcance (AccessScope): mi registro, mi sucursal, mi corporativo o todos
      * ============================ */
