@@ -7,6 +7,7 @@ use App\Http\Requests\Requisicion\BulkDestroyRequest;
 use App\Http\Requests\Requisicion\RequisicionIndexRequest;
 use App\Http\Requests\Requisicion\RequisicionStoreRequest;
 use App\Http\Requests\Requisicion\RequisicionUpdateRequest;
+use App\Http\Resources\RequisicionListResource;
 use App\Http\Resources\RequisicionResource;
 use App\Mail\RequisicionEnviadaMail;
 use App\Models\Ajuste;
@@ -46,9 +47,23 @@ class RequisicionController extends Controller
     /** Opciones válidas de "por página"; 'all' muestra todos. */
     public const PER_PAGE_OPTIONS = [10, 15, 20, 50];
 
+    /**
+     * Tope de filas por página con "Todas". Si hay más, la respuesta llega
+     * paginada en bloques de este tamaño (pagination.all_truncated = true) en
+     * lugar de enviar miles de tarjetas en una sola respuesta.
+     */
+    public const ALL_LIMIT = 1000;
+
     public function __construct(private NotificationService $notifications) {}
 
     public function index(RequisicionIndexRequest $request): Response
+    {
+        // Las mismas policies se evalúan en cada fila: memoiza alcances y permisos
+        // durante la construcción del listado (ver AccessScope::memoize).
+        return AccessScope::memoize(fn () => $this->buildIndex($request));
+    }
+
+    private function buildIndex(RequisicionIndexRequest $request): Response
     {
         $user = $request->user();
         // Quien ve más allá de lo propio no necesita borradores ajenos en "Activas".
@@ -80,50 +95,10 @@ class RequisicionController extends Controller
         $fechaPagoFrom = $this->safeYmd($raw['fecha_pago_from'] ?? null);
         $fechaPagoTo = $this->safeYmd($raw['fecha_pago_to'] ?? null);
 
-        $query = Requisicion::query()
-            ->visibleTo($user)
-            ->with([
-                'sucursal:id,nombre,codigo,corporativo_id',
-                'sucursal.corporativo:id,nombre',
-                'solicitante:id,nombre,apellido_paterno,apellido_materno,puesto',
-                'proveedor:id,razon_social,rfc,clabe,banco,status',
-                'concepto:id,nombre',
-                'comprador:id,nombre',
-            ])
-            ->withExists(['eliminacionSolicitudes as eliminacion_pendiente' => fn ($q) => $q->where('estatus', RequisicionEliminacionSolicitud::PENDIENTE)]);
-
-        if ($status === 'ELIMINADA' || $tab === 'ELIMINADAS') {
-            $query->where('status', 'ELIMINADA');
-        } else {
-            $query->where('status', '!=', 'ELIMINADA');
-        }
-
-        if ($status === '') {
-            switch ($tab) {
-                case 'BORRADOR':
-                    $query->where('status', 'BORRADOR');
-                    break;
-                case 'CAPTURADAS':
-                    $query->whereNotIn('status', ['BORRADOR', 'ELIMINADA']);
-                    break;
-                case 'ELIMINADAS':
-                    $query->where('status', 'ELIMINADA');
-                    break;
-                case 'ACTIVAS':
-                default:
-                    break;
-            }
-        } else {
-            $query->where('status', $status);
-        }
-
-        // Quien ve todas no necesita los borradores ajenos en "Activas" (sí los propios).
-        if ($verTodos && $status === '' && $tab === 'ACTIVAS') {
-            $query->where(function ($w) use ($user) {
-                $w->where('status', '!=', 'BORRADOR')
-                    ->orWhere('creada_por_user_id', $user->id);
-            });
-        }
+        // Consulta base: alcance + filtros, SIN estatus/pestaña. Se clona para el
+        // listado (que añade estatus/pestaña) y para los conteos por estatus, de
+        // modo que ambos respeten exactamente los mismos filtros.
+        $query = Requisicion::query()->visibleTo($user);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
@@ -174,21 +149,56 @@ class RequisicionController extends Controller
             $query->whereDate('fecha_pago', '<=', $fechaPagoTo);
         }
 
-        $total = $showAll ? (clone $query)->count() : null;
+        // Conteos por estatus (accesos rápidos): mismos filtros que el listado,
+        // sin estatus/pestaña. Quien ve más allá de lo propio no cuenta borradores
+        // ajenos (igual que en "Activas"). Incluye la clave ELIMINADA.
+        $conteos = (clone $query)
+            ->when($verTodos, fn ($w) => $w->where(fn ($x) => $x
+                ->where('status', '!=', 'BORRADOR')
+                ->orWhere('creada_por_user_id', $user->id)))
+            ->toBase()
+            ->selectRaw('status, COUNT(*) as n')
+            ->groupBy('status')
+            ->pluck('n', 'status')
+            ->map(fn ($n) => (int) $n);
 
-        $requisiciones = $query
+        $this->applyStatusTab($query, $status, $tab, $verTodos, $user);
+
+        $total = $showAll ? (clone $query)->count() : null;
+        $allTruncated = $showAll && $total > self::ALL_LIMIT;
+
+        $query
+            ->with([
+                'sucursal:id,nombre,codigo,corporativo_id',
+                'solicitante:id,nombre,apellido_paterno,apellido_materno',
+                'proveedor:id,razon_social',
+                'concepto:id,nombre',
+                'comprador:id,nombre',
+                'eliminadaPor:id,name',
+            ])
+            // Precargados para que las policies no consulten por fila.
+            ->withExists([
+                'eliminacionSolicitudes as eliminacion_pendiente' => fn ($q) => $q->where('estatus', RequisicionEliminacionSolicitud::PENDIENTE),
+                'pagos as tiene_pagos',
+            ])
             ->orderBy($sort, $dir)
-            ->orderBy('id', 'desc')
-            ->paginate($showAll ? max(1, (int) $total) : $perPage)
-            ->withQueryString();
+            ->orderBy('id', 'desc');
+
+        // "Todas": una sola página hasta ALL_LIMIT filas; si hay más, bloques de
+        // ALL_LIMIT (el total ya contado se pasa al paginador para no repetirlo).
+        $requisiciones = $showAll
+            ? $query->paginate(max(1, min((int) $total, self::ALL_LIMIT)), ['*'], 'page', null, $total)
+            : $query->paginate($perPage);
+        $requisiciones->withQueryString();
 
         $requisiciones->getCollection()->each(
             fn (Requisicion $r) => $r->setAttribute('can', $this->abilities($user, $r))
         );
 
         return Inertia::render('Requisiciones/Index', [
-            'requisiciones' => RequisicionResource::collection($requisiciones),
-            'catalogos' => $this->filterCatalogos($user),
+            'requisiciones' => RequisicionListResource::collection($requisiciones),
+            // Closures: en recargas parciales (only/except) no se recalculan.
+            'catalogos' => fn () => AccessScope::memoize(fn () => $this->filterCatalogos($user)),
             'filters' => [
                 'tab' => $tab,
                 'q' => $q,
@@ -210,21 +220,45 @@ class RequisicionController extends Controller
                 'sort' => $sort,
                 'dir' => $dir,
             ],
-            // Cuántas requisiciones visibles hay en cada estatus (accesos rápidos del listado).
-            'conteos' => Requisicion::query()
-                ->visibleTo($user)
-                ->when($verTodos, fn ($w) => $w->where(fn ($x) => $x
-                    ->where('status', '!=', 'BORRADOR')
-                    ->orWhere('creada_por_user_id', $user->id)))
-                ->toBase()
-                ->selectRaw('status, COUNT(*) as n')
-                ->groupBy('status')
-                ->pluck('n', 'status'),
+            // Cuántas requisiciones hay en cada estatus con los filtros actuales
+            // (accesos rápidos del listado).
+            'conteos' => $conteos,
             'pagination' => [
                 'default_per_page' => self::DEFAULT_PER_PAGE,
                 'options' => self::PER_PAGE_OPTIONS,
+                // "Todas" llega en bloques de como máximo all_limit filas.
+                'all_limit' => self::ALL_LIMIT,
+                // true cuando "Todas" no cupo en una página: hay más páginas
+                // (requisiciones.meta.last_page > 1) y conviene avisarlo.
+                'all_truncated' => $allTruncated,
             ],
         ]);
+    }
+
+    /** Filtro de estatus o pestaña del listado (no aplica a los conteos). */
+    private function applyStatusTab($query, string $status, string $tab, bool $verTodos, User $user): void
+    {
+        if ($status === 'ELIMINADA' || $tab === 'ELIMINADAS') {
+            $query->where('status', 'ELIMINADA');
+        } else {
+            $query->where('status', '!=', 'ELIMINADA');
+        }
+
+        if ($status !== '') {
+            $query->where('status', $status);
+        } elseif ($tab === 'BORRADOR') {
+            $query->where('status', 'BORRADOR');
+        } elseif ($tab === 'CAPTURADAS') {
+            $query->whereNotIn('status', ['BORRADOR', 'ELIMINADA']);
+        }
+
+        // Quien ve todas no necesita los borradores ajenos en "Activas" (sí los propios).
+        if ($verTodos && $status === '' && $tab === 'ACTIVAS') {
+            $query->where(function ($w) use ($user) {
+                $w->where('status', '!=', 'BORRADOR')
+                    ->orWhere('creada_por_user_id', $user->id);
+            });
+        }
     }
 
     /**
@@ -251,6 +285,7 @@ class RequisicionController extends Controller
         $requisicion->load([
             'sucursal:id,nombre,codigo,corporativo_id,activo',
             'solicitante:id,nombre,apellido_paterno,apellido_materno,puesto,activo',
+            'eliminadaPor:id,name',
             'proveedor:id,razon_social,rfc,clabe,banco,status',
             'concepto:id,nombre,activo',
             'comprador:id,nombre,logo_path',
@@ -581,9 +616,20 @@ class RequisicionController extends Controller
     {
         $this->authorize('delete', $requisicion);
 
-        $requisicion->forceFill(['status' => 'ELIMINADA'])->save();
+        // Con pagos registrados el motivo es obligatorio: queda en el registro.
+        $tienePagos = $requisicion->tienePagos();
+        $data = $request->validate([
+            'motivo' => [$tienePagos ? 'required' : 'nullable', 'string', 'min:5', 'max:2000'],
+        ], [
+            'motivo.required' => 'Esta requisición tiene pagos registrados: explica por qué se elimina.',
+            'motivo.min' => 'El motivo debe tener al menos 5 caracteres.',
+        ]);
 
-        return redirect()->route('requisiciones.index')->with('success', 'Requisición eliminada.');
+        \App\Services\Requisiciones\EliminarRequisicion::marcar($requisicion, $request->user(), $data['motivo'] ?? null);
+
+        return redirect()->route('requisiciones.index')->with('success', $tienePagos
+            ? 'Requisición eliminada. Quedó registrado que tenía pagos.'
+            : 'Requisición eliminada.');
     }
 
     public function bulkDestroy(BulkDestroyRequest $request): RedirectResponse
@@ -591,18 +637,27 @@ class RequisicionController extends Controller
         $ids = $request->validated()['ids'];
 
         $user = $request->user();
-        $updated = Requisicion::query()
+        $candidatas = Requisicion::query()
             ->visibleTo($user)
             ->whereIn('id', $ids)
             ->where('status', '!=', 'ELIMINADA')
-            ->get()
+            ->withExists('pagos as tiene_pagos')
+            ->get();
+
+        // Las que tienen pagos se eliminan una por una, con su motivo.
+        $conPagos = $candidatas->filter(fn (Requisicion $r) => $r->tienePagos());
+        $updated = $candidatas
+            ->reject(fn (Requisicion $r) => $r->tienePagos())
             ->filter(fn (Requisicion $r) => $user->can('delete', $r))
-            ->each(fn (Requisicion $r) => $r->forceFill(['status' => 'ELIMINADA'])->save())
+            ->each(fn (Requisicion $r) => \App\Services\Requisiciones\EliminarRequisicion::marcar($r, $user))
             ->count();
 
-        return redirect()->route('requisiciones.index')->with('success', $updated === 1
-            ? '1 requisición eliminada.'
-            : "{$updated} requisiciones eliminadas.");
+        $mensaje = $updated === 1 ? '1 requisición eliminada.' : "{$updated} requisiciones eliminadas.";
+        if ($conPagos->isNotEmpty()) {
+            $mensaje .= ' No se eliminaron '.$conPagos->count().' porque tienen pagos registrados ('.$conPagos->pluck('folio')->implode(', ').'): elimínalas una por una indicando el motivo.';
+        }
+
+        return redirect()->route('requisiciones.index')->with($conPagos->isNotEmpty() ? 'warning' : 'success', $mensaje);
     }
 
     public function ajustes(Request $request, Requisicion $requisicion): Response
@@ -822,7 +877,8 @@ class RequisicionController extends Controller
             'sucursales' => $sucursales->get(),
             'empleados' => $empleados,
             'conceptos' => Concepto::select('id', 'nombre', 'activo')->where('activo', true)->orderBy('nombre')->get(),
-            'proveedores' => Proveedor::select('id', 'razon_social', 'rfc', 'clabe', 'banco', 'status')
+            // Solo lo que usa el filtro (sin CLABE ni banco: no hacen falta aquí).
+            'proveedores' => Proveedor::select('id', 'razon_social', 'rfc', 'status')
                 ->whereIn('id', (clone $visible)->select('proveedor_id'))
                 ->orderBy('razon_social')->limit(1000)->get(),
             'solicitante_fijo' => $scope === Scope::Own,

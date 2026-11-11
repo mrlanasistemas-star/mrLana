@@ -851,6 +851,38 @@
                     </div>
                 </section>
 
+                <!-- Registro de la eliminación -->
+                <section
+                    v-if="req?.status === 'ELIMINADA' && req?.eliminacion"
+                    class="mt-5 rounded-3xl border border-rose-200 bg-rose-50 p-4 sm:p-6 dark:border-rose-500/25 dark:bg-rose-500/10"
+                    aria-labelledby="titulo-eliminada"
+                >
+                    <h3 id="titulo-eliminada" class="flex items-center gap-2 text-sm font-black text-rose-900 dark:text-rose-100">
+                        <Ban class="h-4 w-4" aria-hidden="true" /> Requisición eliminada
+                    </h3>
+                    <dl class="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                        <div>
+                            <dt class="text-xs font-semibold text-rose-800/80 dark:text-rose-200/80">Eliminó o autorizó</dt>
+                            <dd class="font-bold text-rose-950 dark:text-rose-50">{{ req.eliminacion.por ?? 'Sin registro' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-semibold text-rose-800/80 dark:text-rose-200/80">Fecha</dt>
+                            <dd class="font-bold text-rose-950 dark:text-rose-50">{{ req.eliminacion.fecha ? fmtDate(req.eliminacion.fecha) : 'Sin registro' }}</dd>
+                        </div>
+                        <div>
+                            <dt class="text-xs font-semibold text-rose-800/80 dark:text-rose-200/80">Pagos al eliminarse</dt>
+                            <dd class="font-bold text-rose-950 dark:text-rose-50">
+                                <template v-if="req.eliminacion.pagado === null">Sin registro</template>
+                                <template v-else-if="req.eliminacion.pagado > 0">Tenía pagos por {{ money(req.eliminacion.pagado) }}</template>
+                                <template v-else>Sin pagos registrados</template>
+                            </dd>
+                        </div>
+                    </dl>
+                    <p v-if="req.eliminacion.motivo" class="mt-3 whitespace-pre-wrap break-words text-sm text-rose-900 [overflow-wrap:anywhere] dark:text-rose-100">
+                        <span class="font-black">Motivo:</span> {{ req.eliminacion.motivo }}
+                    </p>
+                </section>
+
                 <!-- Contenido (tabs) -->
                 <section
                     v-if="eliminaciones.length"

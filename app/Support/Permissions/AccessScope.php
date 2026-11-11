@@ -25,22 +25,77 @@ use Illuminate\Contracts\Database\Query\Builder as BuilderContract;
  */
 final class AccessScope
 {
+    /** Profundidad de bloques memoize() activos (0 = sin memoización). */
+    private static int $memoDepth = 0;
+
+    /** @var array<string, mixed> Resultados memoizados del bloque activo. */
+    private static array $memo = [];
+
+    /**
+     * Ejecuta $callback recordando alcances y permisos ya resueltos (por
+     * usuario) hasta que termina. Pensado para listados que evalúan las mismas
+     * policies en cientos de filas: sin esto, cada fila repite las mismas
+     * comprobaciones de Spatie. Fuera del bloque todo se resuelve en vivo, así
+     * que un cambio de roles/permisos nunca queda "pegado" entre peticiones.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    public static function memoize(Closure $callback): mixed
+    {
+        self::$memoDepth++;
+
+        try {
+            return $callback();
+        } finally {
+            if (--self::$memoDepth === 0) {
+                self::$memo = [];
+            }
+        }
+    }
+
+    /**
+     * Devuelve el valor memoizado de $key dentro de un bloque memoize(), o lo
+     * resuelve en vivo cuando no hay bloque activo.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $resolve
+     * @return T
+     */
+    public static function remember(string $key, Closure $resolve): mixed
+    {
+        if (self::$memoDepth === 0) {
+            return $resolve();
+        }
+
+        if (! array_key_exists($key, self::$memo)) {
+            self::$memo[$key] = $resolve();
+        }
+
+        return self::$memo[$key];
+    }
+
     /** Alcance efectivo del usuario en un módulo. */
     public static function for(User $user, string $module): Scope
     {
-        $best = Scope::None;
+        return self::remember('scope:'.$user->getKey().':'.$module, function () use ($user, $module) {
+            $best = Scope::None;
 
-        foreach (PermissionCatalog::scopeLevels($module) as $levelKey => $permission) {
-            $level = Scope::fromKey($levelKey);
-            if ($level->value <= $best->value || ! $user->can($permission)) {
-                continue;
+            foreach (PermissionCatalog::scopeLevels($module) as $levelKey => $permission) {
+                $level = Scope::fromKey($levelKey);
+                if ($level->value <= $best->value || ! $user->can($permission)) {
+                    continue;
+                }
+                if (self::resolvable($user, $module, $level)) {
+                    $best = $level;
+                }
             }
-            if (self::resolvable($user, $module, $level)) {
-                $best = $level;
-            }
-        }
 
-        return $best;
+            return $best;
+        });
     }
 
     /**

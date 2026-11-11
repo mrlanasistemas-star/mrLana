@@ -37,15 +37,25 @@ export default defineConfig({
         chunkSizeWarningLimit: 700,
         rollupOptions: {
             output: {
-                manualChunks: {
-                    // Separa ApexCharts en su propio chunk (lazy load)
-                    'vendor-apex': ['apexcharts', 'vue3-apexcharts'],
-                    // Vue y Inertia en un chunk compartido
-                    'vendor-vue': ['vue', '@inertiajs/vue3'],
-                    // Lucide icons
-                    'vendor-lucide': ['lucide-vue-next'],
-                    // SweetAlert2
-                    'vendor-swal': ['sweetalert2'],
+                // Función (no objeto): con la forma de objeto, Rollup metía en
+                // "vendor-apex" módulos compartidos con la entrada y app.js lo
+                // importaba de forma estática, así que ApexCharts (~590 kB) se
+                // descargaba en TODAS las páginas. ApexCharts ya no se fuerza a
+                // un chunk manual: queda en el chunk diferido del Dashboard.
+                manualChunks(id) {
+                    if (!id.includes('/node_modules/')) {
+                        return undefined;
+                    }
+                    if (/\/node_modules\/(vue|@vue|@inertiajs)\//.test(id)) {
+                        return 'vendor-vue';
+                    }
+                    if (id.includes('/node_modules/lucide-vue-next/')) {
+                        return 'vendor-lucide';
+                    }
+                    if (id.includes('/node_modules/sweetalert2/')) {
+                        return 'vendor-swal';
+                    }
+                    return undefined;
                 },
             },
         },

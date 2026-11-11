@@ -95,6 +95,9 @@ function normalizePagerLabel(label: string) {
   return clean
 }
 
+/** Props que cambian al filtrar o paginar (recarga parcial). */
+const LIST_PROPS = ['requisiciones', 'filters', 'conteos', 'pagination']
+
 export function useRequisicionesIndex(props: RequisicionesPageProps) {
   const page = usePage<any>()
   const { can, scope } = usePermissions()
@@ -313,6 +316,8 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
       preserveScroll: true,
       preserveState: true,
       replace: true,
+      // Los catálogos de filtros no cambian al filtrar: no se vuelven a pedir.
+      only: LIST_PROPS,
     })
     selectedIds.value.clear()
   }, 350)
@@ -365,7 +370,7 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
 
   function goTo(url: string | null) {
     if (!url) return
-    router.visit(url, { preserveScroll: true, preserveState: true })
+    router.visit(url, { preserveScroll: true, preserveState: true, only: LIST_PROPS })
   }
 
   // Selección múltiple
@@ -492,14 +497,40 @@ export function useRequisicionesIndex(props: RequisicionesPageProps) {
 
   if (!canDelete.value) return
 
-  const ok = await confirmDanger(
-    'Eliminar requisición',
-    `Se eliminará la requisición con folio: ${row.folio}`
-  )
-
-  if (!ok) return
+  // Con pagos registrados se pide el motivo: queda en el registro de la eliminación.
+  let motivo: string | undefined
+  if ((row as any).tiene_pagos) {
+    const res = await Swal.fire({
+      icon: 'warning',
+      title: 'Esta requisición tiene pagos registrados',
+      text: `Al eliminar ${row.folio} quedará registrado que tenía pagos y quién la eliminó. Explica el motivo.`,
+      input: 'textarea',
+      inputPlaceholder: 'Motivo de la eliminación',
+      showCancelButton: true,
+      confirmButtonText: 'Eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+      preConfirm: (v) => {
+        const t = String(v ?? '').trim()
+        if (t.length < 5) {
+          Swal.showValidationMessage('Escribe un motivo de al menos 5 caracteres.')
+          return false
+        }
+        return t
+      },
+    })
+    if (!res.isConfirmed) return
+    motivo = String(res.value)
+  } else {
+    const ok = await confirmDanger(
+      'Eliminar requisición',
+      `Se eliminará la requisición con folio: ${row.folio}`
+    )
+    if (!ok) return
+  }
 
   router.delete(route('requisiciones.destroy', { requisicion: row.id }), {
+    data: motivo ? { motivo } : undefined,
     preserveScroll: true,
     preserveState: true,
     replace: true,

@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Comprobante;
 use App\Models\Requisicion;
-use App\Models\RequisicionEliminacionSolicitud;
 use App\Models\User;
 use App\Support\Permissions\AccessScope;
 
@@ -59,11 +58,17 @@ class RequisicionPolicy
     /**
      * Eliminar: con "Eliminar requisiciones autorizadas" cualquiera visible que
      * no esté ya eliminada; con "Eliminar mis borradores", solo borradores propios.
+     * Si ya tiene pagos registrados, solo quien tenga "Eliminar requisiciones
+     * con pagos" (Contabilidad).
      */
     public function delete(User $user, Requisicion $requisicion): bool
     {
         if ($requisicion->status === 'ELIMINADA' || ! $this->view($user, $requisicion)) {
             return false;
+        }
+
+        if ($requisicion->tienePagos()) {
+            return $user->can('requisiciones.eliminar_con_pago');
         }
 
         if ($user->can('requisiciones.eliminar')) {
@@ -75,15 +80,17 @@ class RequisicionPolicy
             && $requisicion->isOwnedBy($user);
     }
 
-    /** Solicitar eliminación: solo CAPTURADA y sin otra solicitud pendiente. */
+    /**
+     * Solicitar eliminación: solo CAPTURADA, sin pagos registrados y sin otra
+     * solicitud pendiente. Con pagos, solo Contabilidad puede eliminarla.
+     */
     public function requestDeletion(User $user, Requisicion $requisicion): bool
     {
         return $requisicion->status === 'CAPTURADA'
             && $user->can('requisiciones.solicitar_eliminacion')
+            && ! $requisicion->tienePagos()
             && $this->view($user, $requisicion)
-            && ! $requisicion->eliminacionSolicitudes()
-                ->where('estatus', RequisicionEliminacionSolicitud::PENDIENTE)
-                ->exists();
+            && ! $requisicion->tieneEliminacionPendiente();
     }
 
     public function reviewDeletion(User $user, Requisicion $requisicion): bool

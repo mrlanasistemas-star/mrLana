@@ -160,6 +160,11 @@ class NotificacionesTest extends TestCase
         $colaborador = $this->makeUser(PermissionCatalog::ROLE_COLABORADOR);
         $contador = $this->makeUser(PermissionCatalog::ROLE_CONTABILIDAD);
         $req = $this->makeRequisicion($colaborador, ['status' => 'PAGADA', 'monto_total' => 100]);
+        // Solo se comprueba una requisición pagada: registra el pago completo.
+        \App\Models\Pago::create([
+            'requisicion_id' => $req->id, 'beneficiario_nombre' => 'Proveedor', 'tipo_pago' => 'TRANSFERENCIA',
+            'monto' => 100, 'fecha_pago' => now(), 'user_carga_id' => $contador->id,
+        ]);
         $req->comprobantes()->forceCreate([
             'requisicion_id' => $req->id, 'tipo_doc' => 'FACTURA', 'monto' => 100,
             'estatus' => 'PENDIENTE', 'user_carga_id' => $colaborador->id,

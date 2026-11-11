@@ -53,9 +53,10 @@ class HandleInertiaRequests extends Middleware
                 // Alcance efectivo por módulo (none|own|sucursal|corporativo|global).
                 // La interfaz no debe comprobar permisos de alcance sueltos: un rol
                 // guarda solo su nivel más alto y este mapa ya lo resuelve.
-                'scopes' => $user ? collect(PermissionCatalog::scopedModules())
+                // memoize(): los módulos comparten permisos; se resuelve cada uno una vez.
+                'scopes' => $user ? AccessScope::memoize(fn () => collect(PermissionCatalog::scopedModules())
                     ->mapWithKeys(fn (string $m) => [$m => AccessScope::for($user, $m)->key()])
-                    ->all() : [],
+                    ->all()) : [],
             ],
             'notifications' => fn () => $user && AccessScope::for($user, 'notificaciones')->allows()
                 ? ['unread_count' => $user->unreadNotifications()->count()]

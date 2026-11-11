@@ -31,7 +31,7 @@ const base = computed(() => [
     'transition-all duration-150 ease-out hover:-translate-y-px hover:shadow-md active:translate-y-0 active:scale-[0.98]',
     'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-brand-primary/40 dark:focus-visible:ring-offset-neutral-900',
     'motion-reduce:transform-none motion-reduce:transition-none',
-    props.size === 'md' ? 'min-h-[44px] px-3.5 text-sm' : 'min-h-[38px] px-3 text-xs',
+    props.size === 'md' ? 'min-h-[44px] px-3.5 text-sm' : 'min-h-10 px-3 text-xs',
 ].join(' '))
 
 const tone = {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { Head, Link } from "@inertiajs/vue3";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import SearchableSelect from "@/Components/ui/SearchableSelect.vue";
@@ -64,7 +64,6 @@ const {
     proveedoresActive,
     hasActiveFilters,
     clearFilters,
-    toggleSort,
     selectedCount,
     toggleRow,
     clearSelection,
@@ -99,25 +98,64 @@ type StatusKey =
  * - `falla`: etapa que se rechazó, si aplica.
  * - `sigue`: qué falta para avanzar.
  */
-const STATUS: Record<StatusKey, { label: string; dot: string; pill: string; bar: string; paso: number; falla?: number; sigue: string }> = {
+/**
+ * Clases de la tarjeta (completas, para que Tailwind las detecte):
+ * - `card`: borde y un tinte que nace en la esquina superior izquierda y se desvanece.
+ * - `foot`: pie (observaciones y acciones) con un velo del mismo tono.
+ * - `amount`: el monto total en un tono oscuro del estatus (contraste AA en claro y oscuro).
+ * - `dot` hace también de acento lateral.
+ */
+type StatusInfo = {
+    label: string; dot: string; pill: string; bar: string; card: string; foot: string; amount: string;
+    paso: number; falla?: number; sigue: string;
+};
+
+const STATUS: Record<StatusKey, StatusInfo> = {
     BORRADOR: { label: "Borrador", dot: "bg-slate-400", bar: "bg-slate-400", paso: -1, sigue: "Falta enviarla",
-        pill: "bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-200" },
+        pill: "bg-slate-100 border-slate-200 text-slate-700 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-200",
+        card: "border-slate-200 from-slate-100/70 hover:border-slate-300 dark:border-white/10 dark:from-slate-400/[0.06] dark:hover:border-white/20",
+        foot: "border-slate-100 bg-slate-50/70 dark:border-white/5 dark:bg-white/[0.02]",
+        amount: "text-slate-900 dark:text-zinc-100" },
     CAPTURADA: { label: "Capturada", dot: "bg-sky-500", bar: "bg-sky-500", paso: 0, sigue: "Sigue: autorizar el pago",
-        pill: "bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-500/10 dark:border-sky-500/20 dark:text-sky-200" },
+        pill: "bg-sky-50 border-sky-200 text-sky-700 dark:bg-sky-500/10 dark:border-sky-500/20 dark:text-sky-200",
+        card: "border-sky-200/70 from-sky-50 hover:border-sky-300 dark:border-sky-400/15 dark:from-sky-400/[0.07] dark:hover:border-sky-400/30",
+        foot: "border-sky-100 bg-sky-50/50 dark:border-sky-400/10 dark:bg-sky-400/[0.04]",
+        amount: "text-sky-900 dark:text-sky-100" },
     PAGO_AUTORIZADO: { label: "Pago autorizado", dot: "bg-amber-500", bar: "bg-amber-500", paso: 1, sigue: "Sigue: registrar el pago",
-        pill: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-200" },
+        pill: "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-200",
+        card: "border-amber-200/70 from-amber-50 hover:border-amber-300 dark:border-amber-400/15 dark:from-amber-400/[0.07] dark:hover:border-amber-400/30",
+        foot: "border-amber-100 bg-amber-50/50 dark:border-amber-400/10 dark:bg-amber-400/[0.04]",
+        amount: "text-amber-900 dark:text-amber-100" },
     PAGO_RECHAZADO: { label: "Pago rechazado", dot: "bg-rose-500", bar: "bg-sky-500", paso: 0, falla: 1, sigue: "El pago fue rechazado",
-        pill: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-200" },
+        pill: "bg-rose-50 border-rose-200 text-rose-700 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-200",
+        card: "border-rose-200/70 from-rose-50 hover:border-rose-300 dark:border-rose-400/15 dark:from-rose-400/[0.07] dark:hover:border-rose-400/30",
+        foot: "border-rose-100 bg-rose-50/50 dark:border-rose-400/10 dark:bg-rose-400/[0.04]",
+        amount: "text-rose-900 dark:text-rose-100" },
     PAGADA: { label: "Pagada", dot: "bg-emerald-500", bar: "bg-emerald-500", paso: 2, sigue: "Sigue: comprobar el gasto",
-        pill: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-200" },
+        pill: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-200",
+        card: "border-emerald-200/70 from-emerald-50 hover:border-emerald-300 dark:border-emerald-400/15 dark:from-emerald-400/[0.07] dark:hover:border-emerald-400/30",
+        foot: "border-emerald-100 bg-emerald-50/50 dark:border-emerald-400/10 dark:bg-emerald-400/[0.04]",
+        amount: "text-emerald-900 dark:text-emerald-100" },
     POR_COMPROBAR: { label: "Por comprobar", dot: "bg-violet-500", bar: "bg-violet-500", paso: 3, sigue: "Sigue: revisión de Contabilidad",
-        pill: "bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-200" },
+        pill: "bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-200",
+        card: "border-violet-200/70 from-violet-50 hover:border-violet-300 dark:border-violet-400/15 dark:from-violet-400/[0.07] dark:hover:border-violet-400/30",
+        foot: "border-violet-100 bg-violet-50/50 dark:border-violet-400/10 dark:bg-violet-400/[0.04]",
+        amount: "text-violet-900 dark:text-violet-100" },
     COMPROBACION_ACEPTADA: { label: "Comprobada", dot: "bg-teal-500", bar: "bg-teal-500", paso: 4, sigue: "Proceso terminado",
-        pill: "bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-500/10 dark:border-teal-500/20 dark:text-teal-200" },
+        pill: "bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-500/10 dark:border-teal-500/20 dark:text-teal-200",
+        card: "border-teal-200/70 from-teal-50 hover:border-teal-300 dark:border-teal-400/15 dark:from-teal-400/[0.07] dark:hover:border-teal-400/30",
+        foot: "border-teal-100 bg-teal-50/50 dark:border-teal-400/10 dark:bg-teal-400/[0.04]",
+        amount: "text-teal-900 dark:text-teal-100" },
     COMPROBACION_RECHAZADA: { label: "Comprobación rechazada", dot: "bg-fuchsia-500", bar: "bg-violet-500", paso: 3, falla: 4, sigue: "Hay que corregir comprobantes",
-        pill: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:border-fuchsia-500/20 dark:text-fuchsia-200" },
-    ELIMINADA: { label: "Eliminada", dot: "bg-zinc-500", bar: "bg-zinc-400", paso: -1, sigue: "",
-        pill: "bg-zinc-100 border-zinc-200 text-zinc-700 dark:bg-zinc-500/10 dark:border-zinc-500/20 dark:text-zinc-200" },
+        pill: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:border-fuchsia-500/20 dark:text-fuchsia-200",
+        card: "border-fuchsia-200/70 from-fuchsia-50 hover:border-fuchsia-300 dark:border-fuchsia-400/15 dark:from-fuchsia-400/[0.07] dark:hover:border-fuchsia-400/30",
+        foot: "border-fuchsia-100 bg-fuchsia-50/50 dark:border-fuchsia-400/10 dark:bg-fuchsia-400/[0.04]",
+        amount: "text-fuchsia-900 dark:text-fuchsia-100" },
+    ELIMINADA: { label: "Eliminada", dot: "bg-zinc-300 dark:bg-zinc-600", bar: "bg-zinc-400", paso: -1, sigue: "",
+        pill: "bg-zinc-100 border-zinc-200 text-zinc-600 dark:bg-zinc-500/10 dark:border-zinc-500/20 dark:text-zinc-300",
+        card: "border-dashed border-zinc-300 from-zinc-100/80 grayscale-[0.6] dark:border-white/10 dark:from-white/[0.02]",
+        foot: "border-zinc-200/70 bg-zinc-100/60 dark:border-white/5 dark:bg-white/[0.01]",
+        amount: "text-zinc-500 line-through decoration-zinc-400/70 dark:text-zinc-500" },
 };
 
 const PASOS = ["Capturada", "Pago autorizado", "Pagada", "Por comprobar", "Comprobada"];
@@ -214,8 +252,13 @@ const chips = computed(() => {
 // El panel abre solo si ya hay filtros aplicados al llegar.
 const filtersOpen = ref(chips.value.length > 0);
 
-const sortTexto = computed(() => (state.dir === "asc" ? "Más antiguas primero" : "Más recientes primero"));
+const SORT_OPTIONS: { dir: "desc" | "asc"; nombre: string; corto: string }[] = [
+    { dir: "desc", nombre: "Más recientes primero", corto: "Recientes" },
+    { dir: "asc", nombre: "Más antiguas primero", corto: "Antiguas" },
+];
+const sortActual = computed(() => SORT_OPTIONS.find((o) => o.dir === state.dir) ?? SORT_OPTIONS[0]);
 const perPageTexto = computed(() => PER_PAGE_OPTIONS.find((o) => o.id === state.perPage)?.nombre ?? "Por página");
+const perPageCorto = computed(() => (state.perPage === "all" ? "Todas" : `${state.perPage} por página`));
 
 /* ---------- Paginación ---------- */
 const total = computed(() => Number(meta.value?.total ?? rows.value.length));
@@ -240,6 +283,65 @@ const pager = computed(() => {
         pages: links.slice(1, -1).map((l) => ({ ...l, text: /^\d+$/.test(l.cleanLabel) ? l.cleanLabel : "…" })),
     };
 });
+const currentPage = computed(() => Number(meta.value?.current_page ?? 1));
+const lastPage = computed(() => Number(meta.value?.last_page ?? 1));
+
+/* ---------- Render progresivo ----------
+ * Con "Todas en una página" pueden llegar cientos de filas; pintar todas las
+ * tarjetas a la vez congela la página. Se pintan por tandas: un centinela al
+ * final pide la siguiente al acercarse (y queda un botón de respaldo).
+ * Los totales y conteos siguen usando `rows` completo.
+ */
+const TANDA = 40;
+const visibles = ref(TANDA);
+const rowsVisibles = computed(() => rows.value.slice(0, visibles.value));
+const faltanPorPintar = computed(() => Math.max(0, rows.value.length - visibles.value));
+
+function mostrarMas() {
+    visibles.value = Math.min(rows.value.length, visibles.value + TANDA);
+}
+
+// Reinicia al cambiar filtros, orden, tamaño de página o página (no al borrar una fila).
+watch(
+    () => [JSON.stringify(state), meta.value?.current_page],
+    () => { visibles.value = TANDA; },
+);
+
+const centinela = ref<HTMLElement | null>(null);
+let observer: IntersectionObserver | null = null;
+
+function reobservar() {
+    // Volver a observar dispara de nuevo la revisión: si el centinela sigue a la vista
+    // tras pintar una tanda (pantallas altas), se pide otra.
+    if (!observer || !centinela.value) return;
+    observer.unobserve(centinela.value);
+    observer.observe(centinela.value);
+}
+
+onMounted(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    observer = new IntersectionObserver(
+        (entries) => {
+            if (entries.some((e) => e.isIntersecting) && faltanPorPintar.value > 0) {
+                mostrarMas();
+                nextTick(reobservar);
+            }
+        },
+        { rootMargin: "800px 0px" },
+    );
+    if (centinela.value) observer.observe(centinela.value);
+});
+
+watch(centinela, (el, prev) => {
+    if (!observer) return;
+    if (prev) observer.unobserve(prev);
+    if (el) observer.observe(el);
+});
+
+onBeforeUnmount(() => {
+    observer?.disconnect();
+    observer = null;
+});
 
 const totalMontoPagina = computed(() =>
     rows.value.reduce((acc: number, r: any) => acc + Number(r?.monto_total ?? 0), 0),
@@ -247,7 +349,7 @@ const totalMontoPagina = computed(() =>
 
 /* ---------- Clases compartidas ---------- */
 const toolBtn =
-    "inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 " +
+    "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm sm:gap-2 sm:px-3.5 font-semibold text-slate-700 " +
     "hover:border-slate-300 hover:bg-slate-50 transition active:scale-[0.98] " +
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30 motion-reduce:transform-none " +
     "dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10";
@@ -296,13 +398,16 @@ const pageBtnIdle =
 
         <div class="w-full max-w-full min-w-0 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
             <!-- Estatus: accesos rápidos con conteo -->
-            <nav aria-label="Filtrar por estatus" class="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+            <nav
+                aria-label="Filtrar por estatus"
+                class="-mx-3 snap-x snap-mandatory overflow-x-auto overscroll-x-contain scroll-px-3 -my-1 px-3 py-1 [scrollbar-width:none] sm:m-0 sm:snap-none sm:overflow-visible sm:p-0 [&::-webkit-scrollbar]:hidden"
+            >
                 <ul class="flex w-max gap-2 sm:w-auto sm:flex-wrap">
-                    <li v-for="t in tabs" :key="t.id || 'todas'">
+                    <li v-for="t in tabs" :key="t.id || 'todas'" class="snap-start">
                         <button
                             type="button"
-                            class="inline-flex h-10 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold whitespace-nowrap transition
-                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30"
+                            class="inline-flex h-10 items-center gap-2 rounded-full border px-3.5 text-sm font-semibold whitespace-nowrap transition motion-reduce:transition-none
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-neutral-950"
                             :class="state.status === t.id
                                 ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
                                 : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10'"
@@ -327,8 +432,8 @@ const pageBtnIdle =
                 data-tour="requisiciones-filtros"
                 class="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-neutral-900/70"
             >
-                <div class="flex flex-wrap items-center gap-2">
-                    <div class="relative min-w-0 flex-1 basis-64">
+                <div class="flex flex-col gap-2 lg:flex-row lg:items-center">
+                    <div class="relative min-w-0 lg:flex-1">
                         <label for="req-buscar" class="sr-only">Buscar requisiciones</label>
                         <Search class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" aria-hidden="true" />
                         <input
@@ -339,12 +444,13 @@ const pageBtnIdle =
                             class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400
                                    focus:border-brand-primary/60 focus:outline-none focus:ring-2 focus:ring-brand-primary/20
                                    dark:border-white/10 dark:bg-neutral-950/40 dark:text-neutral-100 dark:placeholder:text-neutral-500
-                                   [&::-webkit-search-cancel-button]:hidden"
+                                   text-ellipsis [&::-webkit-search-cancel-button]:hidden"
                         />
                         <button
                             v-if="state.q"
                             type="button"
-                            class="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-zinc-300 dark:hover:bg-white/10"
+                            class="absolute right-0.5 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:text-zinc-300 dark:hover:bg-white/10"
                             aria-label="Borrar búsqueda"
                             @click="state.q = ''"
                         >
@@ -352,54 +458,59 @@ const pageBtnIdle =
                         </button>
                     </div>
 
+                    <div class="flex min-w-0 items-center gap-2">
                     <button
                         type="button"
-                        :class="[toolBtn, filtersOpen || chips.length ? 'border-brand-primary/50 text-brand-primary dark:text-zinc-50' : '']"
+                        :class="[toolBtn, 'min-w-0 flex-1 basis-0 justify-center sm:flex-none sm:basis-auto', filtersOpen || chips.length ? 'border-brand-primary/50 text-brand-primary dark:text-zinc-50' : '']"
                         :aria-expanded="filtersOpen"
                         aria-controls="req-filtros"
                         @click="filtersOpen = !filtersOpen"
                     >
-                        <SlidersHorizontal class="h-4 w-4" aria-hidden="true" />
+                        <SlidersHorizontal class="h-4 w-4 shrink-0" aria-hidden="true" />
                         Filtros
                         <span
                             v-if="chips.length"
                             class="rounded-full bg-brand-primary px-1.5 text-xs font-bold tabular-nums text-brand-primary-fg"
                         >{{ chips.length }}</span>
-                        <ChevronDown class="h-4 w-4 opacity-60 transition-transform motion-reduce:transition-none" :class="filtersOpen ? 'rotate-180' : ''" aria-hidden="true" />
-                    </button>
-
-                    <button type="button" :class="toolBtn" :title="`Orden por fecha de registro: ${sortTexto}`" @click="toggleSort">
-                        <ArrowUpDown class="h-4 w-4" aria-hidden="true" />
-                        <span class="hidden md:inline">{{ sortTexto }}</span>
-                        <span class="md:hidden">Orden</span>
+                        <ChevronDown class="hidden h-4 w-4 shrink-0 opacity-60 transition-transform motion-reduce:transition-none sm:block" :class="filtersOpen ? 'rotate-180' : ''" aria-hidden="true" />
                     </button>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger as-child>
-                            <button type="button" :class="toolBtn">
-                                {{ perPageTexto }}
-                                <ChevronDown class="h-4 w-4 opacity-60" aria-hidden="true" />
+                            <button type="button" :class="[toolBtn, 'min-w-0 flex-1 basis-0 justify-center sm:flex-none sm:basis-auto']" :aria-label="`Orden actual: ${sortActual.nombre}. Cambiar orden`">
+                                <ArrowUpDown class="h-4 w-4 shrink-0" aria-hidden="true" />
+                                <span class="hidden text-slate-500 sm:inline dark:text-zinc-400">Orden:</span>
+                                <span class="hidden truncate xl:inline">{{ sortActual.nombre }}</span>
+                                <span class="truncate xl:hidden">{{ sortActual.corto }}</span>
+                                <ChevronDown class="hidden h-4 w-4 shrink-0 opacity-60 sm:block" aria-hidden="true" />
                             </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" class="min-w-52 border-slate-200/80 bg-white dark:border-white/10 dark:bg-neutral-950">
+                        <DropdownMenuContent align="end" class="min-w-60 border-slate-200/80 bg-white dark:border-white/10 dark:bg-neutral-950">
+                            <div class="px-3 pb-1 pt-1.5 text-xs font-semibold text-slate-500 dark:text-zinc-400">Por fecha de registro</div>
                             <DropdownMenuItem
-                                v-for="o in PER_PAGE_OPTIONS"
-                                :key="o.id"
-                                :class="[menuItem, 'justify-between', state.perPage === o.id ? 'bg-brand-tint text-brand-primary dark:bg-brand-primary/15 dark:text-zinc-50' : '']"
-                                @select="state.perPage = o.id as any"
+                                v-for="o in SORT_OPTIONS"
+                                :key="o.dir"
+                                :class="[menuItem, 'justify-between', state.dir === o.dir ? 'bg-brand-tint text-brand-primary dark:bg-brand-primary/15 dark:text-zinc-50' : '']"
+                                @select="state.dir = o.dir"
                             >
                                 {{ o.nombre }}
-                                <Check v-if="state.perPage === o.id" class="h-4 w-4" aria-hidden="true" />
+                                <Check v-if="state.dir === o.dir" class="h-4 w-4" aria-hidden="true" />
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
 
                     <DropdownMenu v-if="can('requisiciones.exportar')">
                         <DropdownMenuTrigger as-child>
-                            <button data-tour="requisiciones-exportar" type="button" :class="toolBtn">
-                                <Download class="h-4 w-4" aria-hidden="true" />
-                                Exportar
-                                <ChevronDown class="h-4 w-4 opacity-60" aria-hidden="true" />
+                            <button
+                                data-tour="requisiciones-exportar"
+                                type="button"
+                                :class="[toolBtn, 'w-11 justify-center !px-0 sm:w-auto sm:!px-3.5']"
+                                aria-label="Exportar a Excel o PDF"
+                                title="Exportar"
+                            >
+                                <Download class="h-4 w-4 shrink-0" aria-hidden="true" />
+                                <span class="hidden sm:inline">Exportar</span>
+                                <ChevronDown class="hidden h-4 w-4 opacity-60 sm:block" aria-hidden="true" />
                             </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" class="min-w-52 border-slate-200/80 bg-white dark:border-white/10 dark:bg-neutral-950">
@@ -413,6 +524,7 @@ const pageBtnIdle =
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
+                    </div>
                 </div>
 
                 <!-- Panel de filtros -->
@@ -546,8 +658,9 @@ const pageBtnIdle =
                         v-for="c in chips"
                         :key="c.key"
                         type="button"
-                        class="group inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-brand-primary/25 bg-brand-tint pl-3 pr-2 text-xs font-semibold text-brand-primary
-                               hover:border-brand-primary/50 dark:bg-brand-primary/15 dark:text-zinc-50"
+                        class="group inline-flex h-10 max-w-full items-center gap-1.5 rounded-full border border-brand-primary/25 bg-brand-tint pl-3 pr-2.5 text-xs font-semibold text-brand-primary
+                               hover:border-brand-primary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 sm:h-8 sm:pr-2
+                               dark:bg-brand-primary/15 dark:text-zinc-50"
                         :aria-label="`Quitar filtro ${c.label}`"
                         @click="c.clear()"
                     >
@@ -558,7 +671,8 @@ const pageBtnIdle =
                     <button
                         v-if="hasActiveFilters"
                         type="button"
-                        class="inline-flex h-8 items-center rounded-full px-3 text-xs font-bold text-slate-600 underline-offset-4 hover:underline dark:text-zinc-300"
+                        class="inline-flex h-10 items-center rounded-full px-3 text-xs font-bold text-slate-600 underline-offset-4 hover:underline
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 sm:h-8 dark:text-zinc-300"
                         @click="clearFilters"
                     >
                         Limpiar todo
@@ -575,21 +689,65 @@ const pageBtnIdle =
                 <span class="text-sm font-semibold text-rose-900 dark:text-rose-100">
                     {{ selectedCount === 1 ? '1 requisición seleccionada' : `${selectedCount} requisiciones seleccionadas` }}
                 </span>
-                <div class="flex items-center gap-2">
-                    <button type="button" :class="toolBtn" class="!h-10" @click="clearSelection">Quitar selección</button>
+                <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
+                    <button type="button" :class="toolBtn" class="!h-10 justify-center" @click="clearSelection">Quitar selección</button>
                     <button
                         type="button"
-                        class="inline-flex h-10 items-center rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700 transition active:scale-[0.98]"
+                        class="inline-flex h-10 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700 transition active:scale-[0.98]
+                               focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/50 focus-visible:ring-offset-2 motion-reduce:transform-none dark:focus-visible:ring-offset-neutral-950"
                         @click="destroySelected"
                     >
-                        Eliminar seleccionadas
+                        <span class="sm:hidden">Eliminar</span>
+                        <span class="hidden sm:inline">Eliminar seleccionadas</span>
                     </button>
                 </div>
             </div>
 
+            <!-- "Todas" llegó en bloques por ser demasiadas -->
+            <div
+                v-if="props.pagination?.all_truncated"
+                role="status"
+                class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900
+                       dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100"
+            >
+                <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+                <p>
+                    Son {{ total.toLocaleString('es-MX') }} requisiciones: para que cargue rápido se muestran de
+                    {{ (props.pagination?.all_limit ?? 1000).toLocaleString('es-MX') }} en {{ (props.pagination?.all_limit ?? 1000).toLocaleString('es-MX') }}.
+                    Usa la paginación de abajo o agrega filtros para acotar.
+                </p>
+            </div>
+
             <!-- Resumen del listado -->
-            <div v-if="rows.length" class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1 text-sm text-slate-600 dark:text-zinc-300">
-                <span>Mostrando <span class="font-bold tabular-nums text-slate-900 dark:text-zinc-100">{{ pageSummary || rows.length }}</span></span>
+            <div v-if="rows.length" class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1 text-sm text-slate-600 dark:text-zinc-300">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>Mostrando <span class="font-bold tabular-nums text-slate-900 dark:text-zinc-100">{{ pageSummary || rows.length }}</span></span>
+                    <span class="h-4 w-px bg-slate-300 dark:bg-white/15" aria-hidden="true" />
+                    <DropdownMenu>
+                        <DropdownMenuTrigger as-child>
+                            <button
+                                type="button"
+                                class="-my-1 inline-flex h-10 items-center gap-1.5 rounded-xl px-2.5 font-semibold text-slate-700 hover:bg-slate-100
+                                       focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:text-zinc-200 dark:hover:bg-white/10"
+                                :aria-label="`Mostrando ${perPageTexto}. Cambiar`"
+                            >
+                                {{ perPageCorto }}
+                                <ChevronDown class="h-4 w-4 opacity-60" aria-hidden="true" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" class="min-w-52 border-slate-200/80 bg-white dark:border-white/10 dark:bg-neutral-950">
+                            <DropdownMenuItem
+                                v-for="o in PER_PAGE_OPTIONS"
+                                :key="o.id"
+                                :class="[menuItem, 'justify-between', state.perPage === o.id ? 'bg-brand-tint text-brand-primary dark:bg-brand-primary/15 dark:text-zinc-50' : '']"
+                                @select="state.perPage = o.id as any"
+                            >
+                                {{ o.nombre }}
+                                <Check v-if="state.perPage === o.id" class="h-4 w-4" aria-hidden="true" />
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
                 <span>
                     Suma de esta página:
                     <span class="font-bold tabular-nums text-slate-900 dark:text-zinc-100">{{ money(totalMontoPagina) }}</span>
@@ -599,24 +757,37 @@ const pageBtnIdle =
             <!-- Listado -->
             <div data-tour="requisiciones-lista" class="space-y-3">
                 <article
-                    v-for="r in rows"
+                    v-for="r in rowsVisibles"
                     :key="r.id"
-                    class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-shadow hover:shadow-md
-                           dark:border-white/10 dark:bg-neutral-900/90"
-                    :class="rowDisabled(r) ? 'opacity-70' : ''"
-                    :aria-label="`Requisición ${(r as any).folio}`"
+                    class="relative overflow-hidden rounded-2xl border [contain-intrinsic-size:auto_15rem] [content-visibility:auto] bg-white bg-gradient-to-br via-white via-40% to-white shadow-sm
+                           transition-[box-shadow,border-color] hover:shadow-md motion-reduce:transition-none
+                           dark:bg-neutral-900 dark:via-neutral-900/95 dark:to-neutral-900/95"
+                    :class="[st((r as any).status).card, rowDisabled(r) ? 'opacity-80 shadow-none hover:shadow-none' : '']"
+                    :aria-label="`Requisición ${(r as any).folio}, ${st((r as any).status).label}`"
                 >
-                    <div class="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:gap-6">
+                    <!-- Acento del estatus -->
+                    <span class="pointer-events-none absolute inset-y-0 left-0 w-1" :class="st((r as any).status).dot" aria-hidden="true" />
+
+                    <div
+                        class="grid grid-cols-1 gap-4 p-4 pl-5 sm:pl-6
+                               md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-6
+                               xl:grid-cols-[minmax(0,1fr)_17rem_11rem] xl:items-center"
+                    >
                         <!-- Qué es -->
-                        <div class="flex min-w-0 flex-1 items-start gap-3">
-                            <input
+                        <div class="flex min-w-0 items-start gap-2 md:col-span-2 xl:col-span-1">
+                            <label
                                 v-if="canDelete"
-                                type="checkbox"
-                                :disabled="rowDisabled(r)"
-                                class="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-300 accent-slate-900 dark:border-white/20 dark:accent-white"
-                                :aria-label="`Seleccionar ${(r as any).folio}`"
-                                @change="toggleRow(r.id, ($event.target as HTMLInputElement).checked)"
-                            />
+                                class="-ml-2.5 -mt-2.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-primary/40"
+                                :class="rowDisabled(r) ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-slate-900/5 dark:hover:bg-white/5'"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :disabled="rowDisabled(r)"
+                                    class="h-4 w-4 cursor-pointer rounded border-slate-300 accent-slate-900 focus:outline-none disabled:cursor-not-allowed dark:border-white/20 dark:accent-white"
+                                    :aria-label="`Seleccionar ${(r as any).folio}`"
+                                    @change="toggleRow(r.id, ($event.target as HTMLInputElement).checked)"
+                                />
+                            </label>
 
                             <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5">
@@ -628,7 +799,7 @@ const pageBtnIdle =
                                     >{{ (r as any).folio }}</Link>
                                     <button
                                         type="button"
-                                        class="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700
+                                        class="-my-1.5 -ml-1.5 inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-900/5 hover:text-slate-700
                                                focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                                         :aria-label="`Copiar folio ${(r as any).folio}`"
                                         title="Copiar folio"
@@ -674,7 +845,7 @@ const pageBtnIdle =
                         </div>
 
                         <!-- En qué va -->
-                        <div class="min-w-0 lg:w-72 lg:shrink-0">
+                        <div class="min-w-0 md:max-w-sm xl:max-w-none">
                             <template v-if="!rowDisabled(r)">
                                 <div
                                     class="flex gap-1"
@@ -713,20 +884,48 @@ const pageBtnIdle =
                         </div>
 
                         <!-- Cuánto -->
-                        <div class="lg:w-44 lg:shrink-0 lg:text-right">
-                            <div class="text-xl font-black tabular-nums leading-none text-slate-900 whitespace-nowrap dark:text-zinc-100">
-                                {{ money((r as any).monto_total) }}
+                        <div
+                            class="flex min-w-0 items-baseline justify-between gap-3 border-t border-dashed border-slate-200/90 pt-3
+                                   md:block md:self-start md:border-0 md:pt-0 md:text-right xl:self-center dark:border-white/10"
+                        >
+                            <div class="order-2 text-xl font-black tabular-nums leading-none whitespace-nowrap md:order-none" :class="st((r as any).status).amount">
+                                <span class="sr-only">Total </span>{{ money((r as any).monto_total) }}
                             </div>
-                            <div class="mt-1 text-xs tabular-nums text-slate-500 dark:text-zinc-400">
+                            <div class="order-1 min-w-0 truncate text-xs tabular-nums text-slate-500 md:order-none md:mt-1.5 dark:text-zinc-400">
                                 Subtotal {{ money((r as any).monto_subtotal) }}
                             </div>
                         </div>
                     </div>
 
+                    <!-- Registro de la eliminación: quién, cuándo, si tenía pagos y por qué -->
+                    <div
+                        v-if="rowDisabled(r) && (r as any).eliminacion"
+                        class="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-slate-200 bg-white/70 px-4 py-2.5 pl-5 text-xs text-slate-600 sm:pl-6
+                               dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-300"
+                    >
+                        <span
+                            class="inline-flex items-center rounded-full border px-2.5 py-1 font-bold"
+                            :class="(r as any).eliminacion.pagado > 0
+                                ? 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200'
+                                : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200'"
+                        >
+                            <template v-if="(r as any).eliminacion.pagado === null">Pagos al eliminar: sin registro</template>
+                            <template v-else-if="(r as any).eliminacion.pagado > 0">Tenía pagos por {{ money((r as any).eliminacion.pagado) }}</template>
+                            <template v-else>Sin pagos registrados</template>
+                        </span>
+                        <span v-if="(r as any).eliminacion.por">
+                            Eliminó o autorizó: <span class="font-semibold text-slate-900 dark:text-zinc-100">{{ (r as any).eliminacion.por }}</span>
+                        </span>
+                        <span v-if="(r as any).eliminacion.fecha" class="tabular-nums">{{ safeDateShort((r as any).eliminacion.fecha) }}</span>
+                        <span v-if="(r as any).eliminacion.motivo" class="min-w-0 basis-full break-words line-clamp-2" :title="(r as any).eliminacion.motivo">
+                            <span class="font-semibold text-slate-500 dark:text-zinc-400">Motivo:</span> {{ (r as any).eliminacion.motivo }}
+                        </span>
+                    </div>
+
                     <!-- Observaciones + acciones -->
                     <div
-                        class="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/60 px-4 py-2.5 dark:border-white/5 dark:bg-white/[0.02]
-                               xl:flex-row xl:items-center xl:justify-between"
+                        class="flex flex-col gap-3 border-t px-4 py-3 pl-5 sm:pl-6 xl:flex-row xl:items-center xl:justify-between xl:py-2.5"
+                        :class="st((r as any).status).foot"
                     >
                         <p
                             v-if="(r as any).observaciones"
@@ -747,6 +946,16 @@ const pageBtnIdle =
                         />
                     </div>
                 </article>
+
+                <!-- Más tarjetas (render progresivo) -->
+                <div v-if="faltanPorPintar > 0" ref="centinela" class="flex flex-col items-center gap-2 py-4">
+                    <button type="button" :class="toolBtn" @click="mostrarMas">
+                        Mostrar {{ Math.min(TANDA, faltanPorPintar) }} más
+                    </button>
+                    <span class="text-xs text-slate-500 dark:text-zinc-400" aria-live="polite">
+                        Faltan {{ faltanPorPintar }} de {{ rows.length }} en esta página
+                    </span>
+                </div>
 
                 <!-- Sin resultados -->
                 <div
@@ -779,20 +988,26 @@ const pageBtnIdle =
             <nav
                 v-if="pager && rows.length"
                 aria-label="Paginación"
-                class="flex flex-wrap items-center justify-between gap-3 pt-1"
+                class="flex flex-col gap-3 pt-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
             >
-                <span class="text-sm text-slate-600 dark:text-zinc-300">{{ pageSummary }}</span>
+                <span class="hidden text-sm text-slate-600 sm:inline dark:text-zinc-300">{{ pageSummary }}</span>
 
-                <div class="flex flex-wrap items-center gap-1.5">
-                    <button type="button" :class="[pageBtn, pageBtnIdle]" :disabled="!pager.prev.url" aria-label="Página anterior" @click="goTo(pager.prev.url)">
+                <div class="flex items-center gap-1.5 sm:flex-wrap">
+                    <button type="button" :class="[pageBtn, pageBtnIdle, 'flex-1 gap-1 sm:flex-none']" :disabled="!pager.prev.url" aria-label="Página anterior" @click="goTo(pager.prev.url)">
                         <ChevronLeft class="h-4 w-4" aria-hidden="true" />
-                        <span class="hidden sm:inline">Anterior</span>
+                        Anterior
                     </button>
+
+                    <!-- Móvil: solo la página actual -->
+                    <span class="px-2 text-center text-sm font-semibold tabular-nums text-slate-700 sm:hidden dark:text-zinc-200" aria-current="page">
+                        {{ currentPage }} <span class="font-normal text-slate-500 dark:text-zinc-400">de {{ lastPage }}</span>
+                    </span>
 
                     <button
                         v-for="(l, i) in pager.pages"
                         :key="`${l.text}-${i}`"
                         type="button"
+                        class="max-sm:hidden"
                         :class="[pageBtn, l.active ? 'border-brand-primary bg-brand-primary text-brand-primary-fg' : pageBtnIdle]"
                         :disabled="!l.url"
                         :aria-current="l.active ? 'page' : undefined"
@@ -802,8 +1017,8 @@ const pageBtnIdle =
                         {{ l.text }}
                     </button>
 
-                    <button type="button" :class="[pageBtn, pageBtnIdle]" :disabled="!pager.next.url" aria-label="Página siguiente" @click="goTo(pager.next.url)">
-                        <span class="hidden sm:inline">Siguiente</span>
+                    <button type="button" :class="[pageBtn, pageBtnIdle, 'flex-1 gap-1 sm:flex-none']" :disabled="!pager.next.url" aria-label="Página siguiente" @click="goTo(pager.next.url)">
+                        Siguiente
                         <ChevronRight class="h-4 w-4" aria-hidden="true" />
                     </button>
                 </div>

@@ -138,7 +138,14 @@ export type RequisicionesPageProps = {
   catalogos: Catalogos
   /** Requisiciones visibles por estatus. */
   conteos?: Record<string, number>
-  pagination?: { default_per_page: number; options: number[] }
+  pagination?: {
+    default_per_page: number
+    options: number[]
+    /** Máximo de filas por página con "Todas". */
+    all_limit?: number
+    /** "Todas" superó el máximo y llegó en bloques (hay más páginas). */
+    all_truncated?: boolean
+  }
 }
 
 /** Opciones de "por página" del listado. Debe coincidir con RequisicionController::PER_PAGE_OPTIONS. */

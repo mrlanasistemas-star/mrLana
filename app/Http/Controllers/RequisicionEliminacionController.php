@@ -6,6 +6,7 @@ use App\Enums\NotificationTopic;
 use App\Models\Requisicion;
 use App\Models\RequisicionEliminacionSolicitud;
 use App\Services\Notifications\NotificationService;
+use App\Services\Requisiciones\EliminarRequisicion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,10 @@ class RequisicionEliminacionController extends Controller
 
         if ($requisicion->status !== 'CAPTURADA') {
             return back()->with('error', 'Solo se puede solicitar la eliminación de requisiciones capturadas que aún no se han autorizado ni pagado.');
+        }
+
+        if ($requisicion->tienePagos()) {
+            return back()->with('error', 'Esta requisición ya tiene pagos registrados: solo Contabilidad puede eliminarla.');
         }
 
         $this->authorize('requestDeletion', $requisicion);
@@ -93,6 +98,11 @@ class RequisicionEliminacionController extends Controller
                 return 'estatus';
             }
 
+            // Si se registró un pago después de la solicitud, solo Contabilidad puede eliminarla.
+            if ($aprobar && $req->pagos()->exists() && ! $user->can('requisiciones.eliminar_con_pago')) {
+                return 'pagos';
+            }
+
             $locked->forceFill([
                 'estatus' => $aprobar ? RequisicionEliminacionSolicitud::APROBADA : RequisicionEliminacionSolicitud::RECHAZADA,
                 'revisado_por_id' => $user->id,
@@ -101,7 +111,7 @@ class RequisicionEliminacionController extends Controller
             ])->save();
 
             if ($aprobar) {
-                $req->update(['status' => 'ELIMINADA']);
+                EliminarRequisicion::marcar($req, $user, $locked->motivo);
             }
 
             return $locked;
@@ -109,6 +119,10 @@ class RequisicionEliminacionController extends Controller
 
         if ($resultado === 'procesada') {
             return back()->with('error', 'Esta solicitud ya fue atendida por otra persona.');
+        }
+
+        if ($resultado === 'pagos') {
+            return back()->with('error', 'La requisición ya tiene pagos registrados: solo Contabilidad puede autorizar su eliminación.');
         }
 
         if ($resultado === 'estatus') {

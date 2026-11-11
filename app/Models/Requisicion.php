@@ -31,9 +31,42 @@ class Requisicion extends Model
         'creada_por_user_id',
     ];
 
+    /** Quién eliminó la requisición (o autorizó su solicitud de eliminación). */
+    public function eliminadaPor()
+    {
+        return $this->belongsTo(User::class, 'eliminada_por_id');
+    }
+
+    /**
+     * ¿Tiene algún pago registrado? Usa el valor precargado
+     * (withExists('pagos as tiene_pagos')) cuando existe, para no consultar por fila.
+     */
+    public function tienePagos(): bool
+    {
+        $pre = $this->getAttribute('tiene_pagos');
+
+        return $pre !== null ? (bool) $pre : $this->pagos()->exists();
+    }
+
+    /**
+     * ¿Hay una solicitud de eliminación pendiente? Usa el valor precargado
+     * (withExists(... as eliminacion_pendiente)) cuando existe, para no
+     * consultar por fila en listados.
+     */
+    public function tieneEliminacionPendiente(): bool
+    {
+        $pre = $this->getAttribute('eliminacion_pendiente');
+
+        return $pre !== null
+            ? (bool) $pre
+            : $this->eliminacionSolicitudes()->where('estatus', RequisicionEliminacionSolicitud::PENDIENTE)->exists();
+    }
+
     protected $casts = [
         'monto_subtotal' => 'decimal:2',
         'monto_total' => 'decimal:2',
+        'eliminada_at' => 'datetime',
+        'pagado_al_eliminar' => 'decimal:2',
         'fecha_solicitud' => 'datetime',
         'fecha_pago_esperada' => 'date',
         'fecha_autorizacion' => 'datetime',

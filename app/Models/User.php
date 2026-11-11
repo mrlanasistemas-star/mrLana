@@ -37,7 +37,10 @@ use Spatie\Permission\Traits\HasRoles;
  */
 class User extends Authenticatable
 {
-    use HasFactory, HasRoles, LogsActivity, Notifiable;
+    use HasFactory, LogsActivity, Notifiable;
+    use HasRoles {
+        checkPermissionTo as private spatieCheckPermissionTo;
+    }
 
     /**
      * Atributos con asignación masiva permitida.
@@ -130,6 +133,25 @@ class User extends Authenticatable
         }
 
         return true;
+    }
+
+    /**
+     * Spatie llama a este método desde Gate::before en CADA $user->can(),
+     * incluidas las habilidades de policy ('view', 'update'…), que no son
+     * permisos y terminan en una excepción PermissionDoesNotExist. Dentro de
+     * AccessScope::memoize() (listados) el resultado se recuerda por usuario,
+     * permiso y guard; fuera del bloque se comporta igual que Spatie.
+     */
+    public function checkPermissionTo($permission, $guardName = null): bool
+    {
+        if (! is_string($permission)) {
+            return $this->spatieCheckPermissionTo($permission, $guardName);
+        }
+
+        return AccessScope::remember(
+            'perm:'.$this->getKey().':'.($guardName ?? '').':'.$permission,
+            fn () => $this->spatieCheckPermissionTo($permission, $guardName),
+        );
     }
 
     /** Nombres de permisos efectivos (directos + vía roles). */

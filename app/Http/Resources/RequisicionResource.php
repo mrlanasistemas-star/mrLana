@@ -45,6 +45,16 @@ class RequisicionResource extends JsonResource
             'fecha_pago_ymd' => optional($this->fecha_pago)->format('Y-m-d'),
             'observaciones' => $this->observaciones,
             'eliminacion_pendiente' => (bool) ($this->eliminacion_pendiente ?? false),
+            // Solo si se precargó (withExists('pagos as tiene_pagos')).
+            'tiene_pagos' => $this->when($this->resource->getAttribute('tiene_pagos') !== null, fn () => (bool) $this->resource->getAttribute('tiene_pagos')),
+            // Registro de la eliminación: quién, cuándo, por qué y si tenía pagos.
+            'eliminacion' => $this->when($this->status === 'ELIMINADA', fn () => [
+                'por' => $this->relationLoaded('eliminadaPor') ? $this->eliminadaPor?->name : null,
+                'fecha' => optional($this->eliminada_at)->toISOString(),
+                'motivo' => $this->eliminacion_motivo,
+                // null = eliminada antes de este registro, sin dato.
+                'pagado' => $this->pagado_al_eliminar !== null ? (float) $this->pagado_al_eliminar : null,
+            ]),
             'can' => $this->when($this->resource->getAttribute('can') !== null, fn () => $this->resource->getAttribute('can')),
             'comprador' => $this->whenLoaded('comprador', fn () => [
                 'id' => $this->comprador?->id,
