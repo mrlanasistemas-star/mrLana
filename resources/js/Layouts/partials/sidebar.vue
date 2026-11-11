@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Link, router } from '@inertiajs/vue3'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle, TooltipProvider } from 'reka-ui'
 import { LogOut, PanelLeftClose, PanelLeftOpen, X } from 'lucide-vue-next'
@@ -13,19 +13,56 @@ import { useSidebar } from '@/Composables/useSidebar'
 
 /**
  * Sidebar del ERP.
- * - lg+ : dos estados que el usuario alterna (botón al pie o Ctrl/⌘ + B) y que se recuerdan:
- *         rail de íconos (4.5rem, con tooltips) o menú expandido (16rem, con secciones).
- *         Ambos reservan su ancho: el contenido nunca queda tapado.
+ * - lg+ : fijo o no fijo (botón al pie o Ctrl/⌘ + B; se recuerda).
+ *         Fijo: menú expandido (16rem) que reserva su ancho.
+ *         No fijo: rail de íconos (4.5rem) que se abre al pasar el puntero o al llegar
+ *         con el teclado, flotando sobre el contenido, y se cierra al salir.
  *         Cuadrícula común: padding lateral de 12 px + celda de ícono de 48 px, de modo que
  *         logo, íconos, avatar y botones comparten el mismo eje (36 px desde el borde).
  * - <lg : drawer con overlay (lo abren la hamburguesa y "Más" de la barra inferior);
  *         se cierra al navegar, con Escape o tocando fuera.
  */
-const { mobileOpen, pinned: expanded, closeMobile, togglePinned } = useSidebar()
+const { mobileOpen, pinned, closeMobile, togglePinned } = useSidebar()
+
+// Sin fijar, el rail se abre al pasar el puntero (con una pausa breve para no
+// abrirse al cruzarlo de paso) o cuando el foco del teclado entra en él.
+const peek = ref(false)
+let peekTimer: ReturnType<typeof setTimeout> | undefined
+const canHover = typeof window !== 'undefined' && (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? true)
+
+function openPeek(delay = 120) {
+    if (pinned.value) return
+    clearTimeout(peekTimer)
+    peekTimer = setTimeout(() => (peek.value = true), delay)
+}
+function closePeek(delay = 180) {
+    clearTimeout(peekTimer)
+    peekTimer = setTimeout(() => (peek.value = false), delay)
+}
+function onPointerEnter() {
+    if (canHover) openPeek()
+}
+function onPointerLeave() {
+    if (canHover) closePeek()
+}
+function onFocusOut(e: FocusEvent) {
+    const next = e.relatedTarget as Node | null
+    if (!next || !(e.currentTarget as HTMLElement).contains(next)) closePeek(0)
+}
+function onTogglePinned() {
+    togglePinned()
+    clearTimeout(peekTimer)
+    peek.value = false
+}
+
+/** Etiquetas visibles: fijo o abierto con el puntero. */
+const expanded = computed(() => pinned.value || peek.value)
+/** Abierto sin fijar: flota sobre el contenido. */
+const floating = computed(() => !pinned.value && peek.value)
 const { confirmLogout } = useLogout()
 const { roles, user } = usePermissions()
 
-const toggleLabel = computed(() => (expanded.value ? 'Contraer menú' : 'Expandir menú'))
+const toggleLabel = computed(() => (pinned.value ? 'Dejar de fijar el menú' : 'Fijar el menú abierto'))
 
 function onKeydown(e: KeyboardEvent) {
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'b') return
@@ -33,7 +70,7 @@ function onKeydown(e: KeyboardEvent) {
     if (t?.closest('input, textarea, select, [contenteditable="true"]')) return
     if (!window.matchMedia('(min-width: 1024px)').matches) return
     e.preventDefault()
-    togglePinned()
+    onTogglePinned()
 }
 
 let removeNavListener: (() => void) | undefined
@@ -44,6 +81,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
     removeNavListener?.()
     window.removeEventListener('keydown', onKeydown)
+    clearTimeout(peekTimer)
 })
 
 const roleLabel = computed(() => roles.value.join(', ') || 'Sin rol')
@@ -65,12 +103,16 @@ const row =
         <aside
             id="erp-sidebar"
             class="relative z-[210] hidden shrink-0 lg:block"
-            :class="[width, expanded ? 'w-64' : 'w-[4.5rem]']"
+            :class="[width, pinned ? 'w-64' : 'w-[4.5rem]']"
         >
             <div
                 class="fixed inset-y-0 left-0 z-[210] flex h-dvh flex-col overflow-hidden border-r border-white/[0.06]
-                       bg-brand-ink text-zinc-100 dark:bg-[#100D1B]"
-                :class="[width, expanded ? 'w-64' : 'w-[4.5rem]']"
+                       bg-brand-ink text-zinc-100 transition-shadow dark:bg-[#100D1B]"
+                :class="[width, expanded ? 'w-64' : 'w-[4.5rem]', floating ? 'shadow-[8px_0_32px_-8px_rgba(15,10,40,0.45)]' : '']"
+                @pointerenter="onPointerEnter"
+                @pointerleave="onPointerLeave"
+                @focusin="openPeek(0)"
+                @focusout="onFocusOut"
             >
                 <!-- Marca: misma altura y borde que la barra superior -->
                 <Link
@@ -112,12 +154,12 @@ const row =
                         <button
                             type="button"
                             :class="[row, 'text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-50']"
-                            :aria-expanded="expanded"
+                            :aria-pressed="pinned"
                             aria-controls="erp-sidebar"
-                            @click="togglePinned"
+                            @click="onTogglePinned"
                         >
                             <span class="flex w-12 shrink-0 items-center justify-center">
-                                <component :is="expanded ? PanelLeftClose : PanelLeftOpen" class="h-[18px] w-[18px]" :stroke-width="1.8" aria-hidden="true" />
+                                <component :is="pinned ? PanelLeftClose : PanelLeftOpen" class="h-[18px] w-[18px]" :stroke-width="1.8" aria-hidden="true" />
                             </span>
                             <span class="flex min-w-0 flex-1 items-center justify-between gap-2 pr-3" :class="[fade, expanded ? 'opacity-100' : 'opacity-0']">
                                 <span class="truncate">{{ toggleLabel }}</span>
