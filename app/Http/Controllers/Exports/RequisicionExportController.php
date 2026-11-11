@@ -21,11 +21,20 @@ class RequisicionExportController
 {
     public function excel(Request $request)
     {
+        // Excel original, sin cambios.
         $rows = $this->buildRows($request);
-        $summary = RequisicionesSummary::fromRows($rows);
+        $filters = $this->presentFiltersExcel($request);
+
+        $meta = [
+            'title' => 'Reporte de Requisiciones',
+            'subtitle' => 'Exportación con filtros actuales',
+            'generated_at' => BusinessDate::now()->format('Y-m-d H:i'),
+            'generated_by' => optional($request->user())->name,
+            'footer_left' => 'ERP MR-Lana',
+        ];
 
         return Excel::download(
-            new RequisicionesExport($rows, $this->presentFilters($request), $this->meta($request, $summary), $summary),
+            new RequisicionesExport($rows, $filters, $meta),
             'requisiciones.xlsx'
         );
     }
@@ -384,6 +393,74 @@ class RequisicionExportController
             (bool) $to => 'Hasta el '.$fmt($to),
             default => '',
         };
+    }
+
+    /** Filtros tal como los mostraba el Excel original (se conserva sin cambios). */
+    private function presentFiltersExcel(Request $request): array
+    {
+        $sortRaw = (string) $request->query('sort', 'created_at');
+        $sort = $this->normalizeSort($sortRaw);
+
+        $sortLabel = match ($sort) {
+            'created_at' => 'Fecha de captura',
+            'folio' => 'Folio',
+            'monto_total' => 'Total',
+            'status' => 'Estatus',
+            'tipo' => 'Tipo',
+            default => 'Fecha de captura',
+        };
+
+        $dir = strtolower((string) $request->query('dir', 'desc')) === 'asc'
+            ? 'Ascendente'
+            : 'Descendente';
+
+        $corpId = $request->query('comprador_corp_id');
+        $sucursalId = $request->query('sucursal_id');
+        $solicitanteId = $request->query('solicitante_id');
+        $conceptoId = $request->query('concepto_id');
+        $proveedorId = $request->query('proveedor_id');
+
+        $corp = $corpId
+            ? (Corporativo::select('id', 'nombre')->find((int) $corpId)?->nombre ?? "#{$corpId}")
+            : '';
+
+        $suc = $sucursalId
+            ? (Sucursal::select('id', 'nombre')->find((int) $sucursalId)?->nombre ?? "#{$sucursalId}")
+            : '';
+
+        $sol = $solicitanteId
+            ? Empleado::select('id', 'nombre', 'apellido_paterno', 'apellido_materno')->find((int) $solicitanteId)
+            : null;
+
+        $solName = $sol
+            ? trim($sol->nombre.' '.$sol->apellido_paterno.' '.($sol->apellido_materno ?? ''))
+            : '';
+
+        $con = $conceptoId
+            ? (Concepto::select('id', 'nombre')->find((int) $conceptoId)?->nombre ?? "#{$conceptoId}")
+            : '';
+
+        $prov = $proveedorId
+            ? (Proveedor::select('id', 'razon_social')->find((int) $proveedorId)?->razon_social ?? "#{$proveedorId}")
+            : '';
+
+        return array_filter([
+            'Búsqueda' => trim((string) $request->query('q', '')),
+            'Tab' => strtoupper((string) $request->query('tab', 'ACTIVAS')),
+            'Estatus' => (string) $request->query('status', ''),
+            'Corporativo' => $corp,
+            'Sucursal' => $suc,
+            'Solicitante' => $solName,
+            'Concepto' => $con,
+            'Proveedor' => $prov,
+            'Tipo' => (string) $request->query('tipo', ''),
+            'Registro desde' => (string) ($request->query('fecha_registro_from') ?? $request->query('fecha_from', '')),
+            'Registro hasta' => (string) ($request->query('fecha_registro_to') ?? $request->query('fecha_to', '')),
+            'Pago desde' => (string) ($request->query('fecha_pago_from', '')),
+            'Pago hasta' => (string) ($request->query('fecha_pago_to', '')),
+            'Orden' => $sortLabel,
+            'Dirección' => $dir,
+        ], fn ($v) => $v !== null && $v !== '');
     }
 
     private function safeYmd($v): ?string
