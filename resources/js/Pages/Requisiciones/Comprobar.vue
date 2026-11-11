@@ -73,6 +73,18 @@ const {
 
   // pending calc
   pendienteCents,
+  pendientePorCargarCents,
+  totalCents,
+  approvedCents,
+  enRevisionCents,
+  rechazadoCents,
+  approvedPct,
+  enRevisionPct,
+  isFullyLoaded,
+  montoExcede,
+  restanteTrasCents,
+  onMontoInput,
+  usarRestante,
 
   // local preview (before upload)
   uploadPreview,
@@ -109,11 +121,12 @@ const {
   notifySystem,
 } = useRequisicionComprobar(props)
 
-const montoPendiente = computed({
-  get: () => pendienteCents.value / 100,
-  set: (val) => {
-    form.monto = String(val)
-  },
+/** Etapa de la comprobación, para el indicador del resumen. */
+const etapa = computed(() => {
+  if (!estaPagada.value) return { texto: 'En espera de pago', clase: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200' }
+  if (isFullyApproved.value) return { texto: 'Comprobación completa', clase: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200' }
+  if (isFullyLoaded.value) return { texto: 'En revisión de Contabilidad', clase: 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-200' }
+  return { texto: 'Faltan comprobantes por cargar', clase: 'border-indigo-200 bg-indigo-50 text-indigo-800 dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-200' }
 })
 
 </script>
@@ -385,6 +398,102 @@ const montoPendiente = computed({
           </div>
         </div>
 
+        <!-- RESUMEN DE MONTOS -->
+        <section
+          aria-labelledby="resumen-comprobacion"
+          class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm p-5"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 id="resumen-comprobacion" class="text-xs font-black text-slate-500 dark:text-neutral-300">
+              RESUMEN DE LA COMPROBACIÓN
+            </h2>
+            <span class="inline-flex items-center rounded-full border px-3 py-1 text-[12px] font-black" :class="etapa.clase">
+              {{ etapa.texto }}
+            </span>
+          </div>
+
+          <div class="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="rounded-2xl border border-slate-200/70 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-4 min-w-0">
+              <div class="flex items-center gap-2 text-[12px] font-black text-slate-600 dark:text-neutral-300">
+                <FileText class="h-4 w-4 shrink-0" aria-hidden="true" />
+                Total de la requisición
+              </div>
+              <div class="mt-1 text-lg sm:text-xl font-black tabular-nums text-slate-900 dark:text-white truncate">
+                {{ money(totalCents / 100) }}
+              </div>
+              <div class="mt-0.5 text-[11px] text-slate-500 dark:text-neutral-400">Monto que se debe comprobar</div>
+            </div>
+
+            <div class="rounded-2xl border border-emerald-200/80 dark:border-emerald-500/20 bg-emerald-50/70 dark:bg-emerald-500/10 p-4 min-w-0">
+              <div class="flex items-center gap-2 text-[12px] font-black text-emerald-800 dark:text-emerald-200">
+                <Check class="h-4 w-4 shrink-0" aria-hidden="true" />
+                Comprobado
+              </div>
+              <div class="mt-1 text-lg sm:text-xl font-black tabular-nums text-emerald-900 dark:text-emerald-100 truncate">
+                {{ money(approvedCents / 100) }}
+              </div>
+              <div class="mt-0.5 text-[11px] text-emerald-800/80 dark:text-emerald-200/80">Aprobado por Contabilidad</div>
+            </div>
+
+            <div class="rounded-2xl border border-amber-200/80 dark:border-amber-500/20 bg-amber-50/70 dark:bg-amber-500/10 p-4 min-w-0">
+              <div class="flex items-center gap-2 text-[12px] font-black text-amber-800 dark:text-amber-200">
+                <Clock class="h-4 w-4 shrink-0" aria-hidden="true" />
+                En revisión
+              </div>
+              <div class="mt-1 text-lg sm:text-xl font-black tabular-nums text-amber-900 dark:text-amber-100 truncate">
+                {{ money(enRevisionCents / 100) }}
+              </div>
+              <div class="mt-0.5 text-[11px] text-amber-800/80 dark:text-amber-200/80">Cargado, falta que lo revisen</div>
+            </div>
+
+            <div class="rounded-2xl border border-indigo-200/80 dark:border-indigo-500/20 bg-indigo-50/70 dark:bg-indigo-500/10 p-4 min-w-0">
+              <div class="flex items-center gap-2 text-[12px] font-black text-indigo-800 dark:text-indigo-200">
+                <Upload class="h-4 w-4 shrink-0" aria-hidden="true" />
+                Por cargar
+              </div>
+              <div class="mt-1 text-lg sm:text-xl font-black tabular-nums text-indigo-900 dark:text-indigo-100 truncate">
+                {{ money(pendientePorCargarCents / 100) }}
+              </div>
+              <div class="mt-0.5 text-[11px] text-indigo-800/80 dark:text-indigo-200/80">Falta subir su comprobante</div>
+            </div>
+          </div>
+
+          <!-- Avance -->
+          <div class="mt-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
+              <div class="text-slate-700 dark:text-neutral-200">
+                Comprobado
+                <span class="font-black tabular-nums text-slate-900 dark:text-white">{{ money(approvedCents / 100) }}</span>
+                de
+                <span class="font-black tabular-nums text-slate-900 dark:text-white">{{ money(totalCents / 100) }}</span>
+              </div>
+              <div class="text-slate-700 dark:text-neutral-200">
+                Por comprobar:
+                <span class="font-black tabular-nums text-slate-900 dark:text-white">{{ money(pendienteCents / 100) }}</span>
+              </div>
+            </div>
+
+            <div
+              class="mt-2 flex h-3 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-white/10"
+              role="img"
+              :aria-label="`Comprobado ${money(approvedCents / 100)}, en revisión ${money(enRevisionCents / 100)}, por cargar ${money(pendientePorCargarCents / 100)}, de un total de ${money(totalCents / 100)}`"
+            >
+              <div class="h-full bg-emerald-500 transition-[width] duration-500 motion-reduce:transition-none" :style="{ width: approvedPct + '%' }" />
+              <div class="h-full bg-amber-400 transition-[width] duration-500 motion-reduce:transition-none" :style="{ width: enRevisionPct + '%' }" />
+            </div>
+
+            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] font-semibold text-slate-600 dark:text-neutral-300">
+              <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />Comprobado</span>
+              <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-amber-400" aria-hidden="true" />En revisión</span>
+              <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-full bg-slate-300 dark:bg-white/20" aria-hidden="true" />Por cargar</span>
+              <span v-if="rechazadoCents > 0" class="inline-flex items-center gap-1.5 text-rose-700 dark:text-rose-300">
+                <Ban class="h-3.5 w-3.5" aria-hidden="true" />
+                Rechazado: {{ money(rechazadoCents / 100) }} (no cuenta; hay que volver a cargarlo)
+              </span>
+            </div>
+          </div>
+        </section>
+
         <!-- GRID MAESTRO -->
         <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start min-w-0">
           <!-- LEFT -->
@@ -448,7 +557,331 @@ const montoPendiente = computed({
               </div>
             </div>
 
-            <!-- Relación + form -->
+            <!-- Cargar comprobante -->
+            <div v-if="serverCan.subir" class="relative z-[30] rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm overflow-visible">
+              <div class="px-5 py-4 border-b border-slate-200/70 dark:border-white/10">
+                <div class="text-lg font-black text-slate-900 dark:text-neutral-100">Cargar comprobante</div>
+                <div class="text-sm text-slate-500 dark:text-neutral-300">
+                  Sube un archivo por cada factura, ticket o nota y escribe el monto que ampara. El monto se propone con lo que falta por cargar y puedes cambiarlo.
+                </div>
+              </div>
+              <!-- Form de carga -->
+              <div class="p-5">
+                <div class="space-y-4">
+                  <!-- Archivo -->
+                  <div class="min-w-0">
+                    <div class="flex items-end justify-between gap-3">
+                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
+                        Carga el comprobante
+                      </label>
+
+                      <div class="text-[12px] font-black text-slate-500 dark:text-neutral-300">
+                        Falta por cargar:
+                        <span class="tabular-nums text-slate-900 dark:text-neutral-100">
+                          {{ money(pendientePorCargarCents / 100) }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      class="mt-1 rounded-3xl border bg-white/80 dark:bg-neutral-950/40 p-3 select-none
+                             transition duration-200 hover:shadow-sm hover:-translate-y-[1px] min-w-0"
+                        :class="[
+                            dragActive
+                                ? 'border-indigo-400/60 ring-2 ring-indigo-500/20 dark:border-indigo-400/40'
+                                : 'border-slate-200/70 dark:border-white/10',
+                            !canUploadMore ? 'pointer-events-none opacity-60' : ''
+                        ]"
+                      @dragenter="onDragEnter"
+                      @dragover="onDragOver"
+                      @dragleave="onDragLeave"
+                      @drop="onDropFile"
+                    >
+                      <div class="flex items-center gap-3 min-w-0">
+                        <input
+                            :key="fileKey"
+                            id="comprobante-file"
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc"
+                            class="sr-only"
+                            :disabled="!canUploadMore"
+                            @change="onPickFile"
+                        />
+
+                        <label
+                            for="comprobante-file"
+                            class="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-black
+                                    transition active:scale-[0.98] shrink-0"
+                            :class="canUploadMore
+                                ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md cursor-pointer'
+                                : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
+                            >
+                            <Upload class="h-4 w-4" />
+                            Seleccionar archivo
+                        </label>
+
+                        <div class="min-w-0 flex-1">
+                          <div
+                            class="text-sm font-black truncate"
+                            :class="hasPicked ? 'text-slate-900 dark:text-neutral-100' : 'text-slate-500 dark:text-neutral-400'"
+                            :title="pickedName"
+                          >
+                            {{ pickedName }}
+                          </div>
+                          <div class="text-[12px] text-slate-500 dark:text-neutral-400">
+                            {{ dragActive ? 'Suelta aquí para adjuntar.' : (hasPicked ? 'Listo para subir.' : 'Adjunta el comprobante correspondiente.') }}
+                          </div>
+
+                            <div v-if="!estaPagada" class="mt-2 text-xs font-bold text-amber-700 dark:text-amber-300">
+                                {{ esperaPagoMensaje }}
+                            </div>
+                            <div v-else-if="isFullyApproved || isFinalizada" class="mt-2 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                                Esta requisición ya fue comprobada completamente. Ya no hace falta subir más comprobantes.
+                            </div>
+                            <div v-else-if="isFullyLoaded" class="mt-2 text-xs font-bold text-sky-700 dark:text-sky-300">
+                                Ya cargaste comprobantes por el total. Avisa a Contabilidad y espera su revisión; si rechazan alguno podrás cargarlo de nuevo.
+                            </div>
+                        </div>
+
+                        <button
+                          v-if="hasPicked"
+                          type="button"
+                          class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
+                                 border border-slate-200/70 bg-white
+                                 hover:bg-slate-50 hover:shadow-sm
+                                 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15
+                                 transition active:scale-[0.98] shrink-0"
+                          title="Quitar archivo"
+                          @click="clearFile"
+                        >
+                          <X class="h-4 w-4 text-slate-700 dark:text-neutral-100" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div v-if="form.errors.archivo" class="mt-1 text-xs font-bold text-rose-600">
+                      {{ form.errors.archivo }}
+                    </div>
+
+                    <!-- PREVIEW antes de subir -->
+                    <div
+                      v-if="uploadPreview"
+                      class="mt-3 rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 overflow-hidden"
+                    >
+                      <div class="px-4 py-3 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                          <div class="text-xs font-black text-slate-500 dark:text-neutral-300">
+                            PREVISUALIZACIÓN ANTES DE SUBIR
+                          </div>
+                          <div class="text-sm font-black text-slate-900 dark:text-neutral-100 truncate" :title="uploadPreview.name">
+                            {{ uploadPreview.name }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="p-3">
+                        <div class="rounded-3xl border border-slate-200/60 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 overflow-hidden">
+                          <div class="h-[38vh] sm:h-[42vh] max-h-[420px]">
+                            <iframe
+                              v-if="uploadPreview.kind === 'pdf'"
+                              :src="uploadPreview.url"
+                              class="w-full h-full block"
+                              style="border:0;"
+                              title="Preview antes de subir"
+                            />
+                            <div v-else-if="uploadPreview.kind === 'image'" class="w-full h-full flex items-center justify-center">
+                              <img :src="uploadPreview.url" alt="Preview" class="w-full h-full object-contain" />
+                            </div>
+                            <div v-else class="w-full h-full flex items-center justify-center p-6 text-center">
+                              <div class="text-sm text-slate-600 dark:text-neutral-300">
+                                Este archivo no tiene preview aquí. Igual se puede subir.
+                              </div>
+                              <div class="text-xs text-slate-500 dark:text-neutral-400">
+                                Los archivos Excel (.xlsx, .xls) sí se pueden subir correctamente.
+                                </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="mt-2 text-[12px] text-slate-500 dark:text-neutral-400">
+                          Se subirá exactamente este archivo.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Monto + tipo + fecha + submit -->
+                  <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start min-w-0">
+                    <div class="lg:col-span-3 min-w-0">
+                      <div class="flex items-end justify-between gap-3">
+                        <label for="comprobante-monto" class="block text-xs font-black text-slate-600 dark:text-neutral-300">
+                          Monto de este comprobante
+                        </label>
+                        <div class="text-[11px] font-black tabular-nums text-slate-500 dark:text-neutral-300">
+                          Máx: {{ money(pendientePorCargarCents / 100) }}
+                        </div>
+                      </div>
+
+                      <div class="relative mt-1">
+                        <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400 dark:text-neutral-500" aria-hidden="true">$</span>
+                        <input
+                          id="comprobante-monto"
+                          v-model="form.monto"
+                          type="number"
+                          inputmode="decimal"
+                          min="0"
+                          step="0.01"
+                          :disabled="!canUploadMore"
+                          :class="[inputBase, montoExcede ? 'border-rose-400 focus:ring-rose-500/25 focus:border-rose-500/50' : '']"
+                          class="pl-8 tabular-nums"
+                          placeholder="0.00"
+                          aria-describedby="comprobante-monto-ayuda"
+                          @input="onMontoInput"
+                        />
+                      </div>
+
+                      <div v-if="canUploadMore" id="comprobante-monto-ayuda" class="mt-1 text-xs font-semibold" aria-live="polite">
+                        <span v-if="montoExcede" class="font-bold text-rose-600 dark:text-rose-400">
+                          Supera lo que falta por cargar ({{ money(pendientePorCargarCents / 100) }}).
+                        </span>
+                        <span v-else class="text-slate-500 dark:text-neutral-400">
+                          Después de este quedarán por cargar
+                          <span class="font-black tabular-nums text-slate-800 dark:text-neutral-100">{{ money(restanteTrasCents / 100) }}</span>.
+                        </span>
+                        <button
+                          v-if="restanteTrasCents > 0 || montoExcede"
+                          type="button"
+                          class="ml-1 font-black text-indigo-700 underline hover:text-indigo-800 dark:text-indigo-300 dark:hover:text-indigo-200"
+                          @click="usarRestante"
+                        >
+                          Usar todo el restante
+                        </button>
+                      </div>
+
+                      <div
+                        v-if="form.errors.monto"
+                        class="mt-1 text-xs font-bold text-rose-600 flex flex-wrap items-center gap-x-2 gap-y-1"
+                      >
+                        <span>{{ form.errors.monto }}</span>
+                        <span v-if="serverCan.solicitar_ajuste" class="opacity-70">—</span>
+                        <Link
+                          v-if="serverCan.solicitar_ajuste"
+                          :href="route('requisiciones.ajustes', req?.id)"
+                          class="underline font-black hover:text-rose-700 dark:hover:text-rose-300"
+                        >
+                          Solicitar ajuste
+                        </Link>
+                      </div>
+                    </div>
+
+                    <!-- Tipo dropdown -->
+                    <div class="lg:col-span-4 min-w-0 relative z-[40]" ref="tipoWrap">
+                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
+                        Tipo de comprobante
+                      </label>
+
+                      <button
+                        type="button"
+                        :disabled="!canUploadMore"
+                        class="mt-1 w-full rounded-2xl border px-4 py-3 text-sm font-semibold text-left
+                                bg-white/90 text-slate-900 hover:bg-slate-50 hover:shadow-sm
+                                dark:bg-neutral-950/40 dark:text-neutral-100 dark:hover:bg-white/5
+                                border-slate-200/70 dark:border-white/10
+                                focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/40
+                                transition active:scale-[0.99]
+                                disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white/90 disabled:hover:shadow-none"
+                        @click="canUploadMore && (tipoOpen = !tipoOpen)"
+                        >
+                        <div class="flex items-center justify-between gap-2 min-w-0">
+                          <span class="truncate">
+                            {{ tipoSelected?.nombre ?? 'Selecciona tipo' }}
+                          </span>
+                          <svg
+                            class="h-4 w-4 opacity-70 shrink-0 transition-transform duration-200"
+                            :class="tipoOpen ? 'rotate-180' : ''"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                      </button>
+
+                      <div v-if="tipoOpen" class="absolute left-0 right-0 top-full z-[120] mt-2">
+                        <div
+                          class="rounded-3xl border border-slate-200/80 bg-white shadow-2xl overflow-hidden
+                                 dark:border-white/10 dark:bg-neutral-950
+                                 animate-in fade-in-0 zoom-in-95 duration-150"
+                        >
+                          <div class="max-h-64 overflow-auto">
+                            <button
+                              v-for="t in tipoOptions"
+                              :key="t.id"
+                              type="button"
+                              class="w-full px-4 py-3 text-left text-sm font-semibold transition
+                                     hover:bg-slate-50 dark:hover:bg-white/5 flex items-center justify-between gap-2"
+                              :class="String(form.tipo_doc) === String(t.id)
+                                ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-500/10 dark:text-indigo-200'
+                                : 'text-slate-900 dark:text-neutral-100'"
+                              @click="setTipo(String(t.id))"
+                            >
+                              <span class="truncate">{{ t.nombre }}</span>
+                              <span v-if="String(form.tipo_doc) === String(t.id)" class="text-[12px] font-black">✓</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div v-if="form.errors.tipo_doc" class="mt-1 text-xs font-bold text-rose-600">
+                        {{ form.errors.tipo_doc }}
+                      </div>
+                    </div>
+
+                    <!-- Fecha -->
+                    <div class="lg:col-span-3 min-w-0 relative z-[30]">
+                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
+                        Fecha del comprobante
+                      </label>
+
+                      <DatePickerShadcn
+                        v-model="form.fecha_emision"
+                        placeholder="Selecciona fecha"
+                        :disabled="!canUploadMore"
+                        />
+
+                      <div v-if="form.errors.fecha_emision" class="mt-1 text-xs font-bold text-rose-600">
+                        {{ form.errors.fecha_emision }}
+                      </div>
+                    </div>
+
+                    <!-- Submit -->
+                    <div class="lg:col-span-2 min-w-0 lg:pt-[22px]">
+                      <button
+                        type="button"
+                        @click="doSubmit"
+                        :disabled="!canSubmit"
+                        class="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black
+                               bg-gradient-to-r from-slate-900 to-slate-950 text-white
+                               hover:shadow-md hover:-translate-y-[1px]
+                               transition active:scale-[0.98]
+                               dark:from-white dark:to-neutral-200 dark:text-slate-900
+                               disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
+                      >
+                        <Upload class="h-4 w-4" />
+                        Subir
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- /form -->
+            </div>
+
+            <!-- Relación de comprobantes -->
             <div class="rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/70 backdrop-blur shadow-sm overflow-visible">
               <div class="px-5 py-4 border-b border-slate-200/70 dark:border-white/10">
                 <div class="text-lg font-black text-slate-900 dark:text-neutral-100">
@@ -736,291 +1169,6 @@ const montoPendiente = computed({
                 </div>
               </div>
 
-              <!-- Form de carga -->
-              <div class="p-5 border-t border-slate-200/70 dark:border-white/10">
-                <div class="space-y-4">
-                  <!-- Archivo -->
-                  <div class="min-w-0">
-                    <div class="flex items-end justify-between gap-3">
-                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
-                        Carga el comprobante
-                      </label>
-
-                      <div class="text-[12px] font-black text-slate-500 dark:text-neutral-300">
-                        Pendiente:
-                        <span class="text-slate-900 dark:text-neutral-100">
-                          {{ money(pendienteCents / 100) }}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div
-                      class="mt-1 rounded-3xl border bg-white/80 dark:bg-neutral-950/40 p-3 select-none
-                             transition duration-200 hover:shadow-sm hover:-translate-y-[1px] min-w-0"
-                        :class="[
-                            dragActive
-                                ? 'border-indigo-400/60 ring-2 ring-indigo-500/20 dark:border-indigo-400/40'
-                                : 'border-slate-200/70 dark:border-white/10',
-                            !canUploadMore ? 'pointer-events-none opacity-60' : ''
-                        ]"
-                      @dragenter="onDragEnter"
-                      @dragover="onDragOver"
-                      @dragleave="onDragLeave"
-                      @drop="onDropFile"
-                    >
-                      <div class="flex items-center gap-3 min-w-0">
-                        <input
-                            :key="fileKey"
-                            id="comprobante-file"
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc"
-                            class="sr-only"
-                            :disabled="!canUploadMore"
-                            @change="onPickFile"
-                        />
-
-                        <label
-                            for="comprobante-file"
-                            class="inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3 text-sm font-black
-                                    transition active:scale-[0.98] shrink-0"
-                            :class="canUploadMore
-                                ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:shadow-md cursor-pointer'
-                                : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
-                            >
-                            <Upload class="h-4 w-4" />
-                            Seleccionar archivo
-                        </label>
-
-                        <div class="min-w-0 flex-1">
-                          <div
-                            class="text-sm font-black truncate"
-                            :class="hasPicked ? 'text-slate-900 dark:text-neutral-100' : 'text-slate-500 dark:text-neutral-400'"
-                            :title="pickedName"
-                          >
-                            {{ pickedName }}
-                          </div>
-                          <div class="text-[12px] text-slate-500 dark:text-neutral-400">
-                            {{ dragActive ? 'Suelta aquí para adjuntar.' : (hasPicked ? 'Listo para subir.' : 'Adjunta el comprobante correspondiente.') }}
-                          </div>
-
-                            <div v-if="!estaPagada" class="mt-2 text-xs font-bold text-amber-700 dark:text-amber-300">
-                                {{ esperaPagoMensaje }}
-                            </div>
-                            <div v-else-if="!canUploadMore" class="mt-2 text-xs font-bold text-rose-600">
-                                Esta requisición ya fue comprobada completamente. Ya no puedes subir más comprobantes.
-                            </div>
-                        </div>
-
-                        <button
-                          v-if="hasPicked"
-                          type="button"
-                          class="inline-flex items-center justify-center h-10 w-10 rounded-2xl
-                                 border border-slate-200/70 bg-white
-                                 hover:bg-slate-50 hover:shadow-sm
-                                 dark:border-white/10 dark:bg-white/10 dark:hover:bg-white/15
-                                 transition active:scale-[0.98] shrink-0"
-                          title="Quitar archivo"
-                          @click="clearFile"
-                        >
-                          <X class="h-4 w-4 text-slate-700 dark:text-neutral-100" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div v-if="form.errors.archivo" class="mt-1 text-xs font-bold text-rose-600">
-                      {{ form.errors.archivo }}
-                    </div>
-
-                    <!-- PREVIEW antes de subir -->
-                    <div
-                      v-if="uploadPreview"
-                      class="mt-3 rounded-3xl border border-slate-200/70 dark:border-white/10 bg-white/85 dark:bg-neutral-900/60 overflow-hidden"
-                    >
-                      <div class="px-4 py-3 border-b border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-3">
-                        <div class="min-w-0">
-                          <div class="text-xs font-black text-slate-500 dark:text-neutral-300">
-                            PREVISUALIZACIÓN ANTES DE SUBIR
-                          </div>
-                          <div class="text-sm font-black text-slate-900 dark:text-neutral-100 truncate" :title="uploadPreview.name">
-                            {{ uploadPreview.name }}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div class="p-3">
-                        <div class="rounded-3xl border border-slate-200/60 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 overflow-hidden">
-                          <div class="h-[38vh] sm:h-[42vh] max-h-[420px]">
-                            <iframe
-                              v-if="uploadPreview.kind === 'pdf'"
-                              :src="uploadPreview.url"
-                              class="w-full h-full block"
-                              style="border:0;"
-                              title="Preview antes de subir"
-                            />
-                            <div v-else-if="uploadPreview.kind === 'image'" class="w-full h-full flex items-center justify-center">
-                              <img :src="uploadPreview.url" alt="Preview" class="w-full h-full object-contain" />
-                            </div>
-                            <div v-else class="w-full h-full flex items-center justify-center p-6 text-center">
-                              <div class="text-sm text-slate-600 dark:text-neutral-300">
-                                Este archivo no tiene preview aquí. Igual se puede subir.
-                              </div>
-                              <div class="text-xs text-slate-500 dark:text-neutral-400">
-                                Los archivos Excel (.xlsx, .xls) sí se pueden subir correctamente.
-                                </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div class="mt-2 text-[12px] text-slate-500 dark:text-neutral-400">
-                          Se subirá exactamente este archivo.
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Monto + tipo + fecha + submit -->
-                  <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end min-w-0">
-                    <div class="lg:col-span-3 min-w-0">
-                      <div class="flex items-end justify-between gap-3">
-                        <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
-                          Monto por comprobar
-                        </label>
-                        <div class="text-[11px] font-black text-slate-500 dark:text-neutral-300">
-                          Máx: {{ money(pendienteCents / 100) }}
-                        </div>
-                      </div>
-
-                      <input
-                        v-model="montoPendiente"
-                        type="number"
-                        step="0.01"
-                        :disabled="!canUploadMore"
-                        :class="inputBase"
-                        class="mt-1"
-                        placeholder="0.00"
-                      />
-
-                      <div
-                        v-if="form.errors.monto"
-                        class="mt-1 text-xs font-bold text-rose-600 flex flex-wrap items-center gap-x-2 gap-y-1"
-                      >
-                        <span>{{ form.errors.monto }}</span>
-                        <span v-if="serverCan.solicitar_ajuste" class="opacity-70">—</span>
-                        <Link
-                          v-if="serverCan.solicitar_ajuste"
-                          :href="route('requisiciones.ajustes', req?.id)"
-                          class="underline font-black hover:text-rose-700 dark:hover:text-rose-300"
-                        >
-                          Solicitar ajuste
-                        </Link>
-                      </div>
-                    </div>
-
-                    <!-- Tipo dropdown -->
-                    <div class="lg:col-span-4 min-w-0 relative z-[40]" ref="tipoWrap">
-                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
-                        Tipo de comprobante
-                      </label>
-
-                      <button
-                        type="button"
-                        :disabled="!canUploadMore"
-                        class="mt-1 w-full rounded-2xl border px-4 py-3 text-sm font-semibold text-left
-                                bg-white/90 text-slate-900 hover:bg-slate-50 hover:shadow-sm
-                                dark:bg-neutral-950/40 dark:text-neutral-100 dark:hover:bg-white/5
-                                border-slate-200/70 dark:border-white/10
-                                focus:outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500/40
-                                transition active:scale-[0.99]
-                                disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-white/90 disabled:hover:shadow-none"
-                        @click="canUploadMore && (tipoOpen = !tipoOpen)"
-                        >
-                        <div class="flex items-center justify-between gap-2 min-w-0">
-                          <span class="truncate">
-                            {{ tipoSelected?.nombre ?? 'Selecciona tipo' }}
-                          </span>
-                          <svg
-                            class="h-4 w-4 opacity-70 shrink-0 transition-transform duration-200"
-                            :class="tipoOpen ? 'rotate-180' : ''"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fill-rule="evenodd"
-                              d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
-                              clip-rule="evenodd"
-                            />
-                          </svg>
-                        </div>
-                      </button>
-
-                      <div v-if="tipoOpen" class="absolute left-0 right-0 bottom-full z-[120] mb-2">
-                        <div
-                          class="rounded-3xl border border-slate-200/80 bg-white shadow-2xl overflow-hidden
-                                 dark:border-white/10 dark:bg-neutral-950
-                                 animate-in fade-in-0 zoom-in-95 duration-150"
-                        >
-                          <div class="max-h-64 overflow-auto">
-                            <button
-                              v-for="t in tipoOptions"
-                              :key="t.id"
-                              type="button"
-                              class="w-full px-4 py-3 text-left text-sm font-semibold transition
-                                     hover:bg-slate-50 dark:hover:bg-white/5 flex items-center justify-between gap-2"
-                              :class="String(form.tipo_doc) === String(t.id)
-                                ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-500/10 dark:text-indigo-200'
-                                : 'text-slate-900 dark:text-neutral-100'"
-                              @click="setTipo(String(t.id))"
-                            >
-                              <span class="truncate">{{ t.nombre }}</span>
-                              <span v-if="String(form.tipo_doc) === String(t.id)" class="text-[12px] font-black">✓</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div v-if="form.errors.tipo_doc" class="mt-1 text-xs font-bold text-rose-600">
-                        {{ form.errors.tipo_doc }}
-                      </div>
-                    </div>
-
-                    <!-- Fecha -->
-                    <div class="lg:col-span-3 min-w-0 relative z-[30]">
-                      <label class="block text-xs font-black text-slate-600 dark:text-neutral-300">
-                        Fecha del comprobante
-                      </label>
-
-                      <DatePickerShadcn
-                        v-model="form.fecha_emision"
-                        placeholder="Selecciona fecha"
-                        :disabled="!canUploadMore"
-                        />
-
-                      <div v-if="form.errors.fecha_emision" class="mt-1 text-xs font-bold text-rose-600">
-                        {{ form.errors.fecha_emision }}
-                      </div>
-                    </div>
-
-                    <!-- Submit -->
-                    <div class="lg:col-span-2 min-w-0">
-                      <button
-                        type="button"
-                        @click="doSubmit"
-                        :disabled="!canSubmit"
-                        class="w-full inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black
-                               bg-gradient-to-r from-slate-900 to-slate-950 text-white
-                               hover:shadow-md hover:-translate-y-[1px]
-                               transition active:scale-[0.98]
-                               dark:from-white dark:to-neutral-200 dark:text-slate-900
-                               disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:translate-y-0"
-                      >
-                        <Upload class="h-4 w-4" />
-                        Subir
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <!-- /form -->
             </div>
           </div>
 

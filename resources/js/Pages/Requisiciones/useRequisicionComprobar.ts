@@ -212,39 +212,71 @@ const canUploadMore = computed(() => {
   /** =========================================================
    * Autocompletar monto con el pendiente (tu intención original)
    * ========================================================= */
+  // El monto se propone con lo que falta por cargar, pero en cuanto la persona
+  // escribe se respeta lo que escribió: cambiar el tipo, la fecha o el archivo
+  // no lo restablece. Solo vuelve a proponerse tras subir un comprobante.
   const montoTouched = ref(false)
   const centsToFixed = (c: number) => (c / 100).toFixed(2)
 
   const syncMontoToPendiente = () => {
-    form.monto = centsToFixed(pendientePorCargarCents.value)
-    }
+    form.monto = pendientePorCargarCents.value > 0 ? centsToFixed(pendientePorCargarCents.value) : ''
+  }
+
+  /** La persona escribió en el campo: se conserva su monto. */
+  const onMontoInput = () => {
+    montoTouched.value = true
+  }
+
+  /** Vuelve a proponer todo lo que falta por cargar. */
+  const usarRestante = () => {
+    montoTouched.value = false
+    syncMontoToPendiente()
+  }
 
   watch(
-  pendientePorCargarCents,
-  () => {
-    if (!montoTouched.value) syncMontoToPendiente()
-  },
-  { immediate: true },
-)
-
-  watch(
-    () => form.monto,
+    pendientePorCargarCents,
     () => {
-      montoTouched.value = true
+      if (!montoTouched.value) syncMontoToPendiente()
     },
+    { immediate: true },
   )
+
+  /** =========================================================
+   * Resumen de montos (en centavos)
+   * - Comprobado: aprobado por Contabilidad.
+   * - En revisión: cargado y aún sin revisar.
+   * - Por cargar: lo que falta subir con archivo.
+   * - Por comprobar: total - comprobado (en revisión + por cargar).
+   * ========================================================= */
+  const sumByEstatus = (estatus: string) =>
+    rows.value.reduce((acc, c) => (String(c?.estatus ?? '').toUpperCase() === estatus ? acc + toCents(c?.monto ?? 0) : acc), 0)
+
+  const enRevisionCents = computed(() => sumByEstatus('PENDIENTE'))
+  const rechazadoCents = computed(() => sumByEstatus('RECHAZADO'))
+
+  const pct = (cents: number) =>
+    totalCents.value > 0 ? Math.min(100, Math.max(0, (cents / totalCents.value) * 100)) : 0
+
+  const approvedPct = computed(() => pct(approvedCents.value))
+  // La barra nunca pasa de 100 % aunque lo cargado exceda el total.
+  const enRevisionPct = computed(() => Math.min(pct(enRevisionCents.value), 100 - approvedPct.value))
+
+  /** Monto capturado en el formulario y lo que quedaría por cargar después. */
+  const montoCents = computed(() => toCents(form.monto))
+  const montoExcede = computed(() => montoCents.value > pendientePorCargarCents.value)
+  const restanteTrasCents = computed(() => Math.max(0, pendientePorCargarCents.value - montoCents.value))
 
   /** =========================================================
    * canSubmit
    * ========================================================= */
   const canSubmit = computed(() => {
-    if (isFullyApproved.value) return false
+    if (!canUploadMore.value) return false
 
     const hasFile = !!form.archivo
     const hasTipo = !!(form.tipo_doc && String(form.tipo_doc).trim())
     const hasFecha = !!(form.fecha_emision && String(form.fecha_emision).trim())
     const m = String(form.monto ?? '').trim()
-    const hasMonto = m !== '' && !Number.isNaN(Number(m))
+    const hasMonto = m !== '' && !Number.isNaN(Number(m)) && montoCents.value > 0 && !montoExcede.value
 
     return hasFile && hasTipo && hasFecha && hasMonto && !form.processing
     })
@@ -266,11 +298,10 @@ const canUploadMore = computed(() => {
       preserveScroll: true,
       onSuccess: () => {
         Swal.fire({ icon: 'success', title: 'Comprobante cargado', timer: 1200, showConfirmButton: false })
-        form.reset('archivo', 'monto')
+        form.reset('archivo')
         opts?.onAfterSuccess?.()
-        // resync
-        montoTouched.value = false
-        syncMontoToPendiente()
+        // El siguiente comprobante arranca con lo que aún falta por cargar.
+        usarRestante()
         // reset picker
         fileKey.value++
         dragActive.value = false
@@ -937,6 +968,18 @@ const canUploadMore = computed(() => {
 
     // pending
     pendienteCents,
+    pendientePorCargarCents,
+    totalCents,
+    approvedCents,
+    enRevisionCents,
+    rechazadoCents,
+    approvedPct,
+    enRevisionPct,
+    isFullyLoaded,
+    montoExcede,
+    restanteTrasCents,
+    onMontoInput,
+    usarRestante,
 
     // preview before upload
     uploadPreview,
